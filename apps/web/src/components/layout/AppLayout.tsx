@@ -40,8 +40,17 @@ const sidebarItems = [
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ];
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children, session }: { children: React.ReactNode, session?: any }) {
   const pathname = usePathname();
+
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  };
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
@@ -86,12 +95,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-white/10">
           <div className="bg-white/5 rounded-lg p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-blue-500 flex items-center justify-center text-white font-bold shadow-inner">
-              O
+              {session?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">OMLIS Test</p>
-              <p className="text-xs text-slate-400 truncate">Premium Plan</p>
+              <p className="text-sm font-medium truncate">{session?.email || 'Unknown User'}</p>
+              <p className="text-xs text-slate-400 truncate font-semibold text-primary">{session?.role || 'NO ROLE'}</p>
             </div>
+            <button onClick={handleLogout} className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 hover:text-white transition-colors" title="Đăng xuất">
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
@@ -116,6 +128,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           
           <div className="flex items-center gap-4">
+            <div className="hidden sm:flex px-3 border border-slate-200 rounded-md py-1 bg-slate-50 text-xs font-bold text-slate-600">
+              Tenant: OMLIS Test
+            </div>
             <Button size="sm" className="hidden sm:flex bg-gradient-to-r from-primary to-fuchsia-600 shadow-md hover:shadow-lg transition-all border-0">
               <Sparkles className="w-4 h-4 mr-2" />
               AI Assistant

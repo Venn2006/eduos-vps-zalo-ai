@@ -14,8 +14,11 @@ async function main() {
   // 1. Seed Tenant
   const tenant = await prisma.tenant.create({
     data: {
-      name: "OMLIS - Ngôi Sao Hải Âu Test",
-      slug: "omlis-test",
+      name: "Trung Tâm Ngoại Ngữ OMLIS",
+      slug: "omlis",
+      hotline: "091 900 23 58",
+      email: "ms.dungceo@gmail.com",
+      address: "Đường Nguyễn Văn Linh, P. Minh Hưng, TX. Chơn Thành, T. Bình Phước",
     }
   });
   const tId = tenant.id;
@@ -32,9 +35,12 @@ async function main() {
     { email: "accountant@omlis.test", role: "ACCOUNTANT" },
   ];
 
+  const bcrypt = require("bcryptjs");
+  const defaultPasswordHash = await bcrypt.hash("ChangeMe123!", 10);
+
   for (const spec of userSpecs) {
     const u = await prisma.user.create({
-      data: { email: spec.email, passwordHash: "placeholder-hash" }
+      data: { email: spec.email, passwordHash: defaultPasswordHash }
     });
     await prisma.tenantMember.create({
       data: { tenantId: tId, userId: u.id, role: spec.role as any }

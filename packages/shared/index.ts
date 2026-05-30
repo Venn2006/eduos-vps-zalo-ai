@@ -54,3 +54,5 @@ export const DashboardSummarySchema = z.object({
   totalStudents: z.number().int().min(0),
   newLeads: z.number().int().min(0),
 });
+
+export * from "./src/parsers/setupCommandParser";

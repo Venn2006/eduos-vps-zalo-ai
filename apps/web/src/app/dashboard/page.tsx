@@ -26,8 +26,25 @@ import {
   Sparkles,
   ArrowUpRight
 } from 'lucide-react';
+import { getDashboardSummaryForTenant, prisma } from '@eduos/db';
+import { getCurrentTenantOrThrow } from '@/lib/auth';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const tenantId = await getCurrentTenantOrThrow();
+  const summary = await getDashboardSummaryForTenant(prisma, tenantId);
+
+  const classesWithoutBotCount = await prisma.class.count({
+    where: { tenantId, status: "ACTIVE", zaloGroup: null }
+  });
+
+  const pendingCommandsCount = await prisma.classBootstrapCommand.count({
+    where: { tenantId, status: "NEEDS_REVIEW" }
+  });
+
+  const offlineConnectorsCount = await prisma.zaloConnectorSession.count({
+    where: { tenantId, status: "OFFLINE" }
+  });
+
   return (
     <div className="space-y-10 pb-12">
       
@@ -39,12 +56,12 @@ export default function DashboardPage() {
           action={<Button variant="outline" size="sm" className="hidden sm:flex border-primary text-primary hover:bg-primary/5">Tải báo cáo <ArrowUpRight className="w-4 h-4 ml-2"/></Button>}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          <StatCard title="Lead mới tháng này" value="50" trend="up" description="+12% so với tháng trước" icon={<Users className="w-5 h-5 text-blue-600" />} />
-          <StatCard title="Học thử tuần này" value="12" trend="up" description="8 chờ duyệt" icon={<BookOpen className="w-5 h-5 text-indigo-600" />} />
-          <StatCard title="Tỷ lệ chuyển đổi" value="68%" trend="neutral" description="Trung bình 30 ngày" icon={<TrendingUp className="w-5 h-5 text-emerald-600" />} />
-          <StatCard title="Doanh thu dự kiến" value="120M ₫" trend="up" description="+5% so với tháng trước" icon={<CreditCard className="w-5 h-5 text-rose-600" />} />
+          <StatCard title="Học viên" value={summary.totalStudents.toString()} trend="neutral" description="Đang theo học" icon={<GraduationCap className="w-5 h-5 text-purple-600" />} />
+          <StatCard title="Lớp học" value={summary.totalClasses.toString()} trend="neutral" description="Đang hoạt động" icon={<Users className="w-5 h-5 text-fuchsia-600" />} />
+          <StatCard title="Lead mới tháng này" value={summary.totalLeads.toString()} trend="up" description="Chưa chuyển đổi" icon={<Users className="w-5 h-5 text-blue-600" />} />
+          <StatCard title="Học thử tuần này" value={summary.totalTrialBookings.toString()} trend="neutral" description="Đã đặt lịch" icon={<BookOpen className="w-5 h-5 text-indigo-600" />} />
+          <StatCard title="Hóa đơn chưa thu" value={summary.totalUnpaidInvoices.toString()} trend="down" description="Cần theo dõi" icon={<AlertTriangle className="w-5 h-5 text-warning" />} />
           <StatCard title="Tỷ lệ chuyên cần" value="95%" trend="up" description="Cao hơn trung bình" icon={<CheckSquare className="w-5 h-5 text-teal-600" />} />
-          <StatCard title="Công nợ cần thu" value="25M ₫" trend="down" description="Từ 5 học viên" icon={<AlertTriangle className="w-5 h-5 text-warning" />} />
           <StatCard title="Báo cáo phụ huynh" value="10" trend="neutral" description="Đang chờ duyệt gửi" icon={<FileEdit className="w-5 h-5 text-fuchsia-600" />} />
           <StatCard title="Zalo Bot VPS" value="Online" description="Hoạt động ổn định 24/7" icon={<CheckCircle2 className="w-5 h-5 text-success" />} />
         </div>
@@ -132,6 +149,33 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1 font-medium">Trợ lý ảo tự động hóa trung tâm</p>
             </CardHeader>
             <CardContent className="p-5 space-y-5 relative z-10">
+              {pendingCommandsCount > 0 && (
+                <AiSuggestionCard 
+                  type="alert"
+                  title={`${pendingCommandsCount} Setup command cần duyệt`} 
+                  description="Có lệnh cài đặt lớp từ Zalo nhưng người gửi chưa được xác thực."
+                  actionLabel="Duyệt lệnh"
+                  badges={["needs-review", "security"]}
+                />
+              )}
+              {offlineConnectorsCount > 0 && (
+                <AiSuggestionCard 
+                  type="alert"
+                  title={`${offlineConnectorsCount} Connector offline`} 
+                  description="Trợ lý Zalo VPS đang mất kết nối. Vui lòng kiểm tra lại VPS hoặc mã đăng nhập."
+                  actionLabel="Kiểm tra ngay"
+                  badges={["urgent", "system"]}
+                />
+              )}
+              {classesWithoutBotCount > 0 && (
+                <AiSuggestionCard 
+                  type="alert"
+                  title={`${classesWithoutBotCount} Lớp chưa setup Zalo Bot`} 
+                  description="Một số lớp đang hoạt động nhưng chưa thêm trợ lý Zalo vào nhóm."
+                  actionLabel="Xem danh sách"
+                  badges={["urgent", "automated"]}
+                />
+              )}
               <AiSuggestionCard 
                 type="draft"
                 title="10 Báo cáo phụ huynh" 
@@ -140,25 +184,11 @@ export default function DashboardPage() {
                 badges={["needs-review", "ai-generated"]}
               />
               <AiSuggestionCard 
-                type="alert"
-                title="3 Lớp chưa setup Zalo Bot" 
-                description="Các lớp IELTS-01, KIDS-05 vừa mở nhưng chưa thêm bot vào nhóm."
-                actionLabel="Setup ngay"
-                badges={["urgent", "automated"]}
-              />
-              <AiSuggestionCard 
                 type="insight"
                 title="Gợi ý follow-up" 
                 description="Có 5 học viên đã học thử 24h trước. Trợ lý ảo đã lên nháp kịch bản chốt sale."
                 actionLabel="Xem nháp"
                 badges={["ai-generated"]}
-              />
-              <AiSuggestionCard 
-                type="success"
-                title="Nhắc phí tự động" 
-                description="Tới hạn thu phí của 8 học viên. Đã chuẩn bị tin nhắn lịch sự."
-                actionLabel="Duyệt tin nhắn"
-                badges={["needs-review", "automated"]}
               />
             </CardContent>
           </Card>

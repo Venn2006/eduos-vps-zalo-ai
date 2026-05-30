@@ -193,6 +193,9 @@ model Tenant {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  hotline   String?
+  email     String?
+  address   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -517,6 +520,7 @@ model ZaloConnectorSession {
   tenantId  String
   accountId String
   status    ConnectorStatus @default(OFFLINE)
+  tokenHash String?         @unique
   lastPing  DateTime?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt

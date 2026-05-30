@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently \"npm run api:dev\" \"npm run web:dev\" \"npm run worker:dev\" \"npm run zalo-connector:dev\"",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "concurrently": "^10.0.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^8.0.0",
     "prettier": "^3.0.0",
