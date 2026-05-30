@@ -1,0 +1,1267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------
+
+enum Role {
+  OWNER
+  ADMIN
+  SALE
+  TEACHER
+  ACCOUNTANT
+}
+
+enum TenantMemberStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  BOOKED_TRIAL
+  ATTENDED_TRIAL
+  OFFERED
+  WON
+  LOST
+}
+
+enum LeadTemperature {
+  COLD
+  WARM
+  HOT
+}
+
+enum TrialBookingStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+  RESCHEDULED
+}
+
+enum Channel {
+  ZALO_PERSONAL
+  FACEBOOK_PAGE
+  MANUAL
+}
+
+enum ZaloGroupType {
+  CLASS
+  TEACHER
+  ADMIN
+  PARENT
+  SALES
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VOICE
+  FILE
+  SYSTEM
+}
+
+enum ParsedIntent {
+  UNKNOWN
+  ATTENDANCE
+  ABSENCE_REQUEST
+  HOMEWORK_ASSIGNMENT
+  HOMEWORK_SUBMISSION
+  PAYMENT_QUESTION
+  TRIAL_INQUIRY
+  TEACHER_COMMAND
+  SETUP_COMMAND
+}
+
+enum OutboxStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum ClassStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum ClassSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  NEEDS_REVIEW
+}
+
+enum HomeworkStatus {
+  DRAFT
+  ASSIGNED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  AI_GRADED
+  TEACHER_REVIEWED
+  RETURNED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOMO
+  OTHER
+}
+
+enum ConnectorStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  NEEDS_RELOGIN
+}
+
+enum ReportStatus {
+  DRAFT
+  PENDING_APPROVAL
+  SENT
+  FAILED
+}
+
+enum AiProvider {
+  MOCK
+  OPENAI
+  DEEPSEEK
+  OTHER
+}
+
+enum BootstrapStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  NEEDS_REVIEW
+}
+
+enum RewardEventType {
+  HOMEWORK_ON_TIME
+  HOMEWORK_LATE
+  ATTENDANCE_PRESENT
+  TEACHER_BONUS
+  MANUAL_ADJUSTMENT
+}
+
+// ---------------------------------------------------------
+// CORE MODELS
+// ---------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  members TenantMember[]
+
+  // CRM
+  leadSources     LeadSource[]
+  leads           Lead[]
+  trialBookings   TrialBooking[]
+  followUpTasks   FollowUpTask[]
+  leadActivities  LeadActivity[]
+  enrollmentOffers EnrollmentOffer[]
+
+  // Facebook
+  facebookPages        FacebookPage[]
+  facebookConversations FacebookConversation[]
+  facebookMessages     FacebookMessage[]
+  facebookWebhookEvents FacebookWebhookEvent[]
+
+  // Zalo
+  zaloPersonalAccounts ZaloPersonalAccount[]
+  zaloConnectorSessions ZaloConnectorSession[]
+  connectorHeartbeats   ConnectorHeartbeat[]
+  zaloGroups            ZaloGroup[]
+  zaloGroupMembers      ZaloGroupMember[]
+  zaloIdentities        ZaloIdentity[]
+  zaloConversations     ZaloConversation[]
+  zaloMessages          ZaloMessage[]
+  zaloAttachments       ZaloAttachment[]
+  zaloOutboxMessages    ZaloOutboxMessage[]
+  zaloMessageTemplates  ZaloMessageTemplate[]
+
+  // Bootstrap
+  classAutomationTemplates ClassAutomationTemplate[]
+  classAutomationSettings  ClassAutomationSetting[]
+  classBootstrapCommands   ClassBootstrapCommand[]
+
+  // Academic
+  courses              Course[]
+  teachers             Teacher[]
+  classes              Class[]
+  classSessions        ClassSession[]
+  students             Student[]
+  guardians            Guardian[]
+  enrollments          Enrollment[]
+  attendances          Attendance[]
+  studentProgressNotes StudentProgressNote[]
+
+  // Homework
+  homeworks           Homework[]
+  homeworkSubmissions HomeworkSubmission[]
+  aiGradeDrafts       AiGradeDraft[]
+  teacherFeedbacks    TeacherFeedback[]
+  rewardLedgers       RewardLedger[]
+
+  // Finance
+  invoices         Invoice[]
+  invoiceItems     InvoiceItem[]
+  payments         Payment[]
+  debtReminders    DebtReminder[]
+  renewalCandidates RenewalCandidate[]
+  renewalTasks      RenewalTask[]
+
+  // Reports
+  weeklyParentReports    WeeklyParentReport[]
+  parentReportDeliveries ParentReportDelivery[]
+
+  // AI
+  aiInteractions    AiInteraction[]
+  aiSuggestions     AiSuggestion[]
+  aiPromptTemplates AiPromptTemplate[]
+
+  // System
+  jobLogs            JobLog[]
+  failedJobs         FailedJob[]
+  webhookEvents      WebhookEvent[]
+  scheduledTaskRuns  ScheduledTaskRun[]
+
+  @@index([slug])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  tenantMembers TenantMember[]
+}
+
+model TenantMember {
+  id        String             @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      Role
+  status    TenantMemberStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  actorId      String?
+  entityType   String
+  entityId     String
+  action       String
+  beforeJson   String?  @db.Text
+  afterJson    String?  @db.Text
+  metadataJson String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId])
+}
+
+// ---------------------------------------------------------
+// CRM & SALES
+// ---------------------------------------------------------
+
+model LeadSource {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  leads Lead[]
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Lead {
+  id           String          @id @default(cuid())
+  tenantId     String
+  name         String
+  phone        String?
+  email        String?
+  stage        LeadStage       @default(NEW)
+  temperature  LeadTemperature @default(WARM)
+  sourceId     String?
+  assignedToId String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+
+  source           LeadSource?      @relation(fields: [sourceId], references: [id])
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  trialBookings    TrialBooking[]
+  activities       LeadActivity[]
+  followUpTasks    FollowUpTask[]
+  enrollmentOffers EnrollmentOffer[]
+  enrollments      Enrollment[]
+
+  @@index([tenantId, stage])
+}
+
+model TrialBooking {
+  id        String             @id @default(cuid())
+  tenantId  String
+  leadId    String
+  classId   String?
+  trialDate DateTime
+  status    TrialBookingStatus @default(BOOKED)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  class  Class? @relation(fields: [classId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model FollowUpTask {
+  id          String   @id @default(cuid())
+  tenantId    String
+  leadId      String
+  assignedTo  String?
+  dueDate     DateTime
+  description String
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, isCompleted, dueDate])
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  leadId    String
+  type      String
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, leadId])
+}
+
+model EnrollmentOffer {
+  id         String   @id @default(cuid())
+  tenantId   String
+  leadId     String
+  courseId   String
+  priceOffered Float
+  status     String
+  validUntil DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------
+// FACEBOOK
+// ---------------------------------------------------------
+
+model FacebookPage {
+  id        String   @id @default(cuid())
+  tenantId  String
+  pageId    String   @unique
+  pageName  String
+  pageToken String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id])
+  conversations FacebookConversation[]
+
+  @@index([tenantId])
+}
+
+model FacebookConversation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  pageId      String
+  psid        String
+  lastMessage DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  page     FacebookPage      @relation(fields: [pageId], references: [id])
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  messages FacebookMessage[]
+
+  @@unique([tenantId, pageId, psid])
+  @@index([tenantId])
+}
+
+model FacebookMessage {
+  id             String           @id @default(cuid())
+  tenantId       String
+  conversationId String
+  messageId      String           @unique
+  direction      MessageDirection
+  text           String?          @db.Text
+  payloadJson    String?          @db.Text
+  createdAt      DateTime         @default(now())
+
+  conversation FacebookConversation @relation(fields: [conversationId], references: [id])
+  tenant       Tenant               @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, conversationId])
+}
+
+model FacebookWebhookEvent {
+  id           String   @id @default(cuid())
+  tenantId     String
+  eventId      String
+  payloadJson  String   @db.Text
+  processedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, eventId])
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------
+// ZALO
+// ---------------------------------------------------------
+
+model ZaloPersonalAccount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  phoneNumber String
+  displayName String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant                 @relation(fields: [tenantId], references: [id])
+  sessions ZaloConnectorSession[]
+
+  @@index([tenantId])
+}
+
+model ZaloConnectorSession {
+  id        String          @id @default(cuid())
+  tenantId  String
+  accountId String
+  status    ConnectorStatus @default(OFFLINE)
+  lastPing  DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  account ZaloPersonalAccount @relation(fields: [accountId], references: [id])
+  tenant  Tenant              @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model ConnectorHeartbeat {
+  id        String   @id @default(cuid())
+  tenantId  String
+  timestamp DateTime @default(now())
+  status    String
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ZaloGroup {
+  id               String        @id @default(cuid())
+  tenantId         String
+  externalGroupId  String
+  name             String
+  groupType        ZaloGroupType @default(CLASS)
+  isActive         Boolean       @default(true)
+  classId          String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  class    Class?            @relation(fields: [classId], references: [id])
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  members  ZaloGroupMember[]
+  messages ZaloMessage[]
+
+  @@unique([tenantId, externalGroupId])
+  @@index([tenantId])
+}
+
+model ZaloGroupMember {
+  id             String   @id @default(cuid())
+  tenantId       String
+  groupId        String
+  zaloIdentityId String
+  role           String   @default("MEMBER")
+  joinedAt       DateTime @default(now())
+
+  group    ZaloGroup    @relation(fields: [groupId], references: [id])
+  identity ZaloIdentity @relation(fields: [zaloIdentityId], references: [id])
+  tenant   Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, groupId, zaloIdentityId])
+  @@index([tenantId])
+}
+
+model ZaloIdentity {
+  id              String   @id @default(cuid())
+  tenantId        String
+  externalUserId  String
+  displayName     String?
+  phone           String?
+  confidenceScore Float    @default(1.0)
+  studentId       String?
+  guardianId      String?
+  teacherId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student  Student?  @relation(fields: [studentId], references: [id])
+  guardian Guardian? @relation(fields: [guardianId], references: [id])
+  teacher  Teacher?  @relation(fields: [teacherId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  
+  groupMembers  ZaloGroupMember[]
+  messages      ZaloMessage[]
+  conversations ZaloConversation[]
+
+  @@unique([tenantId, externalUserId])
+  @@index([tenantId])
+}
+
+model ZaloConversation {
+  id             String   @id @default(cuid())
+  tenantId       String
+  zaloIdentityId String
+  lastMessage    DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  identity ZaloIdentity  @relation(fields: [zaloIdentityId], references: [id])
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  messages ZaloMessage[]
+
+  @@unique([tenantId, zaloIdentityId])
+  @@index([tenantId])
+}
+
+model ZaloMessage {
+  id                String           @id @default(cuid())
+  tenantId          String
+  externalMessageId String
+  idempotencyKey    String?          @unique
+  direction         MessageDirection
+  messageType       MessageType      @default(TEXT)
+  text              String?          @db.Text
+  groupId           String?
+  conversationId    String?
+  senderId          String?
+  parsedIntent      ParsedIntent     @default(UNKNOWN)
+  isProcessed       Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+
+  group        ZaloGroup?        @relation(fields: [groupId], references: [id])
+  conversation ZaloConversation? @relation(fields: [conversationId], references: [id])
+  sender       ZaloIdentity?     @relation(fields: [senderId], references: [id])
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  attachments  ZaloAttachment[]
+  homeworkSubmissions HomeworkSubmission[]
+
+  @@unique([tenantId, externalMessageId])
+  @@index([tenantId, isProcessed])
+}
+
+model ZaloAttachment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  zaloMessageId String
+  url           String
+  mimeType      String?
+  createdAt     DateTime @default(now())
+
+  message ZaloMessage @relation(fields: [zaloMessageId], references: [id])
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ZaloOutboxMessage {
+  id               String       @id @default(cuid())
+  tenantId         String
+  targetGroupId    String?
+  targetIdentityId String?
+  text             String       @db.Text
+  status           OutboxStatus @default(DRAFT)
+  isSensitive      Boolean      @default(false)
+  retryCount       Int          @default(0)
+  failureReason    String?      @db.Text
+  scheduledAt      DateTime?
+  sentAt           DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model ZaloMessageTemplate {
+  id               String   @id @default(cuid())
+  tenantId         String
+  name             String
+  category         String?
+  channel          Channel?
+  content          String   @db.Text
+  isSensitive      Boolean  @default(false)
+  requiresApproval Boolean  @default(false)
+  groupSafe        Boolean  @default(false)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------
+// BOOTSTRAP & ACADEMIC
+// ---------------------------------------------------------
+
+model ClassAutomationTemplate {
+  id                                       String   @id @default(cuid())
+  tenantId                                 String
+  name                                     String
+  classReminderEnabled                     Boolean  @default(true)
+  classReminderMinutesBefore               Int      @default(60)
+  attendanceEnabled                        Boolean  @default(true)
+  attendanceConfirmationEnabled            Boolean  @default(false)
+  teacherHomeworkReminderEnabled           Boolean  @default(true)
+  teacherHomeworkReminderMinutesAfterClass Int      @default(30)
+  homeworkSubmissionEnabled                Boolean  @default(true)
+  aiGradingEnabled                         Boolean  @default(true)
+  rewardEnabled                            Boolean  @default(true)
+  weeklyParentReportEnabled                Boolean  @default(true)
+  paymentReminderEnabled                   Boolean  @default(true)
+  renewalReminderEnabled                   Boolean  @default(true)
+  routineMessagesAutoApproved              Boolean  @default(true)
+  sensitiveMessagesRequireApproval         Boolean  @default(true)
+  createdAt                                DateTime @default(now())
+  updatedAt                                DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  classes ClassAutomationSetting[]
+
+  @@index([tenantId])
+}
+
+model ClassAutomationSetting {
+  id         String @id @default(cuid())
+  tenantId   String
+  classId    String @unique
+  templateId String
+
+  classReminderEnabled                     Boolean @default(true)
+  attendanceEnabled                        Boolean @default(true)
+  teacherHomeworkReminderEnabled           Boolean @default(true)
+  homeworkSubmissionEnabled                Boolean @default(true)
+  rewardEnabled                            Boolean @default(true)
+  sensitiveMessagesRequireApproval         Boolean @default(true)
+  paymentReminderGroupEnabled              Boolean @default(false)
+  classReminderMinutesBefore               Int     @default(60)
+  teacherHomeworkReminderMinutesAfterClass Int     @default(15)
+
+  class    Class                   @relation(fields: [classId], references: [id])
+  template ClassAutomationTemplate @relation(fields: [templateId], references: [id])
+  tenant   Tenant                  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ClassBootstrapCommand {
+  id               String          @id @default(cuid())
+  tenantId         String
+  externalGroupId  String
+  classCode        String
+  cloneFromCode    String?
+  senderExternalId String
+  status           BootstrapStatus @default(PENDING)
+  errorMessage     String?         @db.Text
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  level       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  classes          Class[]
+  enrollmentOffers EnrollmentOffer[]
+
+  @@index([tenantId])
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  classes        Class[]
+  zaloIdentities ZaloIdentity[]
+  feedbacks      TeacherFeedback[]
+
+  @@index([tenantId])
+}
+
+model Class {
+  id        String      @id @default(cuid())
+  tenantId  String
+  courseId  String
+  teacherId String?
+  classCode String
+  status    ClassStatus @default(DRAFT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  course            Course                  @relation(fields: [courseId], references: [id])
+  teacher           Teacher?                @relation(fields: [teacherId], references: [id])
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id])
+  zaloGroup         ZaloGroup?
+  automationSetting ClassAutomationSetting?
+  sessions          ClassSession[]
+  enrollments       Enrollment[]
+  trialBookings     TrialBooking[]
+  homeworks         Homework[]
+
+  @@unique([tenantId, classCode])
+  @@index([tenantId, status])
+}
+
+model ClassSession {
+  id          String             @id @default(cuid())
+  tenantId    String
+  classId     String
+  sessionDate DateTime
+  startTime   DateTime
+  endTime     DateTime
+  topic       String?
+  status      ClassSessionStatus @default(SCHEDULED)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  class       Class        @relation(fields: [classId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  attendances Attendance[]
+  homeworks   Homework[]
+
+  @@index([tenantId, classId, startTime])
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  phone      String?
+  dob        DateTime?
+  guardianId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  guardian            Guardian?             @relation(fields: [guardianId], references: [id])
+  tenant              Tenant                @relation(fields: [tenantId], references: [id])
+  enrollments         Enrollment[]
+  attendances         Attendance[]
+  homeworkSubmissions HomeworkSubmission[]
+  rewardLedgers       RewardLedger[]
+  invoices            Invoice[]
+  progressNotes       StudentProgressNote[]
+  zaloIdentities      ZaloIdentity[]
+  weeklyParentReports WeeklyParentReport[]
+  renewalCandidates   RenewalCandidate[]
+
+  @@index([tenantId])
+}
+
+model Guardian {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  students            Student[]
+  zaloIdentities      ZaloIdentity[]
+  weeklyParentReports WeeklyParentReport[]
+
+  @@index([tenantId])
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  studentId String
+  classId   String
+  leadId    String?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  lead    Lead?   @relation(fields: [leadId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoices Invoice[]
+
+  @@unique([tenantId, studentId, classId])
+  @@index([tenantId])
+}
+
+model Attendance {
+  id              String           @id @default(cuid())
+  tenantId        String
+  classSessionId  String
+  studentId       String
+  status          AttendanceStatus @default(NEEDS_REVIEW)
+  confidenceScore Float?
+  sourceMessageId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  session ClassSession @relation(fields: [classSessionId], references: [id])
+  student Student      @relation(fields: [studentId], references: [id])
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, classSessionId, studentId])
+  @@index([tenantId])
+}
+
+model StudentProgressNote {
+  id        String   @id @default(cuid())
+  tenantId  String
+  studentId String
+  note      String   @db.Text
+  createdAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, studentId])
+}
+
+// ---------------------------------------------------------
+// HOMEWORK & FINANCE
+// ---------------------------------------------------------
+
+model Homework {
+  id             String         @id @default(cuid())
+  tenantId       String
+  classId        String
+  classSessionId String?
+  title          String
+  description    String?        @db.Text
+  dueAt          DateTime
+  status         HomeworkStatus @default(ASSIGNED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  class       Class         @relation(fields: [classId], references: [id])
+  session     ClassSession? @relation(fields: [classSessionId], references: [id])
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  submissions HomeworkSubmission[]
+
+  @@index([tenantId, classId, dueAt])
+}
+
+model HomeworkSubmission {
+  id              String           @id @default(cuid())
+  tenantId        String
+  homeworkId      String
+  studentId       String
+  sourceMessageId String?
+  status          SubmissionStatus @default(SUBMITTED)
+  submittedAt     DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  homework      Homework         @relation(fields: [homeworkId], references: [id])
+  student       Student          @relation(fields: [studentId], references: [id])
+  sourceMessage ZaloMessage?     @relation(fields: [sourceMessageId], references: [id])
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  aiGradeDrafts AiGradeDraft[]
+  feedbacks     TeacherFeedback[]
+
+  @@unique([tenantId, homeworkId, studentId])
+  @@index([tenantId])
+}
+
+model AiGradeDraft {
+  id           String   @id @default(cuid())
+  tenantId     String
+  submissionId String
+  score        Float
+  comment      String   @db.Text
+  isApproved   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission HomeworkSubmission @relation(fields: [submissionId], references: [id])
+  tenant     Tenant             @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, submissionId])
+}
+
+model TeacherFeedback {
+  id           String   @id @default(cuid())
+  tenantId     String
+  submissionId String
+  teacherId    String
+  score        Float
+  comment      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission HomeworkSubmission @relation(fields: [submissionId], references: [id])
+  teacher    Teacher            @relation(fields: [teacherId], references: [id])
+  tenant     Tenant             @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, submissionId])
+}
+
+model RewardLedger {
+  id        String          @id @default(cuid())
+  tenantId  String
+  studentId String
+  eventType RewardEventType
+  stars     Int             @default(0)
+  coins     Int             @default(0)
+  reason    String?
+  source    String?
+  createdAt DateTime        @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, studentId])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  tenantId        String
+  studentId       String
+  enrollmentId    String?
+  totalAmount     Float
+  paidAmount      Float         @default(0)
+  remainingAmount Float
+  dueDate         DateTime
+  status          InvoiceStatus @default(UNPAID)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  student       Student        @relation(fields: [studentId], references: [id])
+  enrollment    Enrollment?    @relation(fields: [enrollmentId], references: [id])
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  items         InvoiceItem[]
+  payments      Payment[]
+  debtReminders DebtReminder[]
+
+  @@index([tenantId, status, dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  invoiceId   String
+  description String
+  amount      Float
+  createdAt   DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  tenantId      String
+  invoiceId     String
+  amount        Float
+  paymentMethod PaymentMethod @default(CASH)
+  paidAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, invoiceId])
+}
+
+model DebtReminder {
+  id          String       @id @default(cuid())
+  tenantId    String
+  invoiceId   String
+  status      ReportStatus @default(DRAFT)
+  sentAt      DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+}
+
+model RenewalCandidate {
+  id             String   @id @default(cuid())
+  tenantId       String
+  studentId      String
+  sessionsLeft   Int
+  flaggedAt      DateTime @default(now())
+  status         String   @default("PENDING")
+
+  student Student @relation(fields: [studentId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  tasks   RenewalTask[]
+
+  @@index([tenantId, status])
+}
+
+model RenewalTask {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  renewalCandidateId String
+  assignedToId       String?
+  dueDate            DateTime
+  status             String   @default("OPEN")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  candidate RenewalCandidate @relation(fields: [renewalCandidateId], references: [id])
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------
+// REPORTS & AI & SYSTEM
+// ---------------------------------------------------------
+
+model WeeklyParentReport {
+  id         String       @id @default(cuid())
+  tenantId   String
+  studentId  String
+  guardianId String
+  weekStart  DateTime
+  weekEnd    DateTime
+  status     ReportStatus @default(DRAFT)
+  summary    String       @db.Text
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  student    Student                @relation(fields: [studentId], references: [id])
+  guardian   Guardian               @relation(fields: [guardianId], references: [id])
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id])
+  deliveries ParentReportDelivery[]
+
+  @@index([tenantId, status])
+}
+
+model ParentReportDelivery {
+  id         String   @id @default(cuid())
+  tenantId   String
+  reportId   String
+  channel    Channel  @default(ZALO_PERSONAL)
+  sentAt     DateTime @default(now())
+  status     String   @default("SUCCESS")
+
+  report WeeklyParentReport @relation(fields: [reportId], references: [id])
+  tenant Tenant             @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model AiInteraction {
+  id         String     @id @default(cuid())
+  tenantId   String
+  provider   AiProvider @default(MOCK)
+  model      String?
+  purpose    String
+  inputJson  String     @db.Text
+  outputJson String?    @db.Text
+  status     String     @default("PENDING")
+  error      String?    @db.Text
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, purpose])
+}
+
+model AiSuggestion {
+  id         String   @id @default(cuid())
+  tenantId   String
+  context    String
+  suggestion String   @db.Text
+  isUsed     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model AiPromptTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+  purpose  String
+  template String @db.Text
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, purpose])
+}
+
+model JobLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  jobName   String
+  status    String
+  duration  Int?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, jobName])
+}
+
+model FailedJob {
+  id         String   @id @default(cuid())
+  tenantId   String
+  queueName  String
+  jobId      String
+  errorMsg   String   @db.Text
+  stackTrace String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, queueName])
+}
+
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  source    String
+  payload   String   @db.Text
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model ScheduledTaskRun {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taskName  String
+  targetId  String?
+  status    String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, taskName])
+}

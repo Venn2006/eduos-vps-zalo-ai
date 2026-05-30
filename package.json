@@ -1,0 +1,31 @@
+{
+  "name": "eduos-vps-zalo-ai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@eduos/db",
+    "db:migrate": "npm run db:migrate --workspace=@eduos/db",
+    "db:seed": "npm run db:seed --workspace=@eduos/db",
+    "worker:dev": "npm run dev --workspace=@eduos/worker",
+    "api:dev": "npm run dev --workspace=@eduos/api",
+    "web:dev": "npm run dev --workspace=@eduos/web",
+    "zalo-connector:dev": "npm run dev --workspace=@eduos/zalo-vps-connector"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@eduos/worker",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@eduos/logger": "*",
+    "@eduos/shared": "*",
+    "bullmq": "^4.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}
