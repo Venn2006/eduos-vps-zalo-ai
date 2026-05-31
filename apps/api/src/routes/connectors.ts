@@ -4,6 +4,8 @@ import { logger } from "@eduos/logger";
 import { requireConnectorToken } from "../middlewares/connectorAuth";
 import { parseSetupCommand } from "@eduos/shared";
 import { bootstrapClassGroupFromCommand } from "../services/bootstrap.service";
+import { processAttendanceMessage } from "../services/attendance.service";
+import { processHomeworkMessage } from "../services/homework.service";
 
 interface ConnectorContext {
   tenantId: string;
@@ -63,7 +65,38 @@ export default async function connectorRoutes(app: FastifyInstance) {
         intent = "SETUP_COMMAND";
       }
 
-      // 3. Save message
+      // 3. Prepare identity
+      let sender = await prisma.zaloIdentity.findUnique({
+        where: { tenantId_externalUserId: { tenantId, externalUserId: senderId } }
+      });
+
+      if (!sender) {
+        try {
+          sender = await prisma.zaloIdentity.create({
+            data: {
+              tenantId,
+              externalUserId: senderId,
+              displayName: "Mock User",
+            }
+          });
+        } catch (e: any) {
+          // If another concurrent request just created it, fetch it again
+          sender = await prisma.zaloIdentity.findUnique({
+            where: { tenantId_externalUserId: { tenantId, externalUserId: senderId } }
+          });
+        }
+      }
+
+      if (!sender) {
+        throw new Error("Failed to resolve sender identity.");
+      }
+
+      // 4. Try finding group
+      const grp = await prisma.zaloGroup.findUnique({
+        where: { tenantId_externalGroupId: { tenantId, externalGroupId } }
+      });
+
+      // 5. Save message
       const msg = await prisma.zaloMessage.create({
         data: {
           tenantId,
@@ -71,26 +104,13 @@ export default async function connectorRoutes(app: FastifyInstance) {
           direction: "INBOUND",
           messageType: "TEXT",
           text,
-          senderId,
-          groupId: externalGroupId, // this might fail FK constraint if group is unknown and not upserted yet?
-          // wait, groupId in ZaloMessage references ZaloGroup.id, not externalGroupId!
-          // We can't link it until group exists in DB. Let's omit groupId or find it.
+          senderId: sender.id,
+          groupId: grp?.id, // Use internal ID
         }
       });
 
-      // 4. Handle Setup
+      // 6. Handle Setup
       if (parsed) {
-        // Wait, sender might not exist yet if they are a new identity. We should upsert identity first.
-        await prisma.zaloIdentity.upsert({
-          where: { tenantId_externalUserId: { tenantId, externalUserId: senderId } },
-          create: {
-            tenantId,
-            externalUserId: senderId,
-            displayName: "Mock User",
-          },
-          update: {}
-        });
-
         await bootstrapClassGroupFromCommand({
           tenantId,
           externalGroupId,
@@ -101,26 +121,48 @@ export default async function connectorRoutes(app: FastifyInstance) {
           parsedCommand: parsed,
         });
 
-        // Try linking message to group after bootstrap
-        const grp = await prisma.zaloGroup.findUnique({
-          where: { tenantId_externalGroupId: { tenantId, externalGroupId } }
-        });
-        if (grp) {
+        // Try linking message to group after bootstrap if it wasn't linked
+        if (!grp) {
+          const newGrp = await prisma.zaloGroup.findUnique({
+            where: { tenantId_externalGroupId: { tenantId, externalGroupId } }
+          });
+          if (newGrp) {
+            await prisma.zaloMessage.update({
+              where: { id: msg.id },
+              data: { groupId: newGrp.id, parsedIntent: "SETUP_COMMAND" }
+            });
+          }
+        } else {
           await prisma.zaloMessage.update({
             where: { id: msg.id },
-            data: { groupId: grp.id, parsedIntent: "SETUP_COMMAND" }
+            data: { parsedIntent: "SETUP_COMMAND" }
           });
         }
       } else {
-        // Find existing group to link message
-        const grp = await prisma.zaloGroup.findUnique({
-          where: { tenantId_externalGroupId: { tenantId, externalGroupId } }
-        });
+        // Pass to attendance service if group exists
         if (grp) {
-          await prisma.zaloMessage.update({
-            where: { id: msg.id },
-            data: { groupId: grp.id }
+          // Pass to homework service first to see if it's homework
+          const { intent: hwIntent } = await processHomeworkMessage({
+            tenantId,
+            groupId: externalGroupId,
+            senderId,
+            text,
+            externalMessageId
           });
+          
+          if (hwIntent !== "UNKNOWN") {
+            intent = hwIntent;
+          } else {
+            // Pass to attendance service
+            const { intent: attIntent } = await processAttendanceMessage({
+              tenantId,
+              groupId: externalGroupId,
+              senderId,
+              text,
+              externalMessageId
+            });
+            intent = attIntent;
+          }
         } else {
            // Reject unknown group if not a setup command
            logger.warn(`Unknown group ${externalGroupId} and not a setup command`);
@@ -146,7 +188,7 @@ export default async function connectorRoutes(app: FastifyInstance) {
     const messages = await prisma.zaloOutboxMessage.findMany({
       where: {
         tenantId,
-        status: "DRAFT",
+        status: { in: ["DRAFT", "APPROVED"] }
       },
       take: 50,
     });

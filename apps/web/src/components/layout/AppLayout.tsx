@@ -24,7 +24,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
 const sidebarItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+  { href: '/contacts', label: 'CRM Liên hệ', icon: Users },
+  { href: '/sales-calling', label: 'Gọi điện Sale', icon: MessageSquare },
   { href: '/leads', label: 'Tuyển sinh', icon: Users },
   { href: '/trial-bookings', label: 'Học thử', icon: BookOpen },
   { href: '/students', label: 'Học viên', icon: GraduationCap },
@@ -33,10 +35,14 @@ const sidebarItems = [
   { href: '/homework', label: 'Bài tập', icon: FileEdit },
   { href: '/payments', label: 'Học phí', icon: CreditCard },
   { href: '/renewals', label: 'Tái phí', icon: RefreshCw },
-  { href: '/fanpage-inbox', label: 'Fanpage Inbox', icon: MessageCircle },
-  { href: '/zalo-groups', label: 'Zalo Groups', icon: MessageSquare },
+  { href: '/zalo-accounts', label: 'Tài khoản Zalo', icon: Wifi },
+  { href: '/zalo-inbox', label: 'Hộp thư Zalo', icon: MessageCircle },
+  { href: '/zalo-groups', label: 'Nhóm Zalo', icon: MessageSquare },
+  { href: '/workflow-templates', label: 'Quy trình tự động', icon: PieChart },
+  { href: '/message-reports', label: 'Báo cáo tin nhắn', icon: PieChart },
+  { href: '/fanpage-inbox', label: 'Tin nhắn Fanpage', icon: MessageCircle },
   { href: '/reports', label: 'Báo cáo', icon: PieChart },
-  { href: '/ai-center', label: 'AI Center', icon: Sparkles, highlight: true },
+  { href: '/ai-center', label: 'Trung tâm AI', icon: Sparkles, highlight: true },
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ];
 
@@ -98,8 +104,8 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
               {session?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{session?.email || 'Unknown User'}</p>
-              <p className="text-xs text-slate-400 truncate font-semibold text-primary">{session?.role || 'NO ROLE'}</p>
+              <p className="text-sm font-medium truncate">{session?.email || 'Người dùng ẩn danh'}</p>
+              <p className="text-xs text-slate-400 truncate font-semibold text-primary">{session?.role || 'CHƯA CÓ VAI TRÒ'}</p>
             </div>
             <button onClick={handleLogout} className="p-1.5 hover:bg-white/10 rounded-md text-slate-400 hover:text-white transition-colors" title="Đăng xuất">
               <RefreshCw className="w-4 h-4" />
@@ -129,11 +135,11 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
           
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex px-3 border border-slate-200 rounded-md py-1 bg-slate-50 text-xs font-bold text-slate-600">
-              Tenant: OMLIS Test
+              Cơ sở: OMLIS Test
             </div>
             <Button size="sm" className="hidden sm:flex bg-gradient-to-r from-primary to-fuchsia-600 shadow-md hover:shadow-lg transition-all border-0">
               <Sparkles className="w-4 h-4 mr-2" />
-              AI Assistant
+              Trợ lý AI
             </Button>
             <button className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <Bell className="w-5 h-5" />

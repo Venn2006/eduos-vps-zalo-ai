@@ -22,12 +22,16 @@ try {
 
 async function fetchApi(endpoint: string, method: string, body?: any) {
   try {
+    const headers: any = {
+      "Authorization": `Bearer ${CONNECTOR_TOKEN}`
+    };
+    if (body) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const res = await fetch(`${CLOUD_API_URL}/api/connectors${endpoint}`, {
       method,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${CONNECTOR_TOKEN}`
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined
     });
     return await res.json();
@@ -80,3 +84,15 @@ process.on("SIGTERM", () => {
   logger.info("Connector shut down.");
   process.exit(0);
 });
+
+// restart
+
+// restart again
+
+// restart again 2
+
+// restart again 3
+
+// final restart
+
+// final restart 2

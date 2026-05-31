@@ -1,8 +1,38 @@
 [
-  { "groupId": "group1", "text": "/setup HSK1-A06" },
-  { "groupId": "group1", "text": "Có mặt" },
-  { "groupId": "group1", "text": "DD: An có mặt, Bình vắng, Chi trễ" },
-  { "groupId": "group1", "text": "BT: Làm bài trang 32" },
-  { "groupId": "group1", "text": "Hạn: 21:00 ngày mai" },
-  { "groupId": "group1", "text": "Nộp bài - An" }
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Có mặt"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Em có mặt ạ"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "IN"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Em xin nghỉ hôm nay"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "DD: Student 0 có mặt, Student 1 vắng, Student 2 trễ"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Điểm danh: Student 0, Student 1, Student 2"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "BT: Làm bài trang 32\nHạn: 21:00 ngày mai"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Nộp bài - Student 0"
+  },
+  {
+    "groupId": "zalo-group-ext-0",
+    "text": "Em nộp bài ạ"
+  }
 ]

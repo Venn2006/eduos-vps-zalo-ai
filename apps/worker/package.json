@@ -2,7 +2,7 @@
   "name": "@eduos/worker",
   "version": "1.0.0",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "dev": "dotenv -e ../../.env -- nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js"
@@ -11,9 +11,11 @@
     "@eduos/logger": "*",
     "@eduos/shared": "*",
     "bullmq": "^4.0.0",
-    "ioredis": "^5.0.0"
+    "ioredis": "^5.0.0",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
+    "@types/node-cron": "^3.0.11",
     "nodemon": "^3.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.0"

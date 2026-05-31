@@ -4,8 +4,23 @@ import { AiSuggestionCard } from '@/components/ui/AiSuggestionCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Bot, RefreshCw, FileText, CheckCircle } from 'lucide-react';
+import { prisma } from '@eduos/db';
+import { getCurrentTenantOrThrow } from '@/lib/auth';
 
-export default function AiCenterPage() {
+export default async function AiCenterPage() {
+  const tenantId = await getCurrentTenantOrThrow();
+  const drafts = await prisma.aiGradeDraft.findMany({
+    where: { tenantId, isApproved: false },
+    include: {
+      submission: {
+        include: {
+          student: true,
+          homework: true
+        }
+      }
+    }
+  });
+
   return (
     <div className="space-y-8 pb-10">
       <SectionHeader 
@@ -54,6 +69,30 @@ export default function AiCenterPage() {
                   description="Lead Trần Thị B đã học thử bài 1 hôm qua. Đề xuất gửi tin nhắn Zalo hỏi thăm và tặng voucher 10%."
                   actionLabel="Duyệt gửi Zalo"
                   badges={["ai-generated"]}
+                />
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* AI Homework Grading */}
+          <Card className="shadow-sm border-purple-500/20">
+            <CardHeader className="bg-purple-50 border-b border-purple-100">
+              <CardTitle className="text-lg flex items-center gap-2 text-purple-700">
+                <FileText className="w-5 h-5" /> AI Chấm bài tập (Chờ duyệt)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {drafts.length === 0 && (
+                <div className="text-sm text-slate-500 py-4 text-center">Không có bài nào đang chờ duyệt.</div>
+              )}
+              {drafts.map(draft => (
+                <AiSuggestionCard 
+                  key={draft.id}
+                  type="draft"
+                  title={`${draft.submission.homework.title} - ${draft.submission.student.name}`}
+                  description={`AI đã chấm điểm ${draft.score}/10. Nhận xét: ${draft.comment}. Chờ giáo viên duyệt để gửi.`}
+                  actionLabel="Duyệt & Gửi"
+                  badges={["ai-generated", "needs-review"]}
                 />
               ))}
             </CardContent>

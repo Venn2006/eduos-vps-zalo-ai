@@ -7,7 +7,12 @@ const redisConnection = new IORedis(process.env.REDIS_URL || "redis://localhost:
   maxRetriesPerRequest: null,
 });
 
+import { initClassReminderScheduler } from "./schedulers/classReminder";
+import { initHomeworkReminderScheduler } from "./schedulers/homeworkReminder";
+
 logger.info("Initializing BullMQ Workers...");
+initClassReminderScheduler();
+initHomeworkReminderScheduler();
 
 const queues = [
   QueueNames.ZALO_OUTBOX,

@@ -58,9 +58,9 @@ async function main() {
   }
 
   const messageTemplates = [
-    { name: "CLASS_REMINDER_60M", content: "Lớp [className] của [studentName] sẽ bắt đầu lúc [startTime].", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
+    { name: "CLASS_REMINDER_60M", content: "OMLIS xin chào các bạn 💛\n\n⏰ Sắp đến giờ học rồi, mọi người chuẩn bị tài liệu sẵn sàng nhé!\n\n🕕 Thời gian: [startTime] - [endTime]\n📚 Lớp: [className]\n👩‍🏫 Giáo viên: [teacherName]\n\n🚨 LƯU Ý: Xin phép vắng/trễ ❌ KHÔNG NHẮN TRÊN GROUP NÀY.\n👉 Vui lòng inbox riêng Zalo Admin [adminPhone] để được hỗ trợ và nhận bài bù ạ.\n\nChúc cả lớp học thật năng lượng nhé! 🥰", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any, isSensitive: false },
     { name: "ATTENDANCE_CONFIRMATION", content: "Điểm danh: [studentName] đã có mặt.", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
-    { name: "TEACHER_HOMEWORK_REMINDER", content: "Thầy/cô vui lòng giao bài tập cho lớp [className].", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
+    { name: "TEACHER_HOMEWORK_REMINDER", content: "Thầy/cô ơi, lớp [className] vừa kết thúc nhưng chưa có bài tập về nhà.\n\nThầy/cô có thể gửi bài tập theo mẫu:\nBT: [nội dung bài tập]\nHạn: [ngày/giờ nộp]", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
     { name: "HOMEWORK_ASSIGNMENT_TO_CLASS", content: "Bài tập mới: [homeworkTitle]. Hạn nộp: [dueDate].", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
     { name: "HOMEWORK_SUBMISSION_RECEIVED", content: "Đã nhận bài của [studentName].", requiresApproval: false, groupSafe: true, channel: "ZALO_PERSONAL" as any },
     { name: "WEEKLY_PARENT_REPORT", content: "Báo cáo tuần [studentName]: [summary]", requiresApproval: true, groupSafe: false, channel: "ZALO_PERSONAL" as any, isSensitive: true },
@@ -147,6 +147,35 @@ async function main() {
     });
   }
 
+  // Create one specific session 60 minutes from now for immediate testing
+  const now = new Date();
+  const testStartTime = new Date(now.getTime() + 60 * 60 * 1000);
+  const testEndTime = new Date(now.getTime() + 120 * 60 * 1000);
+  await prisma.classSession.create({
+    data: {
+      tenantId: tId,
+      classId: classes[0].id,
+      sessionDate: testStartTime,
+      startTime: testStartTime,
+      endTime: testEndTime,
+      topic: "Test Reminder Session"
+    }
+  });
+
+  // Create one specific session that ended exactly 15 minutes ago for testing homework reminder
+  const pastEndTime = new Date(now.getTime() - 15 * 60 * 1000);
+  const pastStartTime = new Date(pastEndTime.getTime() - 60 * 60 * 1000);
+  await prisma.classSession.create({
+    data: {
+      tenantId: tId,
+      classId: classes[0].id,
+      sessionDate: pastStartTime,
+      startTime: pastStartTime,
+      endTime: pastEndTime,
+      topic: "Past Session For Homework Reminder"
+    }
+  });
+
   // 7. Seed Academic (Students & Guardians)
   const students = [];
   const guardians = [];
@@ -205,6 +234,10 @@ async function main() {
     data: { tenantId: tId, phoneNumber: "0999999999", displayName: "OMLIS Assistant" }
   });
 
+  await prisma.zaloConnectorSession.create({
+    data: { tenantId: tId, accountId: zaloAccount.id, status: "OFFLINE", lastPing: new Date() }
+  });
+
   const zaloGroups = [];
   for (let i=0; i<8; i++) {
     const g = await prisma.zaloGroup.create({
@@ -258,17 +291,75 @@ async function main() {
     }
   }
 
-  // 11. Seed CRM Leads
+  // 11. Seed CRM Leads, Batches, and Trials
+  const saleMembers = await prisma.tenantMember.findMany({
+    where: { tenantId: tId, role: 'SALE' },
+    include: { user: true }
+  });
+  
+  const leadBatches = [];
+  for (let i = 0; i < 3; i++) {
+    const batch = await prisma.leadBatch.create({
+      data: { tenantId: tId, name: `Facebook Ads Campaign ${i+1}`, source: 'Facebook', totalLeads: 50 }
+    });
+    leadBatches.push(batch);
+  }
+
   const leads = [];
-  for (let i=0; i<50; i++) {
+  const stages = ['NEW', 'CONTACTED', 'QUALIFIED', 'BOOKED_TRIAL', 'ATTENDED_TRIAL', 'WON', 'LOST'];
+  for (let i = 0; i < 150; i++) {
+    const saleId = saleMembers[i % saleMembers.length].userId;
+    const stage = stages[Math.floor(Math.random() * stages.length)];
+    const batchId = leadBatches[i % 3].id;
+    
     const l = await prisma.lead.create({
-      data: { tenantId: tId, name: `Lead ${i}`, phone: `09111111${i.toString().padStart(2, '0')}`, stage: i < 10 ? "NEW" : (i < 30 ? "CONTACTED" : "WON"), temperature: "HOT" }
+      data: { 
+        tenantId: tId, 
+        name: `Lead ${i}`,
+        fullName: `Lead ${i} Full Name`,
+        phone: `0911111${i.toString().padStart(3, '0')}`,
+        stage: stage as any,
+        temperature: stage === 'NEW' ? 'COLD' : 'HOT',
+        assignedToId: saleId,
+        batchId: batchId,
+        callCount: stage === 'NEW' ? 0 : Math.floor(Math.random() * 3) + 1,
+        interestedCourseId: courses[i % courses.length].id
+      }
     });
     leads.push(l);
+
+    // Seed Call Attempts
+    if (l.callCount > 0) {
+      const outcomes = ['NO_ANSWER', 'BUSY_CALLBACK', 'WRONG_NUMBER', 'INTERESTED', 'NOT_INTERESTED', 'ASKED_PRICE'];
+      for(let j=0; j<l.callCount; j++) {
+        await prisma.callAttempt.create({
+          data: {
+            tenantId: tId,
+            leadId: l.id,
+            saleId: saleId,
+            outcome: outcomes[Math.floor(Math.random() * outcomes.length)] as any
+          }
+        });
+      }
+    }
   }
-  for (let i=0; i<20; i++) {
+
+  // 30 Trial bookings
+  const bookedLeads = leads.filter(l => ['BOOKED_TRIAL', 'ATTENDED_TRIAL', 'WON'].includes(l.stage)).slice(0, 30);
+  for (let i = 0; i < bookedLeads.length; i++) {
+    const l = bookedLeads[i];
+    const status = i < 5 ? 'CONVERTED' : (i < 15 ? 'ATTENDED' : 'BOOKED');
     await prisma.trialBooking.create({
-      data: { tenantId: tId, leadId: leads[i].id, trialDate: generateDates(2), status: "BOOKED" }
+      data: {
+        tenantId: tId,
+        leadId: l.id,
+        courseId: l.interestedCourseId,
+        trialDate: generateDates(i % 5),
+        status: status as any,
+        studentNameSnapshot: l.fullName,
+        phoneSnapshot: l.phone,
+        assignedSaleId: l.assignedToId
+      }
     });
   }
 
@@ -291,8 +382,26 @@ async function main() {
 
   // 13. Seed Finance
   for (let i=0; i<40; i++) {
+    let invoiceStatus = "PAID";
+    let remainingAmount = 0;
+    
+    if (i >= 10 && i < 20) {
+      invoiceStatus = "PARTIALLY_PAID";
+      remainingAmount = 500000;
+    } else if (i >= 20) {
+      invoiceStatus = "UNPAID";
+      remainingAmount = 1000000;
+    }
+    
     const inv = await prisma.invoice.create({
-      data: { tenantId: tId, studentId: students[i].id, totalAmount: 1000000, remainingAmount: i < 10 ? 0 : 500000, dueDate: generateDates(5), status: i < 10 ? "PAID" : "PARTIALLY_PAID" }
+      data: { 
+        tenantId: tId, 
+        studentId: students[i].id, 
+        totalAmount: 1000000, 
+        remainingAmount: remainingAmount, 
+        dueDate: generateDates(5), 
+        status: invoiceStatus as any 
+      }
     });
     if (i < 30) {
       await prisma.payment.create({ data: { tenantId: tId, invoiceId: inv.id, amount: 500000 } });

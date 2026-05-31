@@ -1,70 +1,73 @@
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
-import { prisma } from '@eduos/db';
+import { prisma, ZaloQueries } from '@eduos/db';
+import { getCurrentTenantOrThrow } from '@/lib/auth';
 
 export default async function ZaloGroupsPage() {
-  // Fetch groups
-  const groups = await prisma.zaloGroup.findMany({
-    include: {
-      class: {
-        include: {
-          automationSetting: true,
-        }
-      }
-    }
-  });
+  const tenantId = await getCurrentTenantOrThrow();
+
+  const zaloQueries = new ZaloQueries(prisma);
+  const groups = await zaloQueries.getZaloGroupsForTenant(tenantId);
 
   return (
     <PageShell 
       title="Zalo Groups" 
-      description="Quản lý các nhóm Zalo lớp học"
+      description="Quản lý các nhóm Zalo lớp học, trạng thái liên kết và tự động hóa."
     >
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold mb-4">Danh sách nhóm Zalo (Zalo VPS Connector)</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b">
+              <tr className="border-b dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
                 <th className="p-3">Tên nhóm</th>
-                <th className="p-3">Loại</th>
-                <th className="p-3">Lớp liên kết</th>
-                <th className="p-3">Trạng thái Automation</th>
+                <th className="p-3">Trạng thái liên kết</th>
+                <th className="p-3">Điểm danh Auto</th>
+                <th className="p-3">Trạng thái Cài đặt</th>
+                <th className="p-3">Lần cuối nhắc lịch</th>
+                <th className="p-3">Lần cuối điểm danh</th>
                 <th className="p-3">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {groups.map(g => (
-                <tr key={g.id} className="border-b">
-                  <td className="p-3 font-medium">{g.name}</td>
+              {groups.map((g: any) => (
+                <tr key={g.id} className="border-b dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{g.name}</td>
                   <td className="p-3">
-                    <span className="px-2 py-1 bg-gray-100 rounded text-sm">{g.groupType}</span>
-                  </td>
-                  <td className="p-3">
-                    {g.class ? (
-                      <span className="text-blue-600 font-semibold">{g.class.classCode}</span>
+                    {g.className ? (
+                      <span className="text-emerald-600 font-semibold">{g.className}</span>
                     ) : (
-                      <span className="text-gray-400 italic">Chưa liên kết</span>
+                      <span className="text-orange-500 font-medium italic text-xs px-2 py-1 bg-orange-50 dark:bg-orange-900/20 rounded">Cần Admin Review</span>
                     )}
                   </td>
                   <td className="p-3">
-                    {g.class?.automationSetting ? (
-                      <span className="text-green-600 flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        Đã kích hoạt
-                      </span>
+                    {g.automation?.attendance ? (
+                      <span className="text-emerald-600 font-medium">Đang bật</span>
                     ) : (
-                      <span className="text-gray-400">---</span>
+                      <span className="text-zinc-400">Tắt</span>
                     )}
                   </td>
                   <td className="p-3">
-                    <button className="text-blue-500 hover:underline mr-3">Copy Setup Cmd</button>
-                    <button className="text-blue-500 hover:underline">Lịch sử</button>
+                    {g.className ? (
+                      <span className="text-emerald-600 text-xs flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Đã Setup</span>
+                    ) : (
+                      <span className="text-zinc-500 text-xs">Chờ lệnh /setup</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-xs text-slate-500">
+                    {g.lastReminder ? g.lastReminder.toLocaleString('vi-VN') : '-'}
+                  </td>
+                  <td className="p-3 text-xs text-slate-500">
+                    {g.lastAttendance ? g.lastAttendance.toLocaleString('vi-VN') : '-'}
+                  </td>
+                  <td className="p-3">
+                    <button className="text-blue-500 hover:underline text-sm font-medium">Cấu hình</button>
                   </td>
                 </tr>
               ))}
               {groups.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-3 text-center text-gray-500">Chưa có nhóm nào. Vui lòng thêm Zalo Assistant vào nhóm.</td>
+                  <td colSpan={7} className="p-3 text-center text-gray-500">Chưa có nhóm nào. Vui lòng thêm Zalo Assistant vào nhóm.</td>
                 </tr>
               )}
             </tbody>

@@ -116,12 +116,43 @@ server.register(async function (fastify) {
     reply.clearCookie("session_token", { path: "/" });
     return { success: true };
   });
+
+  fastify.get("/auth/logout", async (request, reply) => {
+    reply.clearCookie("session_token", { path: "/" });
+    return reply.redirect("http://localhost:3000/login");
+  });
+
+  fastify.get("/dev/diagnostic", async (request, reply) => {
+    const tenants = await prisma.tenant.findMany();
+    const students = await prisma.student.count();
+    const leads = await prisma.lead.count();
+    const trialBookings = await prisma.trialBooking.count();
+    const invoices = await prisma.invoice.count();
+    const zaloAccounts = await prisma.zaloPersonalAccount.count();
+    const zaloGroups = await prisma.zaloGroup.count();
+
+    return {
+      tenants,
+      counts: {
+        students,
+        leads,
+        trialBookings,
+        invoices,
+        zaloAccounts,
+        zaloGroups
+      }
+    };
+  });
 }, { prefix: "/api" });
 
 import connectorRoutes from "./routes/connectors";
+import devRoutes from "./routes/dev";
 
 // --- CONNECTOR ROUTES ---
 server.register(connectorRoutes, { prefix: "/api/connectors" });
+
+// --- DEV ROUTES ---
+server.register(devRoutes, { prefix: "/api" });
 
 // --- FACEBOOK WEBHOOK ---
 server.register(async function (fastify) {

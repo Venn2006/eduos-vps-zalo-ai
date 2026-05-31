@@ -1,12 +1,13 @@
 import React from 'react';
-import { PageShell } from '@/components/layout/PageShell';
+import { prisma, SalesQueries } from '@eduos/db';
+import { getCurrentTenantOrThrow } from '@/lib/auth';
+import TrialBookingsClient from './TrialBookingsClient';
 
-export default function TrialBookingsPage() {
-  return (
-    <PageShell 
-      title="Học thử" 
-      description="Quản lý lịch học thử và chuyển đổi"
-      primaryAction="Thêm lịch học thử"
-    />
-  );
+export default async function TrialBookingsPage() {
+  const tenantId = await getCurrentTenantOrThrow();
+
+  const salesQueries = new SalesQueries(prisma);
+  const bookings = await salesQueries.getTrialBookingsForTenant(tenantId);
+
+  return <TrialBookingsClient initialBookings={bookings} />;
 }

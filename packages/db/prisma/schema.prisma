@@ -44,10 +44,26 @@ enum LeadTemperature {
 
 enum TrialBookingStatus {
   BOOKED
+  REMINDED
   ATTENDED
   NO_SHOW
   CANCELLED
   RESCHEDULED
+  CONVERTED
+}
+
+enum CallOutcome {
+  NO_ANSWER
+  BUSY_CALLBACK
+  WRONG_NUMBER
+  INTERESTED
+  NOT_INTERESTED
+  ASKED_PRICE
+  NEEDS_PARENT_APPROVAL
+  BOOKED_TRIAL
+  ATTENDED_TRIAL
+  PAID
+  LOST
 }
 
 enum Channel {
@@ -205,6 +221,8 @@ model Tenant {
   // CRM
   leadSources     LeadSource[]
   leads           Lead[]
+  leadBatches     LeadBatch[]
+  callAttempts    CallAttempt[]
   trialBookings   TrialBooking[]
   followUpTasks   FollowUpTask[]
   leadActivities  LeadActivity[]
@@ -339,45 +357,73 @@ model LeadSource {
 }
 
 model Lead {
-  id           String          @id @default(cuid())
-  tenantId     String
-  name         String
-  phone        String?
-  email        String?
-  stage        LeadStage       @default(NEW)
-  temperature  LeadTemperature @default(WARM)
-  sourceId     String?
-  assignedToId String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  deletedAt    DateTime?
+  id                 String          @id @default(cuid())
+  tenantId           String
+  name               String
+  fullName           String?
+  parentName         String?
+  studentName        String?
+  phone              String?
+  email              String?
+  stage              LeadStage       @default(NEW)
+  temperature        LeadTemperature @default(WARM)
+  sourceId           String?
+  assignedToId       String?
+  interestedCourseId String?
+  lastCallAt         DateTime?
+  nextFollowUpAt     DateTime?
+  callCount          Int             @default(0)
+  lastCallOutcome    CallOutcome?
+  lostReason         String?         @db.Text
+  batchId            String?
+  notes              String?         @db.Text
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  deletedAt          DateTime?
 
   source           LeadSource?      @relation(fields: [sourceId], references: [id])
+  batch            LeadBatch?       @relation(fields: [batchId], references: [id])
   tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  course           Course?          @relation(fields: [interestedCourseId], references: [id])
   trialBookings    TrialBooking[]
   activities       LeadActivity[]
   followUpTasks    FollowUpTask[]
+  callAttempts     CallAttempt[]
   enrollmentOffers EnrollmentOffer[]
   enrollments      Enrollment[]
 
   @@index([tenantId, stage])
+  @@index([tenantId, assignedToId])
 }
 
 model TrialBooking {
-  id        String             @id @default(cuid())
-  tenantId  String
-  leadId    String
-  classId   String?
-  trialDate DateTime
-  status    TrialBookingStatus @default(BOOKED)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id                      String             @id @default(cuid())
+  tenantId                String
+  leadId                  String
+  classId                 String?
+  courseId                String?
+  assignedSaleId          String?
+  // Snapshot fields - captured at time of booking
+  studentNameSnapshot     String?
+  parentNameSnapshot      String?
+  phoneSnapshot           String?
+  interestedCourseSnapshot String?
+  noteSnapshot            String?            @db.Text
+  trialDate               DateTime
+  status                  TrialBookingStatus @default(BOOKED)
+  reminderSent24h         Boolean            @default(false)
+  reminderSent3h          Boolean            @default(false)
+  reminderSent1h          Boolean            @default(false)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   lead   Lead   @relation(fields: [leadId], references: [id])
   class  Class? @relation(fields: [classId], references: [id])
+  course Course? @relation(fields: [courseId], references: [id])
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, status])
+  @@index([tenantId, trialDate])
 }
 
 model FollowUpTask {
@@ -779,6 +825,8 @@ model Course {
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
   classes          Class[]
+  leads            Lead[]
+  trialBookings    TrialBooking[]
   enrollmentOffers EnrollmentOffer[]
 
   @@index([tenantId])
@@ -1268,4 +1316,37 @@ model ScheduledTaskRun {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, taskName])
+}
+
+
+model LeadBatch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  source      String?
+  importedBy  String?
+  importedAt  DateTime @default(now())
+  totalLeads  Int      @default(0)
+  notes       String?  @db.Text
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  leads  Lead[]
+
+  @@index([tenantId])
+}
+
+model CallAttempt {
+  id        String      @id @default(cuid())
+  tenantId  String
+  leadId    String
+  saleId    String?
+  outcome   CallOutcome
+  notes     String?     @db.Text
+  duration  Int?
+  calledAt  DateTime    @default(now())
+
+  lead   Lead   @relation(fields: [leadId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, leadId])
 }

@@ -45,8 +45,73 @@ export default async function DashboardPage() {
     where: { tenantId, status: "OFFLINE" }
   });
 
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
+  
+  if (!tenant) {
+    console.error(`[Dashboard] Tenant not found for activeTenantId: ${tenantId}`);
+  }
+
+  // Developer diagnostic logs
+  console.log(`[Diagnostic] activeTenantId: ${tenantId}`);
+  console.log(`[Diagnostic] tenantName: ${tenant?.name || 'NOT FOUND'}`);
+  console.log(`[Diagnostic] studentCount: ${summary.totalStudents}`);
+  console.log(`[Diagnostic] classCount: ${summary.totalClasses}`);
+  console.log(`[Diagnostic] leadCount: ${summary.totalLeads}`);
+  console.log(`[Diagnostic] invoiceCount: ${summary.totalUnpaidInvoices}`);
+
+  // Attendance stats for today
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+  const todaySessions = await prisma.classSession.findMany({
+    where: { tenantId, startTime: { gte: startOfDay, lte: endOfDay } },
+    include: { attendances: true }
+  });
+
+  let totalPresent = 0;
+  let totalAttendances = 0;
+  let studentsAbsentToday = 0;
+
+  todaySessions.forEach(session => {
+    totalAttendances += session.attendances.length;
+    session.attendances.forEach(a => {
+      if (a.status === "PRESENT") totalPresent++;
+      if (a.status === "ABSENT" || a.status === "EXCUSED") studentsAbsentToday++;
+    });
+  });
+
+  const attendanceRate = totalAttendances > 0 ? Math.round((totalPresent / totalAttendances) * 100) + "%" : "N/A";
+  const scheduledReminders = await prisma.scheduledTaskRun.count({
+    where: { tenantId, taskName: { endsWith: "_CLASS_REMINDER_60M" }, createdAt: { gte: startOfDay } }
+  });
+
+  // Students absent 2+ sessions
+  const absences = await prisma.attendance.groupBy({
+    by: ['studentId'],
+    where: { tenantId, status: { in: ['ABSENT', 'EXCUSED'] } },
+    _count: { studentId: true },
+    having: { studentId: { _count: { gte: 2 } } }
+  });
+  const studentsAbsentMultiple = absences.length;
+
+  // Sales Funnel metrics
+  const totalLeads = await prisma.lead.count({ where: { tenantId } });
+  const contactedLeads = await prisma.lead.count({ where: { tenantId, stage: { notIn: ['NEW'] } } });
+  const bookedLeads = await prisma.lead.count({ where: { tenantId, stage: { in: ['BOOKED_TRIAL', 'ATTENDED_TRIAL', 'WON'] } } });
+  const paidLeads = await prisma.lead.count({ where: { tenantId, stage: 'WON' } });
+
   return (
     <div className="space-y-10 pb-12">
+      {!tenant && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+          <h3 className="text-red-800 font-bold">Lỗi Phiên Đăng Nhập (Phiên Cũ)</h3>
+          <p className="text-red-700 text-sm mt-1">
+            Không tìm thấy trung tâm (Tenant ID: {tenantId}). Dữ liệu của bạn có thể đã được reset. 
+            Vui lòng <a href="/api/auth/logout" className="underline font-bold text-blue-600">bấm vào đây để đăng xuất</a> và đăng nhập lại.
+          </p>
+        </div>
+      )}
       
       {/* 1. Executive KPIs */}
       <section>
@@ -58,11 +123,13 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <StatCard title="Học viên" value={summary.totalStudents.toString()} trend="neutral" description="Đang theo học" icon={<GraduationCap className="w-5 h-5 text-purple-600" />} />
           <StatCard title="Lớp học" value={summary.totalClasses.toString()} trend="neutral" description="Đang hoạt động" icon={<Users className="w-5 h-5 text-fuchsia-600" />} />
-          <StatCard title="Lead mới tháng này" value={summary.totalLeads.toString()} trend="up" description="Chưa chuyển đổi" icon={<Users className="w-5 h-5 text-blue-600" />} />
-          <StatCard title="Học thử tuần này" value={summary.totalTrialBookings.toString()} trend="neutral" description="Đã đặt lịch" icon={<BookOpen className="w-5 h-5 text-indigo-600" />} />
+          <StatCard title="Học viên vắng (Hôm nay)" value={studentsAbsentToday.toString()} trend="up" description="Cần follow-up" icon={<AlertTriangle className="w-5 h-5 text-rose-600" />} />
+          <StatCard title="Vắng 2+ buổi" value={studentsAbsentMultiple.toString()} trend="up" description="Nguy cơ bỏ học" icon={<AlertTriangle className="w-5 h-5 text-rose-800" />} />
+          <StatCard title="Bài tập cần chấm" value="1" trend="up" description="AI đã tạo draft" icon={<FileEdit className="w-5 h-5 text-purple-600" />} />
+          <StatCard title="Lớp chưa giao BT" value="1" trend="up" description="Cần nhắc GV" icon={<FileEdit className="w-5 h-5 text-amber-600" />} />
+          <StatCard title="Nhắc lịch tự động" value={scheduledReminders.toString()} trend="up" description="Đã đặt lịch hôm nay" icon={<Clock className="w-5 h-5 text-blue-600" />} />
+          <StatCard title="Tỷ lệ chuyên cần" value={attendanceRate} trend="neutral" description="Hôm nay" icon={<CheckSquare className="w-5 h-5 text-teal-600" />} />
           <StatCard title="Hóa đơn chưa thu" value={summary.totalUnpaidInvoices.toString()} trend="down" description="Cần theo dõi" icon={<AlertTriangle className="w-5 h-5 text-warning" />} />
-          <StatCard title="Tỷ lệ chuyên cần" value="95%" trend="up" description="Cao hơn trung bình" icon={<CheckSquare className="w-5 h-5 text-teal-600" />} />
-          <StatCard title="Báo cáo phụ huynh" value="10" trend="neutral" description="Đang chờ duyệt gửi" icon={<FileEdit className="w-5 h-5 text-fuchsia-600" />} />
           <StatCard title="Zalo Bot VPS" value="Online" description="Hoạt động ổn định 24/7" icon={<CheckCircle2 className="w-5 h-5 text-success" />} />
         </div>
       </section>
@@ -104,17 +171,29 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          {/* Polished Mock Charts */}
+          {/* Sales Funnel Chart */}
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="border-border shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Xu hướng tuyển sinh</CardTitle>
-                <p className="text-xs text-slate-500">Số lượng lead mới trong 6 tháng qua</p>
+                <CardTitle className="text-base">Phễu Tuyển sinh</CardTitle>
+                <p className="text-xs text-slate-500">Data &rarr; Đã gọi &rarr; Học thử &rarr; Đã nộp tiền</p>
               </CardHeader>
-              <CardContent className="h-56 flex items-end justify-between gap-2 pt-4">
-                {[40, 60, 45, 80, 55, 90].map((h, i) => (
-                  <div key={i} className="w-full bg-primary/20 hover:bg-primary rounded-t-md transition-colors relative group" style={{ height: `${h}%` }}>
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{h} Leads</div>
+              <CardContent className="h-56 flex items-end justify-between gap-4 pt-4 px-6 pb-6">
+                {[
+                  { label: 'Tổng Data', value: totalLeads },
+                  { label: 'Đã liên hệ', value: contactedLeads },
+                  { label: 'Đặt lịch thử', value: bookedLeads },
+                  { label: 'Đã nộp tiền', value: paidLeads }
+                ].map((step, i) => (
+                  <div key={i} className="w-full flex flex-col items-center justify-end h-full group">
+                    <div className="absolute -translate-y-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap mb-2">
+                      {step.value}
+                    </div>
+                    <div 
+                      className="w-full bg-primary hover:bg-primary/80 rounded-t-md transition-colors relative" 
+                      style={{ height: `${totalLeads > 0 ? Math.max((step.value / totalLeads) * 100, 5) : 5}%` }}
+                    />
+                    <p className="text-xs text-zinc-500 text-center mt-2 h-6">{step.label}</p>
                   </div>
                 ))}
               </CardContent>
