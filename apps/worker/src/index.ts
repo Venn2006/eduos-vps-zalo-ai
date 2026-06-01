@@ -9,10 +9,19 @@ const redisConnection = new IORedis(process.env.REDIS_URL || "redis://localhost:
 
 import { initClassReminderScheduler } from "./schedulers/classReminder";
 import { initHomeworkReminderScheduler } from "./schedulers/homeworkReminder";
+import { checkAndCreateDebtReminders } from "./schedulers/debtReminder";
+import { checkAndCreateRenewalReminders } from "./schedulers/renewalReminder";
 
 logger.info("Initializing BullMQ Workers...");
 initClassReminderScheduler();
 initHomeworkReminderScheduler();
+
+// In a real app, these would be cron jobs (e.g. using node-cron or BullMQ repeat jobs)
+// For mock/demo purposes, we'll run them once on startup or periodically.
+setTimeout(() => {
+  checkAndCreateDebtReminders().catch(console.error);
+  checkAndCreateRenewalReminders().catch(console.error);
+}, 5000);
 
 const queues = [
   QueueNames.ZALO_OUTBOX,

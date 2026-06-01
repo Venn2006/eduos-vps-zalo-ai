@@ -45,6 +45,18 @@ export default async function DashboardPage() {
     where: { tenantId, status: "OFFLINE" }
   });
 
+  const debtRemindersCount = await prisma.zaloOutboxMessage.count({
+    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "học phí" } }
+  });
+
+  const renewalRemindersCount = await prisma.zaloOutboxMessage.count({
+    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "tái phí" } }
+  });
+
+  const pendingParentReports = await prisma.weeklyParentReport.count({
+    where: { tenantId, status: { in: ["PENDING_TEACHER_REVIEW", "PENDING_ADMIN_APPROVAL"] } }
+  });
+
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
   
   if (!tenant) {
@@ -125,7 +137,7 @@ export default async function DashboardPage() {
           <StatCard title="Lớp học" value={summary.totalClasses.toString()} trend="neutral" description="Đang hoạt động" icon={<Users className="w-5 h-5 text-fuchsia-600" />} />
           <StatCard title="Học viên vắng (Hôm nay)" value={studentsAbsentToday.toString()} trend="up" description="Cần follow-up" icon={<AlertTriangle className="w-5 h-5 text-rose-600" />} />
           <StatCard title="Vắng 2+ buổi" value={studentsAbsentMultiple.toString()} trend="up" description="Nguy cơ bỏ học" icon={<AlertTriangle className="w-5 h-5 text-rose-800" />} />
-          <StatCard title="Bài tập cần chấm" value="1" trend="up" description="AI đã tạo draft" icon={<FileEdit className="w-5 h-5 text-purple-600" />} />
+          <StatCard title="Báo cáo cần duyệt" value={pendingParentReports.toString()} trend="neutral" description="AI gửi phụ huynh" icon={<FileEdit className="w-5 h-5 text-purple-600" />} />
           <StatCard title="Lớp chưa giao BT" value="1" trend="up" description="Cần nhắc GV" icon={<FileEdit className="w-5 h-5 text-amber-600" />} />
           <StatCard title="Nhắc lịch tự động" value={scheduledReminders.toString()} trend="up" description="Đã đặt lịch hôm nay" icon={<Clock className="w-5 h-5 text-blue-600" />} />
           <StatCard title="Tỷ lệ chuyên cần" value={attendanceRate} trend="neutral" description="Hôm nay" icon={<CheckSquare className="w-5 h-5 text-teal-600" />} />
@@ -262,6 +274,15 @@ export default async function DashboardPage() {
                 actionLabel="Duyệt báo cáo"
                 badges={["needs-review", "ai-generated"]}
               />
+              {(debtRemindersCount > 0 || renewalRemindersCount > 0) && (
+                <AiSuggestionCard 
+                  type="draft"
+                  title={`${debtRemindersCount} Nhắc nợ & ${renewalRemindersCount} Tái phí`} 
+                  description="AI đã tạo tin nhắn tự động nhắc nhở công nợ và gia hạn học phí. Chờ bạn duyệt để gửi vào Zalo cá nhân."
+                  actionLabel="Duyệt nhắc nhở"
+                  badges={["system", "needs-review"]}
+                />
+              )}
               <AiSuggestionCard 
                 type="insight"
                 title="Gợi ý follow-up" 

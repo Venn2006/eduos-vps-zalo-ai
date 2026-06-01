@@ -183,15 +183,27 @@ export default async function connectorRoutes(app: FastifyInstance) {
   app.get("/zalo/outbox", async (request, reply) => {
     const { tenantId } = (request as any).connectorContext as ConnectorContext;
     
-    // Find pending/draft messages.
-    // In real app, only APPROVED or SENT. Here DRAFT is fine for mock.
-    const messages = await prisma.zaloOutboxMessage.findMany({
+    const rawMessages = await prisma.zaloOutboxMessage.findMany({
       where: {
         tenantId,
         status: { in: ["DRAFT", "APPROVED"] }
       },
       take: 50,
     });
+
+    const messages = [];
+    for (const msg of rawMessages) {
+      const isFinancialCategory = msg.text && (msg.text.toLowerCase().includes("học phí") || msg.text.toLowerCase().includes("tái phí"));
+      if ((msg.isSensitive || isFinancialCategory) && msg.targetGroupId) {
+        logger.error(`Safety Guard Triggered: Sensitive/Financial message ${msg.id} cannot be sent to group ${msg.targetGroupId}`);
+        await prisma.zaloOutboxMessage.update({
+          where: { id: msg.id },
+          data: { status: "FAILED" }
+        });
+        continue;
+      }
+      messages.push(msg);
+    }
 
     return reply.send({ messages });
   });

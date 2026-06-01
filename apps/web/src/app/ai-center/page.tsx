@@ -21,6 +21,18 @@ export default async function AiCenterPage() {
     }
   });
 
+  const pendingMessages = await prisma.zaloOutboxMessage.findMany({
+    where: { tenantId, status: "PENDING_APPROVAL" }
+  });
+
+  const debtReminders = pendingMessages.filter(m => m.text.includes("học phí"));
+  const renewalReminders = pendingMessages.filter(m => m.text.includes("tái phí"));
+
+  const parentReports = await prisma.weeklyParentReport.findMany({
+    where: { tenantId, status: { in: ["PENDING_TEACHER_REVIEW", "PENDING_ADMIN_APPROVAL", "DRAFT"] } },
+    include: { student: true }
+  });
+
   return (
     <div className="space-y-8 pb-10">
       <SectionHeader 
@@ -36,20 +48,26 @@ export default async function AiCenterPage() {
           <Card className="shadow-sm border-primary/20">
             <CardHeader className="bg-primary/5 border-b border-primary/10">
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                <FileText className="w-5 h-5" /> Báo cáo cần duyệt (10)
+                <FileText className="w-5 h-5" /> Báo cáo cần duyệt ({parentReports.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              {[1, 2, 3].map(i => (
-                <AiSuggestionCard 
-                  key={i}
-                  type="draft"
-                  title={`Báo cáo phụ huynh học sinh Nguyễn Văn ${i}`}
-                  description="AI đã tổng hợp từ điểm số, điểm danh và đánh giá của giáo viên. Nhấn xem chi tiết để duyệt và gửi Zalo."
-                  actionLabel="Duyệt gửi"
-                  badges={["ai-generated", "needs-review"]}
-                />
-              ))}
+              {parentReports.map(report => {
+                let risks: any[] = [];
+                try { risks = JSON.parse(report.riskFlagsJson || "[]"); } catch(e){}
+                const hasHighRisk = risks.some(r => r.severity === "HIGH");
+
+                return (
+                  <AiSuggestionCard
+                    key={report.id}
+                    type={hasHighRisk ? "alert" : "draft"}
+                    title={`Báo cáo phụ huynh học sinh ${report.student.name}`}
+                    description={`Trạng thái: ${report.status}. AI đã tổng hợp từ điểm số, điểm danh. Nhấn xem chi tiết để duyệt và gửi Zalo.`}
+                    actionLabel="Duyệt gửi"
+                    badges={["ai-generated", "needs-review"]}
+                  />
+                );
+              })}
               <Button variant="ghost" className="w-full text-primary hover:text-primary hover:bg-primary/10">Xem tất cả 10 báo cáo</Button>
             </CardContent>
           </Card>
@@ -74,7 +92,6 @@ export default async function AiCenterPage() {
             </CardContent>
           </Card>
 
-          {/* AI Homework Grading */}
           <Card className="shadow-sm border-purple-500/20">
             <CardHeader className="bg-purple-50 border-b border-purple-100">
               <CardTitle className="text-lg flex items-center gap-2 text-purple-700">
@@ -93,6 +110,40 @@ export default async function AiCenterPage() {
                   description={`AI đã chấm điểm ${draft.score}/10. Nhận xét: ${draft.comment}. Chờ giáo viên duyệt để gửi.`}
                   actionLabel="Duyệt & Gửi"
                   badges={["ai-generated", "needs-review"]}
+                />
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Finance Reminders */}
+          <Card className="shadow-sm border-warning-strong/20">
+            <CardHeader className="bg-warning/5 border-b border-warning/10">
+              <CardTitle className="text-lg flex items-center gap-2 text-warning-strong">
+                <Bot className="w-5 h-5" /> Nhắc nhở Công nợ & Tái phí (Chờ duyệt)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {debtReminders.length === 0 && renewalReminders.length === 0 && (
+                <div className="text-sm text-slate-500 py-4 text-center">Không có tin nhắn nhắc nhở nào đang chờ duyệt.</div>
+              )}
+              {debtReminders.map(msg => (
+                <AiSuggestionCard 
+                  key={msg.id}
+                  type="draft"
+                  title="Tin nhắn Nhắc nợ (Zalo Cá nhân)"
+                  description={msg.text}
+                  actionLabel="Duyệt gửi Zalo"
+                  badges={["system", "needs-review"]}
+                />
+              ))}
+              {renewalReminders.map(msg => (
+                <AiSuggestionCard 
+                  key={msg.id}
+                  type="draft"
+                  title="Tư vấn Tái phí (Zalo Cá nhân)"
+                  description={msg.text}
+                  actionLabel="Duyệt gửi Zalo"
+                  badges={["system", "needs-review"]}
                 />
               ))}
             </CardContent>

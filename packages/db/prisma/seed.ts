@@ -397,6 +397,8 @@ async function main() {
       data: { 
         tenantId: tId, 
         studentId: students[i].id, 
+        guardianId: guardians[i % guardians.length].id,
+        invoiceCode: `INV-${new Date().getFullYear()}-${(i+1).toString().padStart(4, '0')}`,
         totalAmount: 1000000, 
         remainingAmount: remainingAmount, 
         dueDate: generateDates(5), 
@@ -407,23 +409,61 @@ async function main() {
       await prisma.payment.create({ data: { tenantId: tId, invoiceId: inv.id, amount: 500000 } });
     }
     if (i >= 30) {
-      await prisma.debtReminder.create({ data: { tenantId: tId, invoiceId: inv.id } });
+      await prisma.debtReminder.create({ 
+        data: { 
+          tenantId: tId, 
+          invoiceId: inv.id,
+          studentId: students[i].id,
+          guardianId: guardians[i % guardians.length].id,
+          reminderType: "OVERDUE",
+          daysOffset: 3,
+          draftContent: `OMLIS xin chào phụ huynh của bé ${students[i].name}...`,
+          targetChannel: "ZALO_PERSONAL"
+        } 
+      });
     }
   }
   for (let i=0; i<15; i++) {
     await prisma.renewalCandidate.create({
-      data: { tenantId: tId, studentId: students[i].id, sessionsLeft: 2 }
+      data: { 
+        tenantId: tId, 
+        studentId: students[i].id, 
+        remainingSessions: 2,
+        expectedEndDate: generateDates(10),
+        suggestedRenewalCourse: "Level 2 Advanced",
+        renewalAmountEstimate: 2500000
+      }
     });
   }
 
   // 14. Reports & Deliveries
-  const reportStatuses = ["DRAFT", "PENDING_APPROVAL", "SENT", "FAILED"];
+  const reportStatuses = ["DRAFT", "PENDING_TEACHER_REVIEW", "PENDING_ADMIN_APPROVAL", "APPROVED", "SENT"];
   for (let i=0; i<10; i++) {
+    const riskFlags = i % 3 === 0 ? [{ type: "ATTENDANCE_RISK", severity: "MEDIUM", reason: "Absent 2 times", suggestedAction: "Contact parent", visibleToParent: true }] : [];
     const rep = await prisma.weeklyParentReport.create({
-      data: { tenantId: tId, studentId: students[i].id, guardianId: guardians[i].id, weekStart: generateDates(-7), weekEnd: generateDates(0), summary: "Weekly summary of progress" }
+      data: { 
+        tenantId: tId, 
+        studentId: students[i].id, 
+        guardianId: guardians[i].id, 
+        weekStart: generateDates(-7), 
+        weekEnd: generateDates(0), 
+        attendanceSummaryJson: "{}",
+        homeworkSummaryJson: "{}",
+        gradingSummaryJson: "{}",
+        rewardSummaryJson: "{}",
+        riskFlagsJson: JSON.stringify(riskFlags),
+        aiDraftContent: "Weekly summary of progress draft...",
+        status: reportStatuses[i % reportStatuses.length] as any
+      }
     });
     await prisma.parentReportDelivery.create({
-      data: { tenantId: tId, reportId: rep.id, channel: "ZALO_PERSONAL", status: reportStatuses[i % reportStatuses.length] }
+      data: { 
+        tenantId: tId, 
+        reportId: rep.id, 
+        guardianId: guardians[i].id,
+        targetChannel: "ZALO_PERSONAL", 
+        status: "DRAFT" 
+      }
     });
   }
 

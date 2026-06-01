@@ -174,9 +174,27 @@ enum ConnectorStatus {
 
 enum ReportStatus {
   DRAFT
+  PENDING_TEACHER_REVIEW
+  PENDING_ADMIN_APPROVAL
+  APPROVED
+  SENT
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  DRAFT
   PENDING_APPROVAL
+  APPROVED
   SENT
   FAILED
+  CANCELLED
+  MANUAL_REQUIRED
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum AiProvider {
@@ -201,41 +219,72 @@ enum RewardEventType {
   MANUAL_ADJUSTMENT
 }
 
+enum ReminderType {
+  BEFORE_DUE
+  DUE_TODAY
+  OVERDUE
+  PARTIAL_PAYMENT
+  MANUAL
+}
+
+enum TargetChannel {
+  ZALO_PERSONAL
+  ZALO_OA
+  MANUAL
+}
+
+enum ReminderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  CANCELLED
+  FAILED
+}
+
+enum RenewalStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  RENEWED
+  LOST
+}
+
 // ---------------------------------------------------------
 // CORE MODELS
 // ---------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  slug      String   @unique
+  slug      String    @unique
   hotline   String?
   email     String?
   address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   members TenantMember[]
 
   // CRM
-  leadSources     LeadSource[]
-  leads           Lead[]
-  leadBatches     LeadBatch[]
-  callAttempts    CallAttempt[]
-  trialBookings   TrialBooking[]
-  followUpTasks   FollowUpTask[]
-  leadActivities  LeadActivity[]
+  leadSources      LeadSource[]
+  leads            Lead[]
+  leadBatches      LeadBatch[]
+  callAttempts     CallAttempt[]
+  trialBookings    TrialBooking[]
+  followUpTasks    FollowUpTask[]
+  leadActivities   LeadActivity[]
   enrollmentOffers EnrollmentOffer[]
 
   // Facebook
-  facebookPages        FacebookPage[]
+  facebookPages         FacebookPage[]
   facebookConversations FacebookConversation[]
-  facebookMessages     FacebookMessage[]
+  facebookMessages      FacebookMessage[]
   facebookWebhookEvents FacebookWebhookEvent[]
 
   // Zalo
-  zaloPersonalAccounts ZaloPersonalAccount[]
+  zaloPersonalAccounts  ZaloPersonalAccount[]
   zaloConnectorSessions ZaloConnectorSession[]
   connectorHeartbeats   ConnectorHeartbeat[]
   zaloGroups            ZaloGroup[]
@@ -271,10 +320,10 @@ model Tenant {
   rewardLedgers       RewardLedger[]
 
   // Finance
-  invoices         Invoice[]
-  invoiceItems     InvoiceItem[]
-  payments         Payment[]
-  debtReminders    DebtReminder[]
+  invoices          Invoice[]
+  invoiceItems      InvoiceItem[]
+  payments          Payment[]
+  debtReminders     DebtReminder[]
   renewalCandidates RenewalCandidate[]
   renewalTasks      RenewalTask[]
 
@@ -288,23 +337,24 @@ model Tenant {
   aiPromptTemplates AiPromptTemplate[]
 
   // System
-  jobLogs            JobLog[]
-  failedJobs         FailedJob[]
-  webhookEvents      WebhookEvent[]
-  scheduledTaskRuns  ScheduledTaskRun[]
+  jobLogs           JobLog[]
+  failedJobs        FailedJob[]
+  webhookEvents     WebhookEvent[]
+  scheduledTaskRuns ScheduledTaskRun[]
 
   @@index([slug])
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  tenantMembers TenantMember[]
+  tenantMembers   TenantMember[]
+  reportedReports WeeklyParentReport[] @relation("ReportApprover")
 }
 
 model TenantMember {
@@ -343,14 +393,14 @@ model AuditLog {
 // ---------------------------------------------------------
 
 model LeadSource {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  leads Lead[]
+  leads  Lead[]
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
@@ -381,10 +431,10 @@ model Lead {
   updatedAt          DateTime        @updatedAt
   deletedAt          DateTime?
 
-  source           LeadSource?      @relation(fields: [sourceId], references: [id])
-  batch            LeadBatch?       @relation(fields: [batchId], references: [id])
-  tenant           Tenant           @relation(fields: [tenantId], references: [id])
-  course           Course?          @relation(fields: [interestedCourseId], references: [id])
+  source           LeadSource?       @relation(fields: [sourceId], references: [id])
+  batch            LeadBatch?        @relation(fields: [batchId], references: [id])
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  course           Course?           @relation(fields: [interestedCourseId], references: [id])
   trialBookings    TrialBooking[]
   activities       LeadActivity[]
   followUpTasks    FollowUpTask[]
@@ -397,30 +447,30 @@ model Lead {
 }
 
 model TrialBooking {
-  id                      String             @id @default(cuid())
-  tenantId                String
-  leadId                  String
-  classId                 String?
-  courseId                String?
-  assignedSaleId          String?
+  id                       String             @id @default(cuid())
+  tenantId                 String
+  leadId                   String
+  classId                  String?
+  courseId                 String?
+  assignedSaleId           String?
   // Snapshot fields - captured at time of booking
-  studentNameSnapshot     String?
-  parentNameSnapshot      String?
-  phoneSnapshot           String?
+  studentNameSnapshot      String?
+  parentNameSnapshot       String?
+  phoneSnapshot            String?
   interestedCourseSnapshot String?
-  noteSnapshot            String?            @db.Text
-  trialDate               DateTime
-  status                  TrialBookingStatus @default(BOOKED)
-  reminderSent24h         Boolean            @default(false)
-  reminderSent3h          Boolean            @default(false)
-  reminderSent1h          Boolean            @default(false)
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  noteSnapshot             String?            @db.Text
+  trialDate                DateTime
+  status                   TrialBookingStatus @default(BOOKED)
+  reminderSent24h          Boolean            @default(false)
+  reminderSent3h           Boolean            @default(false)
+  reminderSent1h           Boolean            @default(false)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
 
-  lead   Lead   @relation(fields: [leadId], references: [id])
-  class  Class? @relation(fields: [classId], references: [id])
+  lead   Lead    @relation(fields: [leadId], references: [id])
+  class  Class?  @relation(fields: [classId], references: [id])
   course Course? @relation(fields: [courseId], references: [id])
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, status])
   @@index([tenantId, trialDate])
@@ -458,15 +508,15 @@ model LeadActivity {
 }
 
 model EnrollmentOffer {
-  id         String   @id @default(cuid())
-  tenantId   String
-  leadId     String
-  courseId   String
+  id           String   @id @default(cuid())
+  tenantId     String
+  leadId       String
+  courseId     String
   priceOffered Float
-  status     String
-  validUntil DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status       String
+  validUntil   DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   lead   Lead   @relation(fields: [leadId], references: [id])
   course Course @relation(fields: [courseId], references: [id])
@@ -529,12 +579,12 @@ model FacebookMessage {
 }
 
 model FacebookWebhookEvent {
-  id           String   @id @default(cuid())
-  tenantId     String
-  eventId      String
-  payloadJson  String   @db.Text
-  processedAt  DateTime?
-  createdAt    DateTime @default(now())
+  id          String    @id @default(cuid())
+  tenantId    String
+  eventId     String
+  payloadJson String    @db.Text
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -589,20 +639,21 @@ model ConnectorHeartbeat {
 }
 
 model ZaloGroup {
-  id               String        @id @default(cuid())
-  tenantId         String
-  externalGroupId  String
-  name             String
-  groupType        ZaloGroupType @default(CLASS)
-  isActive         Boolean       @default(true)
-  classId          String?       @unique
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  tenantId        String
+  externalGroupId String
+  name            String
+  groupType       ZaloGroupType @default(CLASS)
+  isActive        Boolean       @default(true)
+  classId         String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  class    Class?            @relation(fields: [classId], references: [id])
-  tenant   Tenant            @relation(fields: [tenantId], references: [id])
-  members  ZaloGroupMember[]
-  messages ZaloMessage[]
+  class          Class?              @relation(fields: [classId], references: [id])
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  members        ZaloGroupMember[]
+  messages       ZaloMessage[]
+  outboxMessages ZaloOutboxMessage[]
 
   @@unique([tenantId, externalGroupId])
   @@index([tenantId])
@@ -641,10 +692,11 @@ model ZaloIdentity {
   guardian Guardian? @relation(fields: [guardianId], references: [id])
   teacher  Teacher?  @relation(fields: [teacherId], references: [id])
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  
-  groupMembers  ZaloGroupMember[]
-  messages      ZaloMessage[]
-  conversations ZaloConversation[]
+
+  groupMembers   ZaloGroupMember[]
+  messages       ZaloMessage[]
+  conversations  ZaloConversation[]
+  outboxMessages ZaloOutboxMessage[]
 
   @@unique([tenantId, externalUserId])
   @@index([tenantId])
@@ -681,11 +733,11 @@ model ZaloMessage {
   isProcessed       Boolean          @default(false)
   createdAt         DateTime         @default(now())
 
-  group        ZaloGroup?        @relation(fields: [groupId], references: [id])
-  conversation ZaloConversation? @relation(fields: [conversationId], references: [id])
-  sender       ZaloIdentity?     @relation(fields: [senderId], references: [id])
-  tenant       Tenant            @relation(fields: [tenantId], references: [id])
-  attachments  ZaloAttachment[]
+  group               ZaloGroup?           @relation(fields: [groupId], references: [id])
+  conversation        ZaloConversation?    @relation(fields: [conversationId], references: [id])
+  sender              ZaloIdentity?        @relation(fields: [senderId], references: [id])
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  attachments         ZaloAttachment[]
   homeworkSubmissions HomeworkSubmission[]
 
   @@unique([tenantId, externalMessageId])
@@ -721,7 +773,10 @@ model ZaloOutboxMessage {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant                 Tenant                 @relation(fields: [tenantId], references: [id])
+  targetGroup            ZaloGroup?             @relation(fields: [targetGroupId], references: [id])
+  targetIdentity         ZaloIdentity?          @relation(fields: [targetIdentityId], references: [id])
+  parentReportDeliveries ParentReportDelivery[]
 
   @@index([tenantId, status])
 }
@@ -767,7 +822,7 @@ model ClassAutomationTemplate {
   createdAt                                DateTime @default(now())
   updatedAt                                DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant  Tenant                   @relation(fields: [tenantId], references: [id])
   classes ClassAutomationSetting[]
 
   @@index([tenantId])
@@ -814,33 +869,34 @@ model ClassBootstrapCommand {
 }
 
 model Course {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   name        String
   description String?
   level       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
   classes          Class[]
   leads            Lead[]
   trialBookings    TrialBooking[]
   enrollmentOffers EnrollmentOffer[]
+  RenewalCandidate RenewalCandidate[]
 
   @@index([tenantId])
 }
 
 model Teacher {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   name      String
   phone     String?
   email     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   tenant         Tenant            @relation(fields: [tenantId], references: [id])
@@ -862,15 +918,17 @@ model Class {
   updatedAt DateTime    @updatedAt
   deletedAt DateTime?
 
-  course            Course                  @relation(fields: [courseId], references: [id])
-  teacher           Teacher?                @relation(fields: [teacherId], references: [id])
-  tenant            Tenant                  @relation(fields: [tenantId], references: [id])
-  zaloGroup         ZaloGroup?
-  automationSetting ClassAutomationSetting?
-  sessions          ClassSession[]
-  enrollments       Enrollment[]
-  trialBookings     TrialBooking[]
-  homeworks         Homework[]
+  course              Course                  @relation(fields: [courseId], references: [id])
+  teacher             Teacher?                @relation(fields: [teacherId], references: [id])
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  zaloGroup           ZaloGroup?
+  automationSetting   ClassAutomationSetting?
+  sessions            ClassSession[]
+  enrollments         Enrollment[]
+  trialBookings       TrialBooking[]
+  homeworks           Homework[]
+  RenewalCandidate    RenewalCandidate[]
+  weeklyParentReports WeeklyParentReport[]
 
   @@unique([tenantId, classCode])
   @@index([tenantId, status])
@@ -897,14 +955,14 @@ model ClassSession {
 }
 
 model Student {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   tenantId   String
   name       String
   phone      String?
   dob        DateTime?
   guardianId String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
   guardian            Guardian?             @relation(fields: [guardianId], references: [id])
@@ -918,24 +976,28 @@ model Student {
   zaloIdentities      ZaloIdentity[]
   weeklyParentReports WeeklyParentReport[]
   renewalCandidates   RenewalCandidate[]
+  DebtReminder        DebtReminder[]
 
   @@index([tenantId])
 }
 
 model Guardian {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   name      String
   phone     String
   email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant              Tenant               @relation(fields: [tenantId], references: [id])
-  students            Student[]
-  zaloIdentities      ZaloIdentity[]
-  weeklyParentReports WeeklyParentReport[]
+  tenant                 Tenant                 @relation(fields: [tenantId], references: [id])
+  students               Student[]
+  zaloIdentities         ZaloIdentity[]
+  weeklyParentReports    WeeklyParentReport[]
+  Invoice                Invoice[]
+  DebtReminder           DebtReminder[]
+  parentReportDeliveries ParentReportDelivery[]
 
   @@index([tenantId])
 }
@@ -950,11 +1012,12 @@ model Enrollment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  student Student @relation(fields: [studentId], references: [id])
-  class   Class   @relation(fields: [classId], references: [id])
-  lead    Lead?   @relation(fields: [leadId], references: [id])
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  invoices Invoice[]
+  student          Student            @relation(fields: [studentId], references: [id])
+  class            Class              @relation(fields: [classId], references: [id])
+  lead             Lead?              @relation(fields: [leadId], references: [id])
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  invoices         Invoice[]
+  RenewalCandidate RenewalCandidate[]
 
   @@unique([tenantId, studentId, classId])
   @@index([tenantId])
@@ -1008,9 +1071,9 @@ model Homework {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  class       Class         @relation(fields: [classId], references: [id])
-  session     ClassSession? @relation(fields: [classSessionId], references: [id])
-  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  class       Class                @relation(fields: [classId], references: [id])
+  session     ClassSession?        @relation(fields: [classSessionId], references: [id])
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
   submissions HomeworkSubmission[]
 
   @@index([tenantId, classId, dueAt])
@@ -1026,10 +1089,10 @@ model HomeworkSubmission {
   submittedAt     DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  homework      Homework         @relation(fields: [homeworkId], references: [id])
-  student       Student          @relation(fields: [studentId], references: [id])
-  sourceMessage ZaloMessage?     @relation(fields: [sourceMessageId], references: [id])
-  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  homework      Homework          @relation(fields: [homeworkId], references: [id])
+  student       Student           @relation(fields: [studentId], references: [id])
+  sourceMessage ZaloMessage?      @relation(fields: [sourceMessageId], references: [id])
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
   aiGradeDrafts AiGradeDraft[]
   feedbacks     TeacherFeedback[]
 
@@ -1091,17 +1154,21 @@ model Invoice {
   id              String        @id @default(cuid())
   tenantId        String
   studentId       String
+  guardianId      String?
   enrollmentId    String?
+  invoiceCode     String
   totalAmount     Float
   paidAmount      Float         @default(0)
   remainingAmount Float
   dueDate         DateTime
   status          InvoiceStatus @default(UNPAID)
+  notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
 
   student       Student        @relation(fields: [studentId], references: [id])
+  guardian      Guardian?      @relation(fields: [guardianId], references: [id])
   enrollment    Enrollment?    @relation(fields: [enrollmentId], references: [id])
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   items         InvoiceItem[]
@@ -1132,6 +1199,9 @@ model Payment {
   amount        Float
   paymentMethod PaymentMethod @default(CASH)
   paidAt        DateTime      @default(now())
+  receivedById  String?
+  referenceCode String?
+  note          String?
   createdAt     DateTime      @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id])
@@ -1141,31 +1211,51 @@ model Payment {
 }
 
 model DebtReminder {
-  id          String       @id @default(cuid())
-  tenantId    String
-  invoiceId   String
-  status      ReportStatus @default(DRAFT)
-  sentAt      DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                   String         @id @default(cuid())
+  tenantId             String
+  invoiceId            String
+  studentId            String
+  guardianId           String?
+  reminderType         ReminderType
+  daysOffset           Int
+  draftContent         String
+  status               ReminderStatus @default(DRAFT)
+  targetChannel        TargetChannel
+  targetZaloIdentityId String?
+  approvedById         String?
+  sentAt               DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice  Invoice   @relation(fields: [invoiceId], references: [id])
+  student  Student   @relation(fields: [studentId], references: [id])
+  guardian Guardian? @relation(fields: [guardianId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, status])
 }
 
 model RenewalCandidate {
-  id             String   @id @default(cuid())
-  tenantId       String
-  studentId      String
-  sessionsLeft   Int
-  flaggedAt      DateTime @default(now())
-  status         String   @default("PENDING")
+  id                     String        @id @default(cuid())
+  tenantId               String
+  studentId              String
+  enrollmentId           String?
+  classId                String?
+  courseId               String?
+  remainingSessions      Int
+  expectedEndDate        DateTime?
+  suggestedRenewalCourse String?
+  renewalAmountEstimate  Float?
+  flaggedAt              DateTime      @default(now())
+  status                 RenewalStatus @default(NEW)
+  assignedSaleId         String?
 
-  student Student @relation(fields: [studentId], references: [id])
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  tasks   RenewalTask[]
+  student    Student       @relation(fields: [studentId], references: [id])
+  enrollment Enrollment?   @relation(fields: [enrollmentId], references: [id])
+  class      Class?        @relation(fields: [classId], references: [id])
+  course     Course?       @relation(fields: [courseId], references: [id])
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  tasks      RenewalTask[]
 
   @@index([tenantId, status])
 }
@@ -1191,37 +1281,58 @@ model RenewalTask {
 // ---------------------------------------------------------
 
 model WeeklyParentReport {
-  id         String       @id @default(cuid())
-  tenantId   String
-  studentId  String
-  guardianId String
-  weekStart  DateTime
-  weekEnd    DateTime
-  status     ReportStatus @default(DRAFT)
-  summary    String       @db.Text
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  tenantId              String
+  studentId             String
+  guardianId            String?
+  classId               String?
+  weekStart             DateTime
+  weekEnd               DateTime
+  attendanceSummaryJson String       @db.Text
+  homeworkSummaryJson   String       @db.Text
+  gradingSummaryJson    String       @db.Text
+  rewardSummaryJson     String       @db.Text
+  financeSummaryJson    String?      @db.Text
+  renewalSummaryJson    String?      @db.Text
+  riskFlagsJson         String       @db.Text
+  aiDraftContent        String       @db.Text
+  teacherNote           String?      @db.Text
+  finalContent          String?      @db.Text
+  status                ReportStatus @default(DRAFT)
+  createdByAi           Boolean      @default(true)
+  approvedById          String?
+  sentAt                DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  student    Student                @relation(fields: [studentId], references: [id])
-  guardian   Guardian               @relation(fields: [guardianId], references: [id])
   tenant     Tenant                 @relation(fields: [tenantId], references: [id])
+  student    Student                @relation(fields: [studentId], references: [id])
+  guardian   Guardian?              @relation(fields: [guardianId], references: [id])
+  class      Class?                 @relation(fields: [classId], references: [id])
+  approver   User?                  @relation("ReportApprover", fields: [approvedById], references: [id])
   deliveries ParentReportDelivery[]
 
-  @@index([tenantId, status])
+  @@unique([tenantId, studentId, weekStart, weekEnd])
 }
 
 model ParentReportDelivery {
-  id         String   @id @default(cuid())
-  tenantId   String
-  reportId   String
-  channel    Channel  @default(ZALO_PERSONAL)
-  sentAt     DateTime @default(now())
-  status     String   @default("SUCCESS")
+  id                   String         @id @default(cuid())
+  tenantId             String
+  reportId             String
+  guardianId           String
+  targetChannel        Channel        @default(ZALO_PERSONAL)
+  targetZaloIdentityId String?
+  status               DeliveryStatus @default(DRAFT)
+  outboxMessageId      String?
+  errorMessage         String?        @db.Text
+  sentAt               DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
-  report WeeklyParentReport @relation(fields: [reportId], references: [id])
-  tenant Tenant             @relation(fields: [tenantId], references: [id])
-
-  @@index([tenantId])
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  report        WeeklyParentReport @relation(fields: [reportId], references: [id])
+  guardian      Guardian           @relation(fields: [guardianId], references: [id])
+  outboxMessage ZaloOutboxMessage? @relation(fields: [outboxMessageId], references: [id])
 }
 
 model AiInteraction {
@@ -1318,16 +1429,15 @@ model ScheduledTaskRun {
   @@index([tenantId, taskName])
 }
 
-
 model LeadBatch {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  source      String?
-  importedBy  String?
-  importedAt  DateTime @default(now())
-  totalLeads  Int      @default(0)
-  notes       String?  @db.Text
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  source     String?
+  importedBy String?
+  importedAt DateTime @default(now())
+  totalLeads Int      @default(0)
+  notes      String?  @db.Text
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   leads  Lead[]
@@ -1336,14 +1446,14 @@ model LeadBatch {
 }
 
 model CallAttempt {
-  id        String      @id @default(cuid())
-  tenantId  String
-  leadId    String
-  saleId    String?
-  outcome   CallOutcome
-  notes     String?     @db.Text
-  duration  Int?
-  calledAt  DateTime    @default(now())
+  id       String      @id @default(cuid())
+  tenantId String
+  leadId   String
+  saleId   String?
+  outcome  CallOutcome
+  notes    String?     @db.Text
+  duration Int?
+  calledAt DateTime    @default(now())
 
   lead   Lead   @relation(fields: [leadId], references: [id])
   tenant Tenant @relation(fields: [tenantId], references: [id])
