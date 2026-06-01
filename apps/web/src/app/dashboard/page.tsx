@@ -92,8 +92,23 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* CEO AI Command Center */}
-      <AiCommandBar />
+      {/* TÓM TẮT HÔM NAY & CEO AI COMMAND CENTER */}
+      <section className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-xl">
+        <div className="mb-6">
+          <h2 className="text-lg font-medium text-slate-300 mb-2">Tóm tắt hôm nay</h2>
+          <ul className="space-y-2">
+            {criticalAlerts.criticalCount > 0 && <li className="flex gap-2">🚨 <span className="font-semibold text-red-400">{criticalAlerts.criticalCount} cảnh báo nghiêm trọng</span> cần xử lý ngay.</li>}
+            {aiDrafts.pendingDrafts > 0 && <li className="flex gap-2">🤖 <span className="font-semibold text-yellow-400">{aiDrafts.pendingDrafts} AI drafts</span> đang chờ CEO duyệt.</li>}
+            <li className="flex gap-2">🚀 Tuyển sinh: <span className="font-semibold text-green-400">{admissionsToday.newLeads} leads mới</span> và <span className="font-semibold text-green-400">{admissionsToday.newTrials} lịch hẹn học thử</span>.</li>
+            <li className="flex gap-2">💰 Tài chính: Ghi nhận <span className="font-semibold text-emerald-400">{(salesToday.revenueToday / 1000000).toFixed(1)}Tr</span> doanh thu, tuy nhiên còn <span className="font-semibold text-red-400">{financeRisk.unpaidInvoices} hóa đơn</span> chưa thu.</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h3 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">CEO Command Center</h3>
+          <AiCommandBar />
+        </div>
+      </section>
 
       <div className="space-y-10">
         

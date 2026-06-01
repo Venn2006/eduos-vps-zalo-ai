@@ -179,6 +179,8 @@ async function main() {
   // 7. Seed Academic (Students & Guardians)
   const students = [];
   const guardians = [];
+  const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
+  const firstNames = ['Anh', 'Tuấn', 'Dũng', 'Minh', 'Thành', 'Hoa', 'Lan', 'Trang', 'Hương', 'Quỳnh', 'Thảo', 'Phương', 'Linh', 'Nhung', 'Nam', 'Phong', 'Sơn', 'Hùng', 'Tâm', 'Bình'];
   for (let i=0; i<80; i++) {
     const guardian = await prisma.guardian.create({
       data: { tenantId: tId, name: `Parent of Student ${i}`, phone: `09222222${i.toString().padStart(2, '0')}` }
@@ -280,13 +282,86 @@ async function main() {
     data: { tenantId: tId, pageId: "fb-page-123", pageName: "OMLIS Official", pageToken: "token" }
   });
 
-  for (let i=0; i<10; i++) {
-    const conv = await prisma.facebookConversation.create({
-      data: { tenantId: tId, pageId: fbPage.id, psid: `psid-${i}`, lastMessage: new Date() }
+  const fbScenarios = [
+    {
+      psid: "psid-001",
+      leadName: "Nguyễn Hương",
+      stage: "NEW",
+      messages: [
+        { text: "Dạ trung tâm cho em hỏi khóa IELTS Foundation học phí bao nhiêu ạ?", dir: "INBOUND" },
+        { text: "Chào bạn! Khóa IELTS Foundation tại OMLIS có học phí là 4.500.000 VNĐ / khóa (3 tháng). Bạn muốn đăng ký học ở chi nhánh nào ạ?", dir: "OUTBOUND" },
+        { text: "Em ở gần Chơn Thành, có lớp tối thứ 3, 5, 7 không ạ?", dir: "INBOUND" }
+      ],
+      aiDraft: "Dạ hiện tại chi nhánh Chơn Thành có lớp tối 3-5-7 lúc 18h30 - 20h00 ạ. Chị để lại số điện thoại để trung tâm tư vấn kỹ hơn nhé!"
+    },
+    {
+      psid: "psid-002",
+      leadName: "Trần Minh",
+      stage: "QUALIFIED",
+      messages: [
+        { text: "Trung tâm có lớp HSK 2 không?", dir: "INBOUND" },
+        { text: "Dạ có ạ, lớp HSK 2 cơ bản sắp khai giảng vào đầu tháng tới. Anh/chị đã từng học tiếng Trung ở đâu chưa ạ?", dir: "OUTBOUND" },
+        { text: "Mình tự học ở nhà sơ sơ, muốn qua trung tâm test trình độ để xếp lớp.", dir: "INBOUND" }
+      ],
+      aiDraft: "Dạ vâng ạ. Mời anh ghé trung tâm vào sáng cuối tuần để test trình độ miễn phí nhé. Anh cho em xin tên và SĐT để em đặt lịch hẹn cho mình ạ."
+    },
+    {
+      psid: "psid-003",
+      leadName: "Phạm Thảo",
+      stage: "BOOKED_TRIAL",
+      messages: [
+        { text: "Chị muốn hỏi lớp tiếng Anh cho bé 6 tuổi.", dir: "INBOUND" },
+        { text: "Dạ khóa Kids English dành cho bé 6 tuổi đang có chương trình học thử 2 buổi miễn phí. Chị muốn đăng ký cho bé học thử không ạ?", dir: "OUTBOUND" },
+        { text: "Bé nhà chị nhát lắm, không biết có theo kịp không. Đăng ký học thử thì thứ mấy có lớp?", dir: "INBOUND" }
+      ],
+      aiDraft: "Dạ lớp Kids English có giáo viên nước ngoài và trợ giảng hỗ trợ bé rất nhiệt tình nên chị yên tâm nhé! Lớp học thử có vào tối Thứ 4 và sáng Chủ Nhật tuần này. Chị thu xếp cho bé học buổi nào được ạ?"
+    }
+  ];
+
+  for (let i = 0; i < fbScenarios.length; i++) {
+    const scenario = fbScenarios[i];
+    
+    // Create lead for this fb conversation
+    const lead = await prisma.lead.create({
+      data: {
+        tenantId: tId,
+        name: scenario.leadName,
+        stage: scenario.stage as any,
+        temperature: "HOT",
+        phone: "09" + Math.floor(10000000 + Math.random() * 90000000),
+      }
     });
-    for (let j=0; j<5; j++) {
+
+    const conv = await prisma.facebookConversation.create({
+      data: { 
+        tenantId: tId, 
+        pageId: fbPage.id, 
+        psid: scenario.psid, 
+        lastMessage: new Date(),
+        leadId: lead.id
+      }
+    });
+
+    for (let j = 0; j < scenario.messages.length; j++) {
       await prisma.facebookMessage.create({
-        data: { tenantId: tId, conversationId: conv.id, messageId: `fb-msg-${i}-${j}`, direction: j % 2 === 0 ? "INBOUND" : "OUTBOUND", text: "Hello!" }
+        data: { 
+          tenantId: tId, 
+          conversationId: conv.id, 
+          messageId: `fb-msg-${i}-${j}`, 
+          direction: scenario.messages[j].dir as any, 
+          text: scenario.messages[j].text 
+        }
+      });
+    }
+
+    if (scenario.aiDraft) {
+      await prisma.aiSuggestion.create({
+        data: {
+          tenantId: tId,
+          context: `FACEBOOK_CONVERSATION:${conv.id}`,
+          suggestion: scenario.aiDraft,
+          isUsed: false
+        }
       });
     }
   }
@@ -312,11 +387,12 @@ async function main() {
     const stage = stages[Math.floor(Math.random() * stages.length)];
     const batchId = leadBatches[i % 3].id;
     
+    const leadName = lastNames[i % lastNames.length] + ' ' + firstNames[i % firstNames.length];
     const l = await prisma.lead.create({
       data: { 
         tenantId: tId, 
-        name: `Lead ${i}`,
-        fullName: `Lead ${i} Full Name`,
+        name: leadName,
+        fullName: leadName,
         phone: `0911111${i.toString().padStart(3, '0')}`,
         stage: stage as any,
         temperature: stage === 'NEW' ? 'COLD' : 'HOT',

@@ -3,7 +3,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { AiSuggestionCard } from '@/components/ui/AiSuggestionCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Bot, RefreshCw, FileText, CheckCircle } from 'lucide-react';
+import { Bot, RefreshCw, FileText, CheckCircle, MessageSquare } from 'lucide-react';
+import { AiCommandBar } from '@/components/ui/AiCommandBar';
 import { prisma } from '@eduos/db';
 import { getCurrentTenantOrThrow } from '@/lib/auth';
 
@@ -41,10 +42,29 @@ export default async function AiCenterPage() {
         action={<Button><RefreshCw className="w-4 h-4 mr-2" /> Làm mới dữ liệu</Button>}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="space-y-10">
         
-        {/* Main tasks list */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* CEO Chat Section */}
+        <section className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-6 text-white shadow-xl">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <MessageSquare className="w-6 h-6" /> CEO Chat / Hỏi AI về trung tâm
+            </h2>
+            <p className="text-indigo-200 text-sm mt-1">Trợ lý đắc lực giúp bạn phân tích doanh thu, tuyển sinh, công nợ và cảnh báo rủi ro tức thì.</p>
+          </div>
+          <div className="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+            <AiCommandBar />
+          </div>
+        </section>
+
+        {/* Approval Queue Section */}
+        <section>
+          <div className="flex items-center gap-2 mb-6 border-b pb-2">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">📑 AI Drafts Cần Duyệt</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm border-primary/20">
             <CardHeader className="bg-primary/5 border-b border-primary/10">
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
@@ -108,7 +128,7 @@ export default async function AiCenterPage() {
                   type="draft"
                   title={`${draft.submission.homework.title} - ${draft.submission.student.name}`}
                   description={`AI đã chấm điểm ${draft.score}/10. Nhận xét: ${draft.comment}. Chờ giáo viên duyệt để gửi.`}
-                  actionLabel="Duyệt & Gửi"
+                  actionLabel="Duyệt Nháp"
                   badges={["ai-generated", "needs-review"]}
                 />
               ))}
@@ -176,6 +196,8 @@ export default async function AiCenterPage() {
             </CardContent>
           </Card>
         </div>
+        </div>
+        </section>
       </div>
     </div>
   );

@@ -141,7 +141,13 @@ export function FanpageInboxClient({ initialConversations }: { initialConversati
                   <div>
                     <label className="text-xs text-slate-500 uppercase font-semibold">Trạng thái (Stage)</label>
                     <p className="text-sm px-2 py-1 bg-blue-100 text-blue-800 rounded-full inline-block mt-1 font-medium">
-                      {activeConv.lead.stage}
+                      {activeConv.lead.stage === 'WON' ? 'Đã chốt' :
+                       activeConv.lead.stage === 'BOOKED_TRIAL' ? 'Đã đặt học thử' :
+                       activeConv.lead.stage === 'ATTENDED_TRIAL' ? 'Đã học thử' :
+                       activeConv.lead.stage === 'QUALIFIED' ? 'Tiềm năng' :
+                       activeConv.lead.stage === 'LOST' ? 'Mất cơ hội' :
+                       activeConv.lead.stage === 'CONTACTED' ? 'Đã liên hệ' :
+                       activeConv.lead.stage === 'NEW' ? 'Mới' : activeConv.lead.stage}
                     </p>
                   </div>
                   <div>
@@ -156,7 +162,7 @@ export function FanpageInboxClient({ initialConversations }: { initialConversati
                       Mở hồ sơ chi tiết
                     </button>
                     <button className="w-full py-2 mt-2 bg-blue-50 text-blue-700 rounded text-sm font-medium hover:bg-blue-100 transition-colors">
-                      Chuyển Sale & Tạo Booking
+                      Tạo Follow-up Task
                     </button>
                   </div>
                 </div>

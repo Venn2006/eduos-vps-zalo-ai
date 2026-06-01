@@ -107,7 +107,13 @@ export default async function LeadsPage() {
                   </td>
                   <td className="p-4">
                     <span className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-md text-xs font-medium border border-zinc-200 dark:border-zinc-700">
-                      {lead.stage}
+                      {lead.stage === 'WON' ? 'Đã chốt' :
+                       lead.stage === 'BOOKED_TRIAL' ? 'Đã đặt học thử' :
+                       lead.stage === 'ATTENDED_TRIAL' ? 'Đã học thử' :
+                       lead.stage === 'QUALIFIED' ? 'Tiềm năng' :
+                       lead.stage === 'LOST' ? 'Mất cơ hội' :
+                       lead.stage === 'CONTACTED' ? 'Đã liên hệ' :
+                       lead.stage === 'NEW' ? 'Mới' : lead.stage}
                     </span>
                   </td>
                   <td className="p-4">
