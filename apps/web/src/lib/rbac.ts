@@ -17,11 +17,12 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
   ],
   TEACHER: [
     "/workspaces",
+    "/workspaces/teacher",
     "/ai-center",
     "/classes",
     "/attendance",
     "/homework",
-    "/students",
+    "/students"
   ],
   ACCOUNTANT: [
     "/workspaces",

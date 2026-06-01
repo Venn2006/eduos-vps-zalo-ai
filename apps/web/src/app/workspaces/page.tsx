@@ -192,6 +192,13 @@ export default async function WorkspacesPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <WorkspaceCard
+              title="Tổng quan Giáo vụ"
+              description="Bảng điều khiển quản lý lớp học, điểm danh, chấm bài tập."
+              icon={Briefcase}
+              href="/workspaces/teacher"
+              disabled={!isTeacher}
+            />
             <WorkspaceCard 
               title="Lớp học của tôi" 
               description="Xem lịch dạy, giáo trình và sĩ số lớp." 
