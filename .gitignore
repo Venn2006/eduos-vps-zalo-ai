@@ -4,3 +4,12 @@ dist
 dev.db
 dev.db-journal
 .next
+
+# Scrape Environment
+.venv-scrape/
+.env.scrape
+research_artifacts/
+scrape_tmp/
+scripts/research/tmp/
+*.pyc
+__pycache__/
