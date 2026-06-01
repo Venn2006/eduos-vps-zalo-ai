@@ -342,6 +342,13 @@ model Tenant {
   webhookEvents     WebhookEvent[]
   scheduledTaskRuns ScheduledTaskRun[]
 
+  // AI Command Center
+  aiCommandThreads  AiCommandThread[]
+  aiCommandMessages AiCommandMessage[]
+  aiCommandRuns     AiCommandRun[]
+  aiAgentFindings   AiAgentFinding[]
+  aiActionDrafts    AiActionDraft[]
+
   @@index([slug])
 }
 
@@ -355,6 +362,8 @@ model User {
 
   tenantMembers   TenantMember[]
   reportedReports WeeklyParentReport[] @relation("ReportApprover")
+  aiCommandThreads AiCommandThread[]
+  approvedActions  AiActionDraft[]      @relation("ActionApprover")
 }
 
 model TenantMember {
@@ -1459,4 +1468,97 @@ model CallAttempt {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, leadId])
+}
+
+model AiCommandThread {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id])
+  user      User               @relation(fields: [userId], references: [id])
+  messages  AiCommandMessage[]
+
+  @@index([tenantId, userId])
+}
+
+model AiCommandMessage {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  threadId             String
+  role                 String   // USER, ASSISTANT, SYSTEM
+  content              String   @db.Text
+  evidenceJson         String?  @db.Text
+  suggestedActionsJson String?  @db.Text
+  severity             String?
+  createdAt            DateTime @default(now())
+
+  thread AiCommandThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tenant Tenant          @relation(fields: [tenantId], references: [id])
+  runs   AiCommandRun[]
+  actionDrafts AiActionDraft[]
+
+  @@index([tenantId, threadId])
+  @@index([tenantId, createdAt])
+}
+
+model AiCommandRun {
+  id               String   @id @default(cuid())
+  tenantId         String
+  messageId        String
+  sourceModule     String   // e.g., 'FINANCE', 'ACADEMIC', 'SALES'
+  dbQueryContext   String?  @db.Text
+  rawResultJson    String?  @db.Text
+  status           String   @default("COMPLETED")
+  executedAt       DateTime @default(now())
+  durationMs       Int?
+
+  message AiCommandMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  findings AiAgentFinding[]
+
+  @@index([tenantId, messageId])
+  @@index([tenantId, sourceModule])
+}
+
+model AiAgentFinding {
+  id             String   @id @default(cuid())
+  tenantId       String
+  runId          String
+  findingType    String   // e.g., 'RISK', 'METRIC', 'ANOMALY'
+  description    String   @db.Text
+  severity       String?  // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  metadataJson   String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  run    AiCommandRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, runId])
+  @@index([tenantId, severity])
+}
+
+model AiActionDraft {
+  id             String   @id @default(cuid())
+  tenantId       String
+  messageId      String
+  actionType     String   // e.g., 'CREATE_REMINDER', 'SEND_ZALO', 'FLAG_RISK'
+  payloadJson    String   @db.Text
+  status         String   @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, EXECUTED
+  approvedById   String?
+  executedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  message  AiCommandMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  approver User?            @relation("ActionApprover", fields: [approvedById], references: [id])
+
+  @@index([tenantId, messageId])
+  @@index([tenantId, status])
+  @@index([approvedById])
 }

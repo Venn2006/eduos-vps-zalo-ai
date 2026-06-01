@@ -234,8 +234,9 @@ export default async function DashboardPage() {
           <Card className="border-primary/20 shadow-lg shadow-primary/5 bg-white relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-0"></div>
             <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-primary/10 pb-4 relative z-10">
-              <CardTitle className="text-primary flex items-center gap-2 font-extrabold text-lg">
-                <Sparkles className="w-5 h-5" /> AI Command Center
+              <CardTitle className="text-primary flex items-center justify-between font-extrabold text-lg">
+                <span className="flex items-center gap-2"><Sparkles className="w-5 h-5" /> AI Command Center</span>
+                <a href="/ai-center" className="text-sm font-medium bg-primary text-white px-3 py-1 rounded-md hover:bg-primary/90 transition-colors shadow-sm">Mở CEO Chat</a>
               </CardTitle>
               <p className="text-xs text-slate-500 mt-1 font-medium">Trợ lý ảo tự động hóa trung tâm</p>
             </CardHeader>

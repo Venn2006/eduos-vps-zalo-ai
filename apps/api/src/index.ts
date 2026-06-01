@@ -147,12 +147,16 @@ server.register(async function (fastify) {
 
 import connectorRoutes from "./routes/connectors";
 import devRoutes from "./routes/dev";
+import aiCenterRoutes from "./routes/ai-center";
 
 // --- CONNECTOR ROUTES ---
 server.register(connectorRoutes, { prefix: "/api/connectors" });
 
 // --- DEV ROUTES ---
 server.register(devRoutes, { prefix: "/api" });
+
+// --- AI CENTER ROUTES ---
+server.register(aiCenterRoutes, { prefix: "/api/ai" });
 
 // --- FACEBOOK WEBHOOK ---
 server.register(async function (fastify) {
