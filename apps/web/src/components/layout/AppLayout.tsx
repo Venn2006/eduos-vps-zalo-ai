@@ -23,31 +23,37 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
-const sidebarItems = [
-  { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/contacts', label: 'CRM Liên hệ', icon: Users },
-  { href: '/sales-calling', label: 'Gọi điện Sale', icon: MessageSquare },
-  { href: '/leads', label: 'Tuyển sinh', icon: Users },
-  { href: '/trial-bookings', label: 'Học thử', icon: BookOpen },
-  { href: '/students', label: 'Học viên', icon: GraduationCap },
-  { href: '/classes', label: 'Lớp học', icon: Users },
-  { href: '/attendance', label: 'Điểm danh', icon: CheckSquare },
-  { href: '/homework', label: 'Bài tập', icon: FileEdit },
-  { href: '/payments', label: 'Học phí', icon: CreditCard },
-  { href: '/renewals', label: 'Tái phí', icon: RefreshCw },
-  { href: '/zalo-accounts', label: 'Tài khoản Zalo', icon: Wifi },
-  { href: '/zalo-inbox', label: 'Hộp thư Zalo', icon: MessageCircle },
-  { href: '/zalo-groups', label: 'Nhóm Zalo', icon: MessageSquare },
-  { href: '/workflow-templates', label: 'Quy trình tự động', icon: PieChart },
-  { href: '/message-reports', label: 'Báo cáo tin nhắn', icon: PieChart },
-  { href: '/fanpage-inbox', label: 'Tin nhắn Fanpage', icon: MessageCircle },
-  { href: '/reports', label: 'Báo cáo', icon: PieChart },
-  { href: '/ai-center', label: 'Trung tâm AI', icon: Sparkles, highlight: true },
-  { href: '/settings', label: 'Cài đặt', icon: Settings },
-];
-
 export function AppLayout({ children, session }: { children: React.ReactNode, session?: any }) {
   const pathname = usePathname();
+  const role = session?.role || "UNKNOWN";
+  
+  const isOwner = role === "OWNER" || role === "ADMIN";
+  const isSale = isOwner || role === "SALE";
+  const isTeacher = isOwner || role === "TEACHER";
+  const isAccountant = isOwner || role === "ACCOUNTANT";
+
+  // Build role-aware sidebar
+  const sidebarItems = [];
+  
+  if (isOwner) {
+    sidebarItems.push({ href: '/dashboard', label: 'Tổng quan CEO', icon: LayoutDashboard });
+  }
+  
+  sidebarItems.push({ href: '/workspaces', label: 'Danh mục công việc', icon: CheckSquare });
+  
+  if (isOwner || isSale) {
+    sidebarItems.push({ href: '/fanpage-inbox', label: 'Tin nhắn', icon: MessageCircle });
+  }
+
+  sidebarItems.push({ href: '/ai-center', label: 'Trung tâm AI', icon: Sparkles, highlight: true });
+  
+  if (isOwner) {
+    // Only Owner/Admin gets reports as it's not server-side protected for other roles
+    sidebarItems.push({ href: '/reports', label: 'Báo cáo', icon: PieChart });
+  }
+  
+  // Everyone gets settings (harmless placeholder)
+  sidebarItems.push({ href: '/settings', label: 'Cài đặt', icon: Settings });
 
   if (pathname === '/login') {
     return <>{children}</>;
