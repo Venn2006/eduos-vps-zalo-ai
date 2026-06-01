@@ -1,3 +1,5 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -5,11 +7,16 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import { getFinanceSummaryForTenant, getInvoicesForTenant } from '@eduos/api/src/services/finance.service';
 import { DollarSign, AlertCircle, Calendar } from 'lucide-react';
 
 export default async function PaymentsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/payments")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
   const summary = await getFinanceSummaryForTenant(tenantId);
   const invoices = await getInvoicesForTenant(tenantId);

@@ -50,10 +50,8 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   if (isOwner) {
     // Only Owner/Admin gets reports as it's not server-side protected for other roles
     sidebarItems.push({ href: '/reports', label: 'Báo cáo', icon: PieChart });
+    sidebarItems.push({ href: '/settings', label: 'Cài đặt', icon: Settings });
   }
-  
-  // Everyone gets settings (harmless placeholder)
-  sidebarItems.push({ href: '/settings', label: 'Cài đặt', icon: Settings });
 
   if (pathname === '/login') {
     return <>{children}</>;

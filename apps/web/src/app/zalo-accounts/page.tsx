@@ -1,9 +1,16 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { prisma, ZaloQueries } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import ZaloAccountsClient, { ZaloAccountWithSession } from './ZaloAccountsClient';
 
 export default async function ZaloAccountsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/zalo-accounts")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
 
   const zaloQueries = new ZaloQueries(prisma);

@@ -1,13 +1,20 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import { CheckCircle2, Clock, Sparkles, FileEdit, MessageSquare } from 'lucide-react';
 
 export default async function HomeworkPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/homework")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
 
   const homeworks = await prisma.homework.findMany({

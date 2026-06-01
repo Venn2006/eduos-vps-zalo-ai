@@ -1,3 +1,6 @@
+import { getSession } from '@/lib/auth';
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { prisma } from '@eduos/db';
 import { cookies } from 'next/headers';
@@ -8,6 +11,11 @@ import { Search, Filter, Download } from 'lucide-react';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "default_super_secret_for_development");
 
 export default async function LeadsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/leads")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get("session_token")?.value;
   if (!token) return <div>Unauthorized</div>;

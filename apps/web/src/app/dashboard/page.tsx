@@ -1,3 +1,5 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { ActionCard } from '@/components/ui/ActionCard';
@@ -17,20 +19,15 @@ import {
 import { Link, Users, GraduationCap, FileEdit, CreditCard, Bot, RefreshCw, MessageCircle } from 'lucide-react';
 
 export default async function DashboardPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/dashboard")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const session = await getSession();
   const tenantId = await getCurrentTenantOrThrow();
 
-  if (session?.role !== "OWNER" && session?.role !== "ADMIN") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <h1 className="text-2xl font-bold text-slate-800">Bảng điều khiển (Giới hạn)</h1>
-        <p className="text-slate-600">
-          Tài khoản của bạn ({session?.role || "UNKNOWN"}) chưa được cấp quyền truy cập CEO Dashboard. 
-          Tính năng phân quyền Dashboard chi tiết cho Sale/Giáo viên sẽ ra mắt ở phiên bản sau.
-        </p>
-      </div>
-    );
-  }
+  
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
   
   // Fetch from Phase 9 CEO Chat deterministic fetchers

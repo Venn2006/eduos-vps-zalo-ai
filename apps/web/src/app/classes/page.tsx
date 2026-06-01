@@ -1,11 +1,18 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import { Users, Clock, CheckSquare } from 'lucide-react';
 
 export default async function ClassesPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/classes")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
 
   const classes = await prisma.class.findMany({

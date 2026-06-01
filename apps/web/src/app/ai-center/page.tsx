@@ -1,3 +1,5 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { AiSuggestionCard } from '@/components/ui/AiSuggestionCard';
@@ -6,9 +8,14 @@ import { Button } from '@/components/ui/Button';
 import { Bot, RefreshCw, FileText, CheckCircle, MessageSquare } from 'lucide-react';
 import { AiCommandBar } from '@/components/ui/AiCommandBar';
 import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 
 export default async function AiCenterPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/ai-center")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
   const drafts = await prisma.aiGradeDraft.findMany({
     where: { tenantId, isApproved: false },

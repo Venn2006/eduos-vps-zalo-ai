@@ -1,9 +1,16 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
 import { prisma, ZaloQueries } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 
 export default async function ZaloGroupsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/zalo-groups")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
 
   const zaloQueries = new ZaloQueries(prisma);

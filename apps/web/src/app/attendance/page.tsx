@@ -1,3 +1,5 @@
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -6,9 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CheckSquare, AlertCircle, Clock, Users } from 'lucide-react';
 import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 
 export default async function AttendancePage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/attendance")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   const tenantId = await getCurrentTenantOrThrow();
 
   const now = new Date();

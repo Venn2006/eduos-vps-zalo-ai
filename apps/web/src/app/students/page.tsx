@@ -1,7 +1,15 @@
+import { getSession } from '@/lib/auth';
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
 
-export default function StudentsPage() {
+export default async function StudentsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, "/students")) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
   return (
     <PageShell 
       title="Học viên" 
