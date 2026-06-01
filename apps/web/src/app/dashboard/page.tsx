@@ -4,65 +4,68 @@ import { ActionCard } from '@/components/ui/ActionCard';
 import { AiCommandBar } from '@/components/ui/AiCommandBar';
 import { getDashboardSummaryForTenant, prisma } from '@eduos/db';
 import { getCurrentTenantOrThrow } from '@/lib/auth';
+import { 
+  getCriticalAlertsSummary, 
+  getTodayAdmissionsSummary, 
+  getSalesPerformanceToday, 
+  getFinanceRiskSummary, 
+  getAcademicRiskSummary, 
+  getParentReportPendingSummary, 
+  getZaloFacebookHealthSummary, 
+  getAiDraftsPendingApproval 
+} from '@eduos/ai/src/fetchers/ceo-chat';
 import { Link, Users, GraduationCap, FileEdit, CreditCard, Bot, RefreshCw, MessageCircle } from 'lucide-react';
 
 export default async function DashboardPage() {
   const tenantId = await getCurrentTenantOrThrow();
-  const summary = await getDashboardSummaryForTenant(prisma, tenantId);
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
+  
+  // Fetch from Phase 9 CEO Chat deterministic fetchers
+  const [
+    criticalAlerts,
+    admissionsToday,
+    salesToday,
+    financeRisk,
+    academicRisk,
+    parentReports,
+    health,
+    aiDrafts
+  ] = await Promise.all([
+    getCriticalAlertsSummary(tenantId),
+    getTodayAdmissionsSummary(tenantId),
+    getSalesPerformanceToday(tenantId),
+    getFinanceRiskSummary(tenantId),
+    getAcademicRiskSummary(tenantId),
+    getParentReportPendingSummary(tenantId),
+    getZaloFacebookHealthSummary(tenantId),
+    getAiDraftsPendingApproval(tenantId)
+  ]);
 
-  const classesWithoutBotCount = await prisma.class.count({
-    where: { tenantId, status: "ACTIVE", zaloGroup: null }
+  // A few manual queries for metrics not covered by fetchers
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  
+  const classesToday = await prisma.classSession.count({
+    where: { tenantId, startTime: { gte: startOfDay } }
   });
+
+  const studentsAbsentMultiple = await prisma.attendance.groupBy({
+    by: ['studentId'],
+    where: { tenantId, status: { in: ['ABSENT', 'EXCUSED'] } },
+    _count: { studentId: true },
+    having: { studentId: { _count: { gte: 2 } } }
+  }).then(res => res.length);
 
   const pendingCommandsCount = await prisma.classBootstrapCommand.count({
     where: { tenantId, status: "NEEDS_REVIEW" }
-  });
-
-  const offlineConnectorsCount = await prisma.zaloConnectorSession.count({
-    where: { tenantId, status: "OFFLINE" }
-  });
-
-  const debtRemindersCount = await prisma.zaloOutboxMessage.count({
-    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "học phí" } }
   });
 
   const renewalRemindersCount = await prisma.zaloOutboxMessage.count({
     where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "tái phí" } }
   });
 
-  const pendingParentReports = await prisma.weeklyParentReport.count({
-    where: { tenantId, status: { in: ["PENDING_TEACHER_REVIEW", "PENDING_ADMIN_APPROVAL"] } }
-  });
-  
-  const pendingAiDrafts = await prisma.aiActionDraft.count({
-    where: { tenantId, status: "PENDING_APPROVAL" }
-  });
-
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
-  
-  // Attendance stats for today
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-  // Students absent 2+ sessions
-  const absences = await prisma.attendance.groupBy({
-    by: ['studentId'],
-    where: { tenantId, status: { in: ['ABSENT', 'EXCUSED'] } },
-    _count: { studentId: true },
-    having: { studentId: { _count: { gte: 2 } } }
-  });
-  const studentsAbsentMultiple = absences.length;
-
-  // Sales Funnel metrics for today
-  const bookedTrialsToday = await prisma.lead.count({ 
-    where: { tenantId, stage: 'BOOKED_TRIAL', updatedAt: { gte: startOfDay } } 
-  });
-  const paidLeadsToday = await prisma.lead.count({ 
-    where: { tenantId, stage: 'WON', updatedAt: { gte: startOfDay } } 
-  });
-  const newLeadsToday = await prisma.lead.count({
-    where: { tenantId, createdAt: { gte: startOfDay } }
+  const debtRemindersCount = await prisma.zaloOutboxMessage.count({
+    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "học phí" } }
   });
 
   return (
@@ -81,198 +84,270 @@ export default async function DashboardPage() {
 
       <div className="space-y-10">
         
-        {/* 1. Việc cần xử lý gấp */}
+        {/* ROW 1: Việc cần xử lý gấp */}
         <section>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">🚨 Việc cần xử lý gấp</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <ActionCard 
-              title="Zalo Bot VPS"
-              metric={offlineConnectorsCount}
-              severity={offlineConnectorsCount > 0 ? "critical" : "success"}
-              reason={offlineConnectorsCount > 0 ? "Có Connector đang offline. Hệ thống auto-reply bị ngưng trệ." : "Hệ thống hoạt động ổn định 24/7."}
-              ctaText={offlineConnectorsCount > 0 ? "Sửa lỗi VPS" : "Cấu hình Zalo"}
+              title="Cảnh báo nghiêm trọng"
+              metric={criticalAlerts.criticalCount}
+              severity={criticalAlerts.criticalCount > 0 ? "critical" : "success"}
+              reason="Tổng số vấn đề ngắt mạch hoạt động trung tâm."
+              ctaText="Xem chi tiết"
+              ctaHref="/ai-center"
+            />
+            <ActionCard 
+              title="Cần phê duyệt"
+              metric={aiDrafts.pendingDrafts}
+              severity={aiDrafts.pendingDrafts > 0 ? "warning" : "info"}
+              reason="Hành động nhạy cảm do AI đề xuất chờ bạn duyệt."
+              ctaText="Duyệt AI Drafts"
+              ctaHref="/ai-center"
+            />
+            <ActionCard 
+              title="Zalo Offline"
+              metric={health.offlineConnectors}
+              severity={health.offlineConnectors > 0 ? "critical" : "success"}
+              reason="Connector mất kết nối, hệ thống auto-reply ngưng trệ."
+              ctaText="Sửa lỗi VPS"
               ctaHref="/settings/zalo-accounts"
             />
             <ActionCard 
-              title="Lệnh Setup Zalo"
-              metric={pendingCommandsCount}
-              severity={pendingCommandsCount > 0 ? "warning" : "info"}
-              reason={pendingCommandsCount > 0 ? "Có lệnh cài đặt lớp từ Zalo chờ duyệt vì an bảo mật." : "Không có lệnh nào cần duyệt."}
-              ctaText="Duyệt lệnh"
-              ctaHref="/zalo-groups"
+              title="Chưa điểm danh"
+              metric={academicRisk.needsReviewAttendance}
+              severity={academicRisk.needsReviewAttendance > 0 ? "warning" : "success"}
+              reason="Giáo viên quên điểm danh, cần nhắc nhở."
+              ctaText="Quản lý điểm danh"
+              ctaHref="/attendance"
             />
             <ActionCard 
-              title="Hóa đơn chưa thu"
-              metric={summary.totalUnpaidInvoices}
-              severity={summary.totalUnpaidInvoices > 0 ? "critical" : "success"}
-              reason="Hóa đơn đã đến hạn hoặc quá hạn nhưng chưa được thanh toán."
+              title="Hóa đơn quá hạn"
+              metric={financeRisk.overdueInvoices}
+              severity={financeRisk.overdueInvoices > 0 ? "critical" : "success"}
+              reason="Học viên chưa đóng tiền dù đã quá hạn."
               ctaText="Xem công nợ"
               ctaHref="/payments"
             />
             <ActionCard 
-              title="Lớp thiếu Zalo Bot"
-              metric={classesWithoutBotCount}
-              severity={classesWithoutBotCount > 0 ? "warning" : "info"}
-              reason="Lớp đang học nhưng chưa có Bot tự động để gửi thông báo/điểm danh."
-              ctaText="Thêm Bot ngay"
-              ctaHref="/classes"
-            />
-          </div>
-        </section>
-
-        {/* 2. AI Agents */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🤖 AI Agents</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <ActionCard 
-              title="Báo cáo phụ huynh"
-              metric={pendingParentReports}
-              severity={pendingParentReports > 0 ? "warning" : "success"}
-              reason="Báo cáo tuần do AI viết chờ giáo viên và quản lý duyệt trước khi gửi."
+              title="Báo cáo chờ duyệt"
+              metric={parentReports.pendingReports}
+              severity={parentReports.pendingReports > 0 ? "warning" : "success"}
+              reason="Báo cáo phụ huynh do AI viết chưa được gửi."
               ctaText="Duyệt báo cáo"
               ctaHref="/parent-reports"
             />
-            <ActionCard 
-              title="Nhắc nợ học phí"
-              metric={debtRemindersCount}
-              severity={debtRemindersCount > 0 ? "warning" : "info"}
-              reason="Tin nhắn nhắc nợ do AI soạn thảo đang chờ bạn duyệt."
-              ctaText="Duyệt gửi Zalo"
-              ctaHref="/zalo-inbox"
-            />
-            <ActionCard 
-              title="Tin nhắc tái phí"
-              metric={renewalRemindersCount}
-              severity={renewalRemindersCount > 0 ? "warning" : "info"}
-              reason="Tin nhắn gợi ý gia hạn khóa học do AI tự lên kịch bản."
-              ctaText="Duyệt gửi Zalo"
-              ctaHref="/zalo-inbox"
-            />
-            <ActionCard 
-              title="AI Drafts khác"
-              metric={pendingAiDrafts}
-              severity={pendingAiDrafts > 0 ? "warning" : "info"}
-              reason="Các hành động do AI đề xuất từ CEO Chat đang chờ phê duyệt."
-              ctaText="Kiểm tra CEO Chat"
-              ctaHref="/ai-center"
-            />
           </div>
         </section>
 
-        {/* 3. Lớp học & Học viên */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🎓 Lớp học & Học viên</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <ActionCard 
-              title="Tổng học viên"
-              metric={summary.totalStudents}
-              severity="info"
-              reason="Số lượng học viên đang theo học hiện tại."
-              ctaText="Danh sách học viên"
-              ctaHref="/students"
-            />
-            <ActionCard 
-              title="Học viên nghỉ 2+ buổi"
-              metric={studentsAbsentMultiple}
-              severity={studentsAbsentMultiple > 0 ? "critical" : "success"}
-              reason="Học viên có nguy cơ bỏ học vì vắng nhiều buổi liên tiếp."
-              ctaText="Gọi phụ huynh"
-              ctaHref="/attendance"
-            />
-            <ActionCard 
-              title="Lớp đang học"
-              metric={summary.totalClasses}
-              severity="info"
-              reason="Số lượng lớp đang hoạt động trong hệ thống."
-              ctaText="Quản lý lớp"
-              ctaHref="/classes"
-            />
-            <ActionCard 
-              title="Bài tập chưa chấm"
-              metric={0} // Placeholder until HW implemented
-              severity="success"
-              reason="Tất cả bài tập đã được chấm điểm."
-              ctaText="Kiểm tra bài tập"
-              ctaHref="/homework"
-            />
-          </div>
-        </section>
-
-        {/* 4. Tuyển sinh hôm nay */}
+        {/* ROW 2: Tuyển sinh hôm nay */}
         <section>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">🚀 Tuyển sinh (Hôm nay)</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <ActionCard 
-              title="Lịch học thử mới"
-              metric={bookedTrialsToday}
-              severity={bookedTrialsToday > 0 ? "info" : "warning"}
-              reason="Số lịch hẹn học thử được chốt trong hôm nay."
-              ctaText="Xếp lớp học thử"
-              ctaHref="/trial-bookings"
-            />
-            <ActionCard 
-              title="Đã đóng tiền"
-              metric={paidLeadsToday}
-              severity={paidLeadsToday > 0 ? "success" : "info"}
-              reason="Học viên đã nộp học phí và chính thức nhập học hôm nay."
-              ctaText="Xem danh sách"
+              title="Leads mới"
+              metric={admissionsToday.newLeads}
+              severity="info"
+              reason="Data mới đổ về hệ thống hôm nay."
+              ctaText="Chia lead"
               ctaHref="/leads"
             />
             <ActionCard 
-              title="Tổng Leads mới"
-              metric={newLeadsToday}
+              title="Đã gọi (Telesale)"
+              metric="Chưa có dữ liệu"
               severity="info"
-              reason="Leads mới đổ về hệ thống hôm nay."
-              ctaText="Phân bổ lead"
+              reason="Tính năng Telesale đang phát triển."
+              ctaText="Xem lịch sử gọi"
+              ctaHref="/leads"
+            />
+            <ActionCard 
+              title="Đặt lịch học thử"
+              metric={admissionsToday.newTrials}
+              severity={admissionsToday.newTrials > 0 ? "success" : "info"}
+              reason="Số lịch hẹn học thử được chốt."
+              ctaText="Xếp lớp"
+              ctaHref="/trial-bookings"
+            />
+            <ActionCard 
+              title="Đã tới học thử"
+              metric={admissionsToday.attendedTrials}
+              severity={admissionsToday.attendedTrials > 0 ? "success" : "info"}
+              reason="Học viên đã tham gia buổi học thử hôm nay."
+              ctaText="Đánh giá"
+              ctaHref="/trial-bookings"
+            />
+            <ActionCard 
+              title="Đã chốt (WON)"
+              metric={salesToday.wonLeads}
+              severity={salesToday.wonLeads > 0 ? "success" : "info"}
+              reason="Khách hàng đã đồng ý mua khóa học."
+              ctaText="Làm thủ tục"
+              ctaHref="/leads"
+            />
+            <ActionCard 
+              title="Leads tiềm năng"
+              metric="Chưa có dữ liệu"
+              severity="info"
+              reason="Tính năng chấm điểm Lead nóng đang phát triển."
+              ctaText="Chăm sóc ngay"
               ctaHref="/leads"
             />
           </div>
         </section>
 
-        {/* 5. Báo cáo & Phân tích */}
+        {/* ROW 3: Tài chính */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">📊 Báo cáo & Phân tích</h2>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">💰 Tài chính</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <ActionCard 
-              title="Phễu tuyển sinh"
-              metric="Xem"
-              severity="info"
-              reason="Phân tích tỷ lệ chuyển đổi từ Lead sang Học viên thực tế."
-              ctaText="Mở báo cáo"
+              title="Doanh thu hôm nay"
+              metric={`${(salesToday.revenueToday / 1000000).toFixed(1)}Tr`}
+              severity="success"
+              reason="Tiền thực nhận trong ngày hôm nay."
+              ctaText="Báo cáo thu chi"
               ctaHref="/reports"
             />
             <ActionCard 
-              title="Dòng tiền (Cashflow)"
-              metric="Xem"
-              severity="info"
-              reason="Biểu đồ thu chi và dự báo dòng tiền tháng này."
-              ctaText="Mở báo cáo"
-              ctaHref="/reports"
+              title="Chưa thanh toán"
+              metric={financeRisk.unpaidInvoices}
+              severity={financeRisk.unpaidInvoices > 0 ? "warning" : "success"}
+              reason="Số hóa đơn đã phát hành nhưng chưa thu tiền."
+              ctaText="Truy thu"
+              ctaHref="/payments"
             />
             <ActionCard 
-              title="Hiệu suất nhân sự"
-              metric="Xem"
-              severity="info"
-              reason="Đánh giá KPIs đội sales và tỷ lệ duy trì học viên của giáo viên."
-              ctaText="Mở báo cáo"
-              ctaHref="/reports"
+              title="Tổng nợ quá hạn"
+              metric={`${(financeRisk.totalOverdueAmount / 1000000).toFixed(1)}Tr`}
+              severity={financeRisk.totalOverdueAmount > 0 ? "critical" : "success"}
+              reason="Tiền cần thu hồi gấp."
+              ctaText="Xem danh sách"
+              ctaHref="/payments"
             />
             <ActionCard 
-              title="Cài đặt hệ thống"
-              metric="Cấu hình"
+              title="Sắp hết hạn khóa"
+              metric="Chưa đủ dữ liệu"
               severity="info"
-              reason="Quản lý phân quyền, cấu hình Zalo, Facebook và các module."
-              ctaText="Mở cài đặt"
+              reason="Học viên cần tư vấn tái phí khóa mới."
+              ctaText="Danh sách tái phí"
+              ctaHref="/renewals"
+            />
+            <ActionCard 
+              title="Tin nhắc nợ chờ duyệt"
+              metric={debtRemindersCount + renewalRemindersCount}
+              severity={(debtRemindersCount + renewalRemindersCount) > 0 ? "warning" : "success"}
+              reason="Finance AI đã soạn tin nhắc nhở qua Zalo chờ bạn duyệt."
+              ctaText="Duyệt gửi Zalo"
+              ctaHref="/zalo-inbox"
+            />
+          </div>
+        </section>
+
+        {/* ROW 4: Lớp học & học viên */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">🎓 Lớp học & Học viên</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <ActionCard 
+              title="Ca học hôm nay"
+              metric={classesToday}
+              severity="info"
+              reason="Số buổi học diễn ra trong ngày hôm nay."
+              ctaText="Quản lý lịch"
+              ctaHref="/classes"
+            />
+            <ActionCard 
+              title="Lỗi điểm danh"
+              metric={academicRisk.needsReviewAttendance}
+              severity={academicRisk.needsReviewAttendance > 0 ? "warning" : "success"}
+              reason="Giáo viên chưa điểm danh hoặc điểm danh lỗi."
+              ctaText="Xử lý ngay"
+              ctaHref="/attendance"
+            />
+            <ActionCard 
+              title="Vắng 2+ buổi"
+              metric={studentsAbsentMultiple}
+              severity={studentsAbsentMultiple > 0 ? "critical" : "success"}
+              reason="Học viên có nguy cơ nghỉ hẳn."
+              ctaText="Gọi phụ huynh"
+              ctaHref="/attendance"
+            />
+            <ActionCard 
+              title="Bài tập chưa chấm"
+              metric={academicRisk.missingHomeworks}
+              severity={academicRisk.missingHomeworks > 0 ? "warning" : "success"}
+              reason="Giáo viên chưa chấm bài tập cho học sinh."
+              ctaText="Nhắc giáo viên"
+              ctaHref="/homework"
+            />
+            <ActionCard 
+              title="Học viên yếu kém"
+              metric="Chưa đủ dữ liệu"
+              severity="info"
+              reason="Cảnh báo học sinh điểm thấp cần kèm thêm."
+              ctaText="Xem điểm thi"
+              ctaHref="/reports"
+            />
+          </div>
+        </section>
+
+        {/* ROW 5: AI Agents */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">🤖 AI Agents</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <ActionCard 
+              title="CEO Agent"
+              metric="Online"
+              severity="success"
+              reason="Sẵn sàng tư vấn quản trị trung tâm."
+              ctaText="Mở CEO Chat"
+              ctaHref="/ai-center"
+            />
+            <ActionCard 
+              title="Zalo Group Agent"
+              metric={health.offlineConnectors > 0 ? "Offline" : "Online"}
+              severity={health.offlineConnectors > 0 ? "critical" : "success"}
+              reason="Hỗ trợ trả lời câu hỏi phụ huynh trên nhóm Zalo."
+              ctaText="Cấu hình Zalo"
+              ctaHref="/settings/zalo-accounts"
+            />
+            <ActionCard 
+              title="Sales Agent"
+              metric="Online"
+              severity="success"
+              reason="Chấm điểm lead và đề xuất kịch bản sale."
+              ctaText="Xem CRM"
+              ctaHref="/leads"
+            />
+            <ActionCard 
+              title="Finance Agent"
+              metric={(debtRemindersCount + renewalRemindersCount) > 0 ? "Chờ duyệt" : "Online"}
+              severity={(debtRemindersCount + renewalRemindersCount) > 0 ? "warning" : "success"}
+              reason="Tự động thu hồi công nợ và gia hạn tái phí."
+              ctaText="Duyệt lệnh"
+              ctaHref="/zalo-inbox"
+            />
+            <ActionCard 
+              title="Parent Report Agent"
+              metric={parentReports.pendingReports > 0 ? "Chờ duyệt" : "Online"}
+              severity={parentReports.pendingReports > 0 ? "warning" : "success"}
+              reason="Tổng hợp nhận xét học tập tự động gửi phụ huynh."
+              ctaText="Duyệt báo cáo"
+              ctaHref="/parent-reports"
+            />
+            <ActionCard 
+              title="Fanpage Agent"
+              metric="Chưa cấu hình"
+              severity="info"
+              reason="Tự động CSKH qua Facebook Messenger."
+              ctaText="Cài đặt ngay"
               ctaHref="/settings"
             />
           </div>

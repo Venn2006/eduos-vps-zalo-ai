@@ -47,6 +47,26 @@ export function AiCommandBar() {
           </button>
         </form>
       </div>
+      
+      {/* Suggested Prompts */}
+      <div className="mt-4 flex flex-wrap gap-2 relative z-10 pl-1 md:pl-[140px]">
+        {[
+          "Hôm nay có vấn đề gì nghiêm trọng không?",
+          "Hôm nay tuyển được bao nhiêu?",
+          "Ai chưa đóng tiền?",
+          "Lớp nào có rủi ro học viên nghỉ?",
+          "Báo cáo phụ huynh nào chờ duyệt?",
+          "Zalo/Facebook có lỗi gì không?"
+        ].map((prompt, i) => (
+          <button
+            key={i}
+            onClick={() => setQuery(prompt)}
+            className="text-xs bg-white/60 hover:bg-white text-primary-hover border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap shadow-sm"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
