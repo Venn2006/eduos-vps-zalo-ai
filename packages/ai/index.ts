@@ -12,6 +12,7 @@ export interface AiProvider {
     sourceModule: string;
     rawResultJson: any;
   }>;
+  processFanpageTask(inputStr: string): Promise<string>;
 }
 
 export class MockAiProvider implements AiProvider {
@@ -29,6 +30,19 @@ export class MockAiProvider implements AiProvider {
   }
   async gradeHomework(mediaUrl: string) {
     return { score: 9, comment: "Làm bài tốt" };
+  }
+
+  async processFanpageTask(inputStr: string) {
+    const input = JSON.parse(inputStr);
+    return JSON.stringify({
+      intent: "TRIAL_BOOKING", 
+      urgency: "HIGH",
+      needsHandoff: true,
+      suggestedReply: `Chào bạn, trung tâm ${input.pageName || 'chúng tôi'} đã nhận được tin nhắn của bạn. Bạn muốn đăng ký học thử cho bé đúng không ạ? Bạn vui lòng để lại số điện thoại nhé!`,
+      studentName: "Bé", 
+      parentName: "Khách hàng FB",
+      courseInterest: "Tiếng Anh",
+    });
   }
 
   async answerCeoQuery(query: string, tenantId: string) {

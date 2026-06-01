@@ -6,7 +6,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
-    "test": "jest"
+    "test": "dotenv -e ../../.env -- jest"
   },
   "dependencies": {
     "@eduos/logger": "*",

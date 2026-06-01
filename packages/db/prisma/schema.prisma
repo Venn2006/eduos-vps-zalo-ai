@@ -450,6 +450,7 @@ model Lead {
   callAttempts     CallAttempt[]
   enrollmentOffers EnrollmentOffer[]
   enrollments      Enrollment[]
+  facebookConversations FacebookConversation[]
 
   @@index([tenantId, stage])
   @@index([tenantId, assignedToId])
@@ -559,12 +560,14 @@ model FacebookConversation {
   tenantId    String
   pageId      String
   psid        String
+  leadId      String?
   lastMessage DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   page     FacebookPage      @relation(fields: [pageId], references: [id])
   tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  lead     Lead?             @relation(fields: [leadId], references: [id])
   messages FacebookMessage[]
 
   @@unique([tenantId, pageId, psid])

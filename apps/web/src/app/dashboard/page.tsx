@@ -357,11 +357,11 @@ export default async function DashboardPage() {
             />
             <ActionCard 
               title="Fanpage Agent"
-              metric="Chưa cấu hình"
-              severity="info"
+              metric={health.totalFacebookPages === 0 ? "Chưa cấu hình" : (health.offlineFacebookPages > 0 ? "Offline" : "Online")}
+              severity={health.totalFacebookPages === 0 ? "info" : (health.offlineFacebookPages > 0 ? "critical" : "success")}
               reason="Tự động CSKH qua Facebook Messenger."
-              ctaText="Cài đặt ngay"
-              ctaHref="/settings"
+              ctaText={health.totalFacebookPages === 0 ? "Cài đặt ngay" : "Xem Fanpage Inbox"}
+              ctaHref={health.totalFacebookPages === 0 ? "/settings" : "/fanpage-inbox"}
             />
           </div>
         </section>

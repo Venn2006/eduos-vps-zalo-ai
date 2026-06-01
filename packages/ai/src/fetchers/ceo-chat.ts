@@ -100,7 +100,15 @@ export async function getZaloFacebookHealthSummary(tenantId: string) {
     where: { tenantId, status: { not: "ONLINE" } }
   });
 
-  return { failedZaloMessages, offlineConnectors };
+  const offlineFacebookPages = await prisma.facebookPage.count({
+    where: { tenantId, isActive: false }
+  });
+
+  const totalFacebookPages = await prisma.facebookPage.count({
+    where: { tenantId }
+  });
+
+  return { failedZaloMessages, offlineConnectors, offlineFacebookPages, totalFacebookPages };
 }
 
 export async function getAiDraftsPendingApproval(tenantId: string) {
@@ -124,6 +132,7 @@ export async function getCriticalAlertsSummary(tenantId: string) {
   if (finance.overdueInvoices > 0) criticalCount++;
   if (health.offlineConnectors > 0) criticalCount++;
   if (health.failedZaloMessages > 0) criticalCount++;
+  if (health.offlineFacebookPages > 0) criticalCount++;
 
   return {
     finance,
