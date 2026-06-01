@@ -12,16 +12,26 @@ describe('RBAC Route Guarding', () => {
   it('SALE access matrix', () => {
     // Allowed
     expect(canAccessRoute('SALE', '/workspaces')).toBe(true);
+    expect(canAccessRoute('SALE', '/workspaces/sales')).toBe(true);
     expect(canAccessRoute('SALE', '/leads')).toBe(true);
     expect(canAccessRoute('SALE', '/trial-bookings')).toBe(true);
     expect(canAccessRoute('SALE', '/fanpage-inbox')).toBe(true);
+    expect(canAccessRoute('SALE', '/zalo-inbox')).toBe(true);
+    expect(canAccessRoute('SALE', '/zalo-groups')).toBe(true);
+    expect(canAccessRoute('SALE', '/leads/new')).toBe(true);
     
     // Blocked
     expect(canAccessRoute('SALE', '/dashboard')).toBe(false);
+    expect(canAccessRoute('SALE', '/workspaces/unknown')).toBe(false);
     expect(canAccessRoute('SALE', '/payments')).toBe(false);
     expect(canAccessRoute('SALE', '/renewals')).toBe(false);
     expect(canAccessRoute('SALE', '/reports')).toBe(false);
     expect(canAccessRoute('SALE', '/classes')).toBe(false);
+    
+    // Unknown routes and roles should default to false
+    expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/sales')).toBe(false);
+    expect(canAccessRoute(undefined, '/workspaces/sales')).toBe(false);
+    expect(canAccessRoute('UNKNOWN_ROLE', '/fake-route')).toBe(false);
   });
 
   it('TEACHER access matrix', () => {
@@ -33,6 +43,8 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('TEACHER', '/students')).toBe(true);
     
     // Blocked
+    expect(canAccessRoute('TEACHER', '/workspaces/sales')).toBe(false);
+    expect(canAccessRoute('TEACHER', '/workspaces/unknown')).toBe(false);
     expect(canAccessRoute('TEACHER', '/dashboard')).toBe(false);
     expect(canAccessRoute('TEACHER', '/payments')).toBe(false);
     expect(canAccessRoute('TEACHER', '/renewals')).toBe(false);
@@ -47,6 +59,8 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('ACCOUNTANT', '/workspaces')).toBe(true);
     
     // Blocked
+    expect(canAccessRoute('ACCOUNTANT', '/workspaces/sales')).toBe(false);
+    expect(canAccessRoute('ACCOUNTANT', '/workspaces/unknown')).toBe(false);
     expect(canAccessRoute('ACCOUNTANT', '/dashboard')).toBe(false);
     expect(canAccessRoute('ACCOUNTANT', '/leads')).toBe(false);
     expect(canAccessRoute('ACCOUNTANT', '/trial-bookings')).toBe(false);

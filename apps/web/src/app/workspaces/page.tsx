@@ -170,12 +170,11 @@ export default async function WorkspacesPage() {
               disabled={!isSale}
             />
             <WorkspaceCard 
-              title="Gọi điện Telesale" 
-              description="Hệ thống tổng đài ảo gọi điện cho khách hàng." 
-              href="#" 
-              icon={MessageCircle} 
-              disabled={true}
-              badge="Sắp ra mắt"
+              title="Tổng quan Tuyển sinh" 
+              description="Bảng điều khiển các chỉ số lead mới, lịch học thử và KPI sales." 
+              href="/workspaces/sales" 
+              icon={Briefcase} 
+              disabled={!isSale}
             />
           </div>
         </section>

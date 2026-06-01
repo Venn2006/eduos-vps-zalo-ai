@@ -7,6 +7,7 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
   ADMIN: ["*"],
   SALE: [
     "/workspaces",
+    "/workspaces/sales",
     "/ai-center",
     "/fanpage-inbox",
     "/leads",
@@ -41,6 +42,21 @@ export function canAccessRoute(role: string | undefined, currentPath: string): b
     return true;
   }
 
-  // Exact match or base path match (e.g. /leads/123 -> allowed if /leads is allowed)
-  return allowedRoutes.some(route => currentPath === route || currentPath.startsWith(route + "/"));
+  // 1. Exact match
+  if (allowedRoutes.includes(currentPath)) {
+    return true;
+  }
+
+  // 2. Base path match (e.g., /leads/123 -> allowed if /leads is allowed)
+  // EXCEPT for /workspaces, which does NOT grant access to /workspaces/*
+  return allowedRoutes.some(route => {
+    if (currentPath.startsWith(route + "/")) {
+      // If the matched allowed route is exactly "/workspaces", do not allow sub-routes automatically
+      if (route === "/workspaces") {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  });
 }
