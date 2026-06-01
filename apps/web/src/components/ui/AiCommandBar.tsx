@@ -33,7 +33,7 @@ export function AiCommandBar() {
           <input 
             type="text" 
             placeholder="Ví dụ: Hôm nay có vấn đề gì nghiêm trọng không?" 
-            className="w-full bg-white border border-primary/20 rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-inner"
+            className="w-full bg-white text-slate-900 border border-primary/20 rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-inner"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             disabled={isSubmitting}
