@@ -60,7 +60,7 @@ function ActionCard({
 // Visual AI Prompt pill
 function AiPrompt({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-indigo-100 text-sm font-medium rounded-full transition-colors border border-white/10 cursor-pointer">
+    <div className="flex items-center gap-2 px-4 py-2 bg-white/10 text-indigo-100 text-sm font-medium rounded-full border border-white/10">
       <Sparkles className="w-4 h-4 text-indigo-300" />
       "{text}"
     </div>

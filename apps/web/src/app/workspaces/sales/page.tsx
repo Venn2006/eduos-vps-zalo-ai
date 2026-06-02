@@ -10,10 +10,10 @@ import { startOfDay, endOfDay } from "date-fns";
 // Reusable AI Prompt pill
 function AiPrompt({ text }: { text: string }) {
   return (
-    <button className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full transition-colors border border-indigo-100">
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full border border-indigo-100">
       <Sparkles className="w-3 h-3" />
       "{text}"
-    </button>
+    </div>
   );
 }
 

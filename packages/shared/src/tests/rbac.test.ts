@@ -25,6 +25,7 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('SALE', '/dashboard')).toBe(false);
     expect(canAccessRoute('SALE', '/workspaces/unknown')).toBe(false);
     expect(canAccessRoute('SALE', '/workspaces/teacher')).toBe(false);
+    expect(canAccessRoute('SALE', '/workspaces/finance')).toBe(false);
     expect(canAccessRoute('SALE', '/payments')).toBe(false);
     expect(canAccessRoute('SALE', '/renewals')).toBe(false);
     expect(canAccessRoute('SALE', '/reports')).toBe(false);
@@ -34,8 +35,10 @@ describe('RBAC Route Guarding', () => {
     // Unknown routes and roles should default to false
     expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/sales')).toBe(false);
     expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/teacher')).toBe(false);
+    expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/finance')).toBe(false);
     expect(canAccessRoute(undefined, '/workspaces/sales')).toBe(false);
     expect(canAccessRoute(undefined, '/workspaces/teacher')).toBe(false);
+    expect(canAccessRoute(undefined, '/workspaces/finance')).toBe(false);
     expect(canAccessRoute('UNKNOWN_ROLE', '/fake-route')).toBe(false);
   });
 
@@ -51,6 +54,7 @@ describe('RBAC Route Guarding', () => {
     
     // Blocked
     expect(canAccessRoute('TEACHER', '/workspaces/sales')).toBe(false);
+    expect(canAccessRoute('TEACHER', '/workspaces/finance')).toBe(false);
     expect(canAccessRoute('TEACHER', '/workspaces/unknown')).toBe(false);
     expect(canAccessRoute('TEACHER', '/dashboard')).toBe(false);
     expect(canAccessRoute('TEACHER', '/payments')).toBe(false);
@@ -67,6 +71,7 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('ACCOUNTANT', '/payments')).toBe(true);
     expect(canAccessRoute('ACCOUNTANT', '/renewals')).toBe(true);
     expect(canAccessRoute('ACCOUNTANT', '/workspaces')).toBe(true);
+    expect(canAccessRoute('ACCOUNTANT', '/workspaces/finance')).toBe(true);
     expect(canAccessRoute('ACCOUNTANT', '/ai-center')).toBe(true);
     
     // Blocked

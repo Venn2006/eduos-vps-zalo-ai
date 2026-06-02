@@ -26,6 +26,7 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
   ],
   ACCOUNTANT: [
     "/workspaces",
+    "/workspaces/finance",
     "/ai-center",
     "/payments",
     "/renewals",
