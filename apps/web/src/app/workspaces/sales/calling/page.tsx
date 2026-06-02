@@ -8,6 +8,7 @@ import { PhoneCall, Calendar, Clock, AlertCircle, Phone, ArrowLeft, ArrowRight, 
 import { startOfDay, endOfDay, format } from "date-fns";
 import { vi } from 'date-fns/locale';
 import Link from 'next/link';
+import { CallOutcomeForm } from './CallOutcomeForm';
 
 export default async function SalesCallingPage() {
   const authSession = await getSession();
@@ -262,24 +263,8 @@ export default async function SalesCallingPage() {
               </div>
 
               {/* ACTION PANEL */}
-              <div className="bg-white border shadow-sm rounded-xl p-6 relative">
-                <div className="absolute inset-0 bg-slate-50/60 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-xl">
-                  <div className="bg-white px-4 py-2 rounded-full border shadow-sm text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-amber-500" />
-                    Ghi kết quả cuộc gọi sẽ được bật ở Phase 13.3.
-                  </div>
-                </div>
-                
-                <h3 className="font-bold text-slate-900 mb-4">Ghi nhận kết quả</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <button disabled className="py-2.5 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 opacity-50">Không nghe máy</button>
-                  <button disabled className="py-2.5 px-3 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 opacity-50">Sai số</button>
-                  <button disabled className="py-2.5 px-3 bg-blue-50 border border-blue-200 rounded-lg text-sm font-medium text-blue-700 opacity-50">Quan tâm</button>
-                  <button disabled className="py-2.5 px-3 bg-amber-50 border border-amber-200 rounded-lg text-sm font-medium text-amber-700 opacity-50">Hẹn gọi lại</button>
-                  <button disabled className="py-2.5 px-3 bg-green-50 border border-green-200 rounded-lg text-sm font-medium text-green-700 opacity-50">Đặt học thử</button>
-                  <button disabled className="py-2.5 px-3 bg-red-50 border border-red-200 rounded-lg text-sm font-medium text-red-700 opacity-50">Từ chối</button>
-                  <button disabled className="py-2.5 px-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm font-medium text-emerald-700 opacity-50">Đã đóng tiền</button>
-                </div>
+              <div className="bg-white border shadow-sm rounded-xl p-6">
+                <CallOutcomeForm leadId={activeLead.id} />
               </div>
             </>
           ) : (
