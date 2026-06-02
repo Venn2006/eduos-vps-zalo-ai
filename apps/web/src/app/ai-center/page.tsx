@@ -10,7 +10,15 @@ import { AiCommandBar } from '@/components/ui/AiCommandBar';
 import { prisma } from '@eduos/db';
 import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 
-export default async function AiCenterPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function AiCenterPage({ searchParams }: Props) {
+  const resolvedSearchParams = await searchParams;
+  const promptRaw = resolvedSearchParams.prompt;
+  const prompt = typeof promptRaw === 'string' ? promptRaw.slice(0, 500) : '';
+
   const authSession = await getSession();
   if (!canAccessRoute(authSession?.role, "/ai-center")) {
     return <ForbiddenRoleMessage role={authSession?.role} />;
@@ -60,7 +68,7 @@ export default async function AiCenterPage() {
             <p className="text-indigo-200 text-sm mt-1">Trợ lý đắc lực giúp bạn phân tích doanh thu, tuyển sinh, công nợ và cảnh báo rủi ro tức thì.</p>
           </div>
           <div className="bg-white/10 rounded-lg p-2 backdrop-blur-sm">
-            <AiCommandBar />
+            <AiCommandBar initialPrompt={prompt} />
           </div>
         </section>
 

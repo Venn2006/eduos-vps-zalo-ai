@@ -1,20 +1,39 @@
 'use client';
-import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, ArrowRight, Loader2, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export function AiCommandBar() {
-  const [query, setQuery] = useState('');
+export function AiCommandBar({ initialPrompt = '' }: { initialPrompt?: string }) {
+  const [query, setQuery] = useState(initialPrompt ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setQuery(initialPrompt ?? '');
+  }, [initialPrompt]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     
     setIsSubmitting(true);
-    // Push to the CEO chat page with the query in URL, so the chat page can auto-submit it
-    router.push(`/ai-center?q=${encodeURIComponent(query)}`);
+    try {
+      const res = await fetch('/api/ai/ceo-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: query })
+      });
+      if (res.ok) {
+        setQuery('');
+        router.refresh();
+      } else {
+        alert('Lỗi xử lý yêu cầu AI. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      alert('Không thể kết nối API AI.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -47,6 +66,13 @@ export function AiCommandBar() {
           </button>
         </form>
       </div>
+
+      {initialPrompt && query === initialPrompt && (
+        <div className="mt-3 flex items-start gap-2 bg-indigo-50/80 text-indigo-700 text-sm p-3 rounded-lg border border-indigo-100/50 relative z-10 mx-1">
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <p>Câu hỏi đã được điền sẵn. Bấm <span className="font-semibold">Gửi</span> để hỏi AI.</p>
+        </div>
+      )}
       
       {/* Suggested Prompts */}
       <div className="mt-4 flex flex-wrap gap-2 relative z-10 pl-1 md:pl-[140px]">

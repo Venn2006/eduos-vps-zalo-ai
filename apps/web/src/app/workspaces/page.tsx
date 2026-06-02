@@ -78,10 +78,10 @@ function WorkspaceCard({
 // AI Prompt pill
 function AiPrompt({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full border border-indigo-100">
+    <Link href={`/ai-center?prompt=${encodeURIComponent(text)}`} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-indigo-700 text-xs font-medium rounded-full border border-indigo-100 cursor-pointer">
       <Sparkles className="w-3 h-3" />
       "{text}"
-    </div>
+    </Link>
   );
 }
 
