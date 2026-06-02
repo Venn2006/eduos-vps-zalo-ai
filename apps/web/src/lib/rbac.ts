@@ -8,6 +8,7 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
   SALE: [
     "/workspaces",
     "/workspaces/sales",
+    "/workspaces/sales/calling",
     "/ai-center",
     "/fanpage-inbox",
     "/leads",
