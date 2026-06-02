@@ -48,26 +48,79 @@ describe("AI Command Center - CEO Chat API", () => {
     await server.close();
   });
 
-  it("should block TEACHER from accessing CEO Chat", async () => {
-    const response = await server.inject({
+  it("should allow TEACHER to access CEO Chat for academic queries but block finance", async () => {
+    // Academic query should work
+    let response = await server.inject({
       method: "POST",
       url: "/api/ai/ceo-chat",
       headers: { "x-test-role": "TEACHER", "x-test-tenant": "test-tenant-1" },
-      payload: { message: "Hello" }
+      payload: { message: "Lớp nào có rủi ro học viên nghỉ?" }
     });
-    
-    expect(response.statusCode).toBe(403);
-    expect(JSON.parse(response.payload).error).toContain("restricted to OWNER/ADMIN");
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.payload).message.content).not.toContain("Tài khoản của bạn chưa được cấp quyền");
+
+    // Finance query should be blocked for TEACHER
+    response = await server.inject({
+      method: "POST",
+      url: "/api/ai/ceo-chat",
+      headers: { "x-test-role": "TEACHER", "x-test-tenant": "test-tenant-1" },
+      payload: { message: "Ai chưa đóng tiền?" }
+    });
+    expect(response.statusCode).toBe(200); 
+    const payload = JSON.parse(response.payload);
+    expect(payload.message.content).toContain("Tài khoản của bạn chưa được cấp quyền");
+    expect(payload.message.evidence).toBeNull();
+    expect(payload.message.suggestedActions).toBeNull();
   });
 
-  it("should block SALE from accessing CEO Chat", async () => {
-    const response = await server.inject({
+  it("should allow SALE to access CEO Chat for sales queries but block finance", async () => {
+    // Sales query should work
+    let response = await server.inject({
       method: "POST",
       url: "/api/ai/ceo-chat",
       headers: { "x-test-role": "SALE", "x-test-tenant": "test-tenant-1" },
-      payload: { message: "Hello" }
+      payload: { message: "Hôm nay tuyển được bao nhiêu?" }
     });
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.payload).message.content).not.toContain("Tài khoản của bạn chưa được cấp quyền");
+
+    // Finance query should be blocked for SALE
+    response = await server.inject({
+      method: "POST",
+      url: "/api/ai/ceo-chat",
+      headers: { "x-test-role": "SALE", "x-test-tenant": "test-tenant-1" },
+      payload: { message: "Ai chưa đóng tiền?" }
+    });
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.payload);
+    expect(payload.message.content).toContain("Tài khoản của bạn chưa được cấp quyền");
+    expect(payload.message.evidence).toBeNull();
+    expect(payload.message.suggestedActions).toBeNull();
+  });
+
+  it("should allow ACCOUNTANT to access CEO Chat for finance queries but block sales", async () => {
+    // Finance query should work
+    let response = await server.inject({
+      method: "POST",
+      url: "/api/ai/ceo-chat",
+      headers: { "x-test-role": "ACCOUNTANT", "x-test-tenant": "test-tenant-1" },
+      payload: { message: "Ai chưa đóng tiền?" }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.payload).message.content).not.toContain("Tài khoản của bạn chưa được cấp quyền");
+
+    // Sales query should be blocked for ACCOUNTANT
+    response = await server.inject({
+      method: "POST",
+      url: "/api/ai/ceo-chat",
+      headers: { "x-test-role": "ACCOUNTANT", "x-test-tenant": "test-tenant-1" },
+      payload: { message: "Hôm nay tuyển được bao nhiêu?" }
+    });
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.payload);
+    expect(payload.message.content).toContain("Tài khoản của bạn chưa được cấp quyền");
+    expect(payload.message.evidence).toBeNull();
+    expect(payload.message.suggestedActions).toBeNull();
   });
 
   it("should allow OWNER to access CEO Chat", async () => {

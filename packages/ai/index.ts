@@ -4,7 +4,7 @@ export interface AiProvider {
   summarizeConversation(messages: string[]): Promise<string>;
   generateParentReport(studentData: any): Promise<string>;
   gradeHomework(mediaUrl: string): Promise<{ score: number, comment: string }>;
-  answerCeoQuery(query: string, tenantId: string): Promise<{
+  answerCeoQuery(query: string, tenantId: string, role?: string): Promise<{
     answer: string;
     evidenceJson: any;
     suggestedActionsJson: any;
@@ -45,19 +45,56 @@ export class MockAiProvider implements AiProvider {
     });
   }
 
-  async answerCeoQuery(query: string, tenantId: string) {
+  async answerCeoQuery(query: string, tenantId: string, role?: string) {
     const q = query.toLowerCase();
+    
+    // 1. Determine target source module
+    let sourceModule = "GENERAL";
+    if (q.includes("nghiêm trọng") || q.includes("lỗi") || q.includes("vấn đề")) {
+      sourceModule = "SYSTEM";
+    } else if (q.includes("tuyển") || q.includes("lead") || q.includes("sale")) {
+      sourceModule = "SALES";
+    } else if (q.includes("rủi ro") || q.includes("nghỉ") || q.includes("lớp")) {
+      sourceModule = "ACADEMIC";
+    } else if (q.includes("tiền") || q.includes("tái phí") || q.includes("nợ")) {
+      sourceModule = "FINANCE";
+    } else if (q.includes("báo cáo") || q.includes("duyệt")) {
+      sourceModule = "REPORTS";
+    }
+
+    // 2. Enforce Role-Scoped Data Access BEFORE running fetchers
+    let allowedModules: string[] = [];
+    if (role === "OWNER" || role === "ADMIN") {
+      allowedModules = ["*"];
+    } else if (role === "SALE") {
+      allowedModules = ["GENERAL", "SALES"];
+    } else if (role === "TEACHER") {
+      allowedModules = ["GENERAL", "ACADEMIC"];
+    } else if (role === "ACCOUNTANT") {
+      allowedModules = ["GENERAL", "FINANCE"];
+    }
+
+    if (!allowedModules.includes("*") && !allowedModules.includes(sourceModule)) {
+      return {
+        answer: "Tài khoản của bạn chưa được cấp quyền hỏi dữ liệu này.",
+        evidenceJson: null,
+        suggestedActionsJson: null,
+        severity: "LOW",
+        sourceModule,
+        rawResultJson: null
+      };
+    }
+
+    // 3. Execute Fetchers Safely
     let answer = "Không đủ dữ liệu";
     let evidenceJson: any = null;
     let suggestedActionsJson: any = null;
     let severity = "LOW";
-    let sourceModule = "GENERAL";
     let rawResultJson: any = null;
 
-    if (q.includes("nghiêm trọng") || q.includes("lỗi") || q.includes("vấn đề")) {
+    if (sourceModule === "SYSTEM") {
       const { getCriticalAlertsSummary } = await import("./src/fetchers/ceo-chat");
       const data = await getCriticalAlertsSummary(tenantId);
-      sourceModule = "SYSTEM";
       rawResultJson = data;
       evidenceJson = { criticalCount: data.criticalCount, health: data.health };
       
@@ -69,20 +106,18 @@ export class MockAiProvider implements AiProvider {
         answer = "Hôm nay không có vấn đề gì nghiêm trọng. Các hệ thống Zalo/Facebook và tài chính đều ổn định.";
       }
     } 
-    else if (q.includes("tuyển") || q.includes("lead") || q.includes("sale")) {
+    else if (sourceModule === "SALES") {
       const { getSalesPerformanceToday, getTodayAdmissionsSummary } = await import("./src/fetchers/ceo-chat");
       const data = await getTodayAdmissionsSummary(tenantId);
       const sales = await getSalesPerformanceToday(tenantId);
-      sourceModule = "SALES";
       rawResultJson = { admissions: data, sales };
       evidenceJson = { newLeads: data.newLeads, newTrials: data.newTrials, wonLeads: sales.wonLeads, revenue: sales.revenueToday };
       
       answer = `Hôm nay tuyển được ${data.newLeads} leads mới, có ${data.newTrials} lịch học thử. Đã chốt thành công (WON) ${sales.wonLeads} học viên và ghi nhận ${sales.revenueToday.toLocaleString('vi-VN')} VND doanh thu.`;
     }
-    else if (q.includes("rủi ro") || q.includes("nghỉ") || q.includes("lớp")) {
+    else if (sourceModule === "ACADEMIC") {
       const { getAcademicRiskSummary } = await import("./src/fetchers/ceo-chat");
       const data = await getAcademicRiskSummary(tenantId);
-      sourceModule = "ACADEMIC";
       rawResultJson = data;
       evidenceJson = data;
       
@@ -94,10 +129,9 @@ export class MockAiProvider implements AiProvider {
         answer = "Hiện tại không phát hiện rủi ro học thuật đáng kể. Học viên đi học và nộp bài đều.";
       }
     }
-    else if (q.includes("tiền") || q.includes("tái phí") || q.includes("nợ")) {
+    else if (sourceModule === "FINANCE") {
       const { getFinanceRiskSummary } = await import("./src/fetchers/ceo-chat");
       const data = await getFinanceRiskSummary(tenantId);
-      sourceModule = "FINANCE";
       rawResultJson = data;
       evidenceJson = data;
       
@@ -109,11 +143,10 @@ export class MockAiProvider implements AiProvider {
         answer = "Không có hóa đơn nào quá hạn. Tình hình thu học phí đang rất tốt.";
       }
     }
-    else if (q.includes("báo cáo") || q.includes("duyệt")) {
+    else if (sourceModule === "REPORTS") {
       const { getParentReportPendingSummary, getAiDraftsPendingApproval } = await import("./src/fetchers/ceo-chat");
       const data = await getParentReportPendingSummary(tenantId);
       const aiData = await getAiDraftsPendingApproval(tenantId);
-      sourceModule = "REPORTS";
       rawResultJson = { reports: data, aiDrafts: aiData };
       evidenceJson = { pendingReports: data.pendingReports, draftReports: data.draftReports, pendingDrafts: aiData.pendingDrafts };
       

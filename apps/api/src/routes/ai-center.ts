@@ -3,15 +3,15 @@ import { prisma } from "@eduos/db";
 import { MockAiProvider } from "@eduos/ai";
 
 export default async function aiCenterRoutes(fastify: FastifyInstance) {
-  // Pre-handler for RBAC: Only OWNER and ADMIN
+  // Pre-handler for RBAC: Allow all authenticated app roles (except UNKNOWN)
   fastify.addHook("preHandler", async (request, reply) => {
     const session = request.session;
     if (!session || !session.activeTenantId) {
       return reply.status(401).send({ error: "Unauthorized" });
     }
 
-    if (session.role !== "OWNER" && session.role !== "ADMIN") {
-      return reply.status(403).send({ error: "Forbidden: CEO Chat is restricted to OWNER/ADMIN" });
+    if (session.role === "UNKNOWN" || !session.role) {
+      return reply.status(403).send({ error: "Forbidden: Role not authorized for CEO Chat" });
     }
   });
 
@@ -47,9 +47,9 @@ export default async function aiCenterRoutes(fastify: FastifyInstance) {
         }
       });
 
-      // 3. Process with MockAiProvider
+      // 3. Process with MockAiProvider (Role-scope is enforced BEFORE data fetching)
       const aiProvider = new MockAiProvider();
-      const response = await aiProvider.answerCeoQuery(message, session.activeTenantId);
+      const response = await aiProvider.answerCeoQuery(message, session.activeTenantId, session.role);
 
       // 4. Save AI Response Message
       const aiMessage = await prisma.aiCommandMessage.create({
