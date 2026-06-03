@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { User, MessageCircle, Bot, Send, CheckCircle, Clock } from 'lucide-react';
+import { analyzeConversation } from '@eduos/shared/src/lib/conversationIntelligence';
+import { ConversationIntelligenceCard } from '@/components/conversation/ConversationIntelligenceCard';
 
 type Conversation = {
   id: string;
@@ -18,6 +20,7 @@ export function FanpageInboxClient({ initialConversations }: { initialConversati
   const [filter, setFilter] = useState('ALL');
 
   const activeConv = initialConversations.find(c => c.id === activeConvId);
+  const intelligenceResult = activeConv ? analyzeConversation(activeConv.messages.map((m: any) => m.text).join('\n'), 'FACEBOOK') : null;
 
   return (
     <div className="flex h-[calc(100vh-140px)] bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
@@ -85,6 +88,13 @@ export function FanpageInboxClient({ initialConversations }: { initialConversati
                 )
               })}
             </div>
+
+            {/* AI Intelligence Card */}
+            {intelligenceResult && (
+              <div className="px-4 mb-4">
+                <ConversationIntelligenceCard result={intelligenceResult} />
+              </div>
+            )}
 
             {/* AI Draft Area */}
             {activeConv.suggestions && activeConv.suggestions.length > 0 && !activeConv.suggestions[0].isUsed && (

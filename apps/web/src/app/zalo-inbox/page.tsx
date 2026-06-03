@@ -37,9 +37,15 @@ const quickReplies = [
   'Mình inbox riêng admin giúp em nhé'
 ];
 
+import { analyzeConversation } from '@eduos/shared/src/lib/conversationIntelligence';
+import { ConversationIntelligenceCard } from '@/components/conversation/ConversationIntelligenceCard';
+
 export default function ZaloInboxPage() {
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [activeChat, setActiveChat] = useState('1');
+
+  const transcript = mockMessages.map(m => m.text).join('\n');
+  const intelligenceResult = analyzeConversation(transcript, 'ZALO');
 
   return (
     <div className="h-[calc(100vh-8rem)] flex overflow-hidden border border-border rounded-xl bg-background shadow-sm mt-4">
@@ -223,22 +229,8 @@ export default function ZaloInboxPage() {
       <div className="w-80 border-l border-border flex flex-col bg-slate-50/50">
         
         {/* AI Panel */}
-        <div className="p-4 border-b border-border bg-gradient-to-br from-fuchsia-50 to-purple-50 space-y-3">
-          <div className="flex items-center gap-2 text-fuchsia-700 font-bold text-sm">
-            <BrainCircuit className="w-4 h-4" /> AI Assistant
-          </div>
-          <Card className="border-fuchsia-200 shadow-sm bg-white/80 backdrop-blur">
-            <CardContent className="p-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-900 block mb-1">Tóm tắt:</span>
-              Phụ huynh muốn cho bé Na học thử lớp HSK1 khóa mới. Đã xếp lịch học thử 19:00 Thứ 7 tuần này. Phụ huynh vừa xin nghỉ hôm nay do bé sốt.
-            </CardContent>
-          </Card>
-          
-          <div className="grid grid-cols-2 gap-2 pt-1">
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs"><Edit3 className="w-3.5 h-3.5 mr-1.5"/>Gợi ý trả lời</Button>
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs"><CheckSquare className="w-3.5 h-3.5 mr-1.5"/>Tạo phiếu nghỉ</Button>
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs col-span-2"><Users className="w-3.5 h-3.5 mr-1.5"/>Chuyển thành Học viên</Button>
-          </div>
+        <div className="p-4 border-b border-border bg-gradient-to-br from-slate-50 to-blue-50/20 space-y-3">
+          <ConversationIntelligenceCard result={intelligenceResult} />
         </div>
 
         {/* CRM Panel */}

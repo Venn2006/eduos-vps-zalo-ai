@@ -333,7 +333,6 @@ export default async function SalesCallingPage() {
                   )}
                 </div>
                 
-                {/* History & AI Suggestion */}
                 <div className="p-6 bg-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><History className="w-4 h-4"/> Lịch sử gọi</h4>
@@ -348,12 +347,27 @@ export default async function SalesCallingPage() {
                       )}
                     </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><MessageSquare className="w-4 h-4"/> Gợi ý kịch bản cuộc gọi tiếp theo</h4>
-                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-indigo-900 leading-relaxed">
-                      {activeLead.callCount === 0 
-                        ? "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp." 
-                        : (activeLead.lastCallOutcome ? getSuggestionForOutcome(activeLead.lastCallOutcome as any)?.copy || "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử." : "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử.")}
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><MessageSquare className="w-4 h-4"/> Gợi ý kịch bản cuộc gọi tiếp theo</h4>
+                      <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-indigo-900 leading-relaxed">
+                        {activeLead.callCount === 0 
+                          ? "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp." 
+                          : (activeLead.lastCallOutcome ? getSuggestionForOutcome(activeLead.lastCallOutcome as any)?.copy || "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử." : "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử.")}
+                      </div>
+                    </div>
+                    {/* Mock AI Suggested Tags from last chat context */}
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Tag className="w-4 h-4 text-primary" /> AI Gợi Ý Nhãn Từ Trò Chuyện (Preview)
+                      </h4>
+                      <div className="flex gap-2 flex-wrap">
+                        {['Muốn học thử', 'Hỏi học phí', 'Lead nóng'].map(tag => (
+                          <span key={tag} className="px-2 py-1 bg-slate-200 text-slate-700 text-xs font-medium rounded-full border border-slate-300">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
