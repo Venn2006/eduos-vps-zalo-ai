@@ -1,5 +1,5 @@
-import { checkMessageQuality, MessageQualityResult } from './messageQualityGuardrails';
-import { UserRole } from './rbac';
+import { checkMessageQuality, GuardrailCheckResult } from './messageQualityGuardrails';
+import { Role as UserRole } from './permissionDefaults';
 import { redactSensitiveInfo } from './timelineBuilder';
 
 export type ConnectorChannel = "ZALO" | "FANPAGE" | "SMS" | "EMAIL";
