@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { User, MessageCircle, Bot, Send, CheckCircle, Clock } from 'lucide-react';
 import { analyzeConversation } from '@eduos/shared/src/lib/conversationIntelligence';
 import { ConversationIntelligenceCard } from '@/components/conversation/ConversationIntelligenceCard';
+import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreviewCard';
+import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
 
 type Conversation = {
   id: string;
@@ -98,18 +100,26 @@ export function FanpageInboxClient({ initialConversations }: { initialConversati
 
             {/* AI Draft Area */}
             {activeConv.suggestions && activeConv.suggestions.length > 0 && !activeConv.suggestions[0].isUsed && (
-              <div className="mx-4 mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
-                <div className="flex items-center text-orange-700 font-semibold mb-2 text-sm">
-                  <Bot className="w-4 h-4 mr-1.5" /> AI Đề Xuất Trả Lời
+              <div className="mx-4 mb-4">
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                  <div className="flex items-center text-orange-700 font-semibold mb-2 text-sm">
+                    <Bot className="w-4 h-4 mr-1.5" /> AI Đề Xuất Trả Lời
+                  </div>
+                  <p className="text-sm text-slate-800 bg-white p-3 border border-orange-100 rounded mb-3">
+                    {activeConv.suggestions[0].suggestion}
+                  </p>
+                  <div className="flex justify-end space-x-2">
+                    <button className="px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 flex items-center transition-colors">
+                      <CheckCircle className="w-3 h-3 mr-1" /> Sao chép trả lời (Duyệt nháp)
+                    </button>
+                  </div>
                 </div>
-                <p className="text-sm text-slate-800 bg-white p-3 border border-orange-100 rounded mb-3">
-                  {activeConv.suggestions[0].suggestion}
-                </p>
-                <div className="flex justify-end space-x-2">
-                  <button className="px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 flex items-center transition-colors">
-                    <CheckCircle className="w-3 h-3 mr-1" /> Sao chép trả lời (Duyệt nháp)
-                  </button>
-                </div>
+                <GuardrailPreviewCard result={checkMessageQuality({
+                  message: activeConv.suggestions[0].suggestion,
+                  channel: "FANPAGE",
+                  audience: "PARENT",
+                  staffRole: "SALE",
+                })} />
               </div>
             )}
 

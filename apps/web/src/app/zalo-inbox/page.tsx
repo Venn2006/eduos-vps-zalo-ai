@@ -39,13 +39,22 @@ const quickReplies = [
 
 import { analyzeConversation } from '@eduos/shared/src/lib/conversationIntelligence';
 import { ConversationIntelligenceCard } from '@/components/conversation/ConversationIntelligenceCard';
+import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreviewCard';
+import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
 
 export default function ZaloInboxPage() {
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [activeChat, setActiveChat] = useState('1');
+  const [draft, setDraft] = useState('');
 
   const transcript = mockMessages.map(m => m.text).join('\n');
   const intelligenceResult = analyzeConversation(transcript, 'ZALO');
+  const guardrailResult = draft.trim().length > 0 ? checkMessageQuality({
+    message: draft,
+    channel: 'ZALO',
+    audience: 'PARENT',
+    staffRole: 'SALE',
+  }) : null;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex overflow-hidden border border-border rounded-xl bg-background shadow-sm mt-4">
@@ -211,6 +220,11 @@ export default function ZaloInboxPage() {
 
         {/* Composer */}
         <div className="p-3 bg-white border-t border-border">
+          {guardrailResult && (
+            <div className="mb-3 px-2">
+              <GuardrailPreviewCard result={guardrailResult} />
+            </div>
+          )}
           <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><Paperclip className="w-4 h-4"/></Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><ImageIcon className="w-4 h-4"/></Button>
@@ -218,9 +232,19 @@ export default function ZaloInboxPage() {
               placeholder="Nhập tin nhắn..." 
               className="flex-1 max-h-32 min-h-[40px] resize-none bg-transparent outline-none text-sm py-2 px-1 scrollbar-hide"
               rows={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
             />
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><Smile className="w-4 h-4"/></Button>
-            <Button size="icon" className="h-8 w-8 bg-primary text-white rounded-lg shadow-sm hover:shadow"><Send className="w-4 h-4"/></Button>
+            <Button 
+              size="icon" 
+              className={cn("h-8 w-8 text-white rounded-lg shadow-sm hover:shadow", 
+                guardrailResult?.status === 'BLOCKED' ? "bg-slate-300 cursor-not-allowed" : "bg-primary"
+              )}
+              disabled={guardrailResult?.status === 'BLOCKED'}
+            >
+              <Send className="w-4 h-4"/>
+            </Button>
           </div>
         </div>
       </div>
