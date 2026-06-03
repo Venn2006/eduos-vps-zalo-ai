@@ -49,6 +49,19 @@ export default function MockOutboxClient() {
         </div>
       </div>
 
+      <div className="mb-6 bg-slate-50 border border-slate-200 rounded-lg p-5 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <ShieldAlert className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-md font-bold text-slate-800">Kiểm tra điều kiện gửi thật</h2>
+        </div>
+        <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
+          <li>Chưa bật gửi thật</li>
+          <li>Phase 43 chỉ kiểm tra hợp đồng an toàn</li>
+          <li>Không gọi connector</li>
+          <li>Không gửi tới Zalo/Facebook</li>
+        </ul>
+      </div>
+
       <div className="grid gap-4">
         {items.map(item => (
           <div key={item.id} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex items-center justify-between">
