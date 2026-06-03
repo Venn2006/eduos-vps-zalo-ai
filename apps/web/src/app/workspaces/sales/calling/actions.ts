@@ -43,21 +43,9 @@ export async function logCallOutcome(formData: FormData) {
           if (data.trialBookingData) {
             await tx.trialBooking.create({ data: data.trialBookingData });
           }
-          await tx.auditLog.create({
-            data: {
-              tenantId: data.callAttemptData.tenantId,
-              actorId: userId || null,
-              action: "SALES_CALL_OUTCOME_LOGGED",
-              entityType: "LEAD",
-              entityId: leadId,
-              metadataJson: JSON.stringify({
-                outcome: data.callAttemptData.outcome,
-                hasNotes: !!data.callAttemptData.notes,
-                createdFollowUp: !!data.followUpTaskData,
-                createdTrial: !!data.trialBookingData
-              }),
-            }
-          });
+          if (data.auditLogData) {
+            await tx.auditLog.create({ data: data.auditLogData });
+          }
         });
       }
     });

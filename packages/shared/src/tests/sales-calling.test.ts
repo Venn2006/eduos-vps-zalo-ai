@@ -60,6 +60,8 @@ describe('Manual Call Outcome Logging Helper', () => {
       fetchLead: fetchLeadMock,
       executeTransaction: executeTransactionMock
     })).rejects.toThrow('Kết quả cuộc gọi không hợp lệ');
+
+    expect(executeTransactionMock).not.toHaveBeenCalled();
   });
 
   test('Rejects missing lead / cross-tenant', async () => {
@@ -134,6 +136,28 @@ describe('Manual Call Outcome Logging Helper', () => {
     });
     expect(txData.followUpTaskData.dueDate).toBeInstanceOf(Date);
     expect(txData.followUpTaskData.description).toContain('INTERESTED');
+
+    // Audit Log assertion
+    expect(txData.auditLogData).toBeDefined();
+    expect(txData.auditLogData).toMatchObject({
+      tenantId: defaultTenantId,
+      actorId: 'user_1',
+      action: 'SALES_CALL_OUTCOME_LOGGED',
+      entityType: 'LEAD',
+      entityId: 'lead_1',
+    });
+    
+    // Ensure metadata excludes sensitive fields and includes expected outcome metrics
+    const parsedMetadata = JSON.parse(txData.auditLogData.metadataJson);
+    expect(parsedMetadata.outcome).toBe('INTERESTED');
+    expect(parsedMetadata.hasNotes).toBe(true);
+    expect(parsedMetadata.createdFollowUp).toBe(true);
+    expect(parsedMetadata.createdTrial).toBe(false);
+    expect(parsedMetadata.phone).toBeUndefined();
+    expect(parsedMetadata.secret).toBeUndefined();
+    expect(parsedMetadata.messageBody).toBeUndefined();
+    expect(parsedMetadata.parentPhone).toBeUndefined();
+    expect(parsedMetadata.studentPhone).toBeUndefined();
   });
 
   const createsFollowUpOutcomes = ['NO_ANSWER', 'BUSY_CALLBACK', 'INTERESTED', 'ASKED_PRICE', 'NEEDS_PARENT_APPROVAL'];

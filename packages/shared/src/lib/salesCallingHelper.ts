@@ -125,6 +125,20 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
     leadUpdateData.nextFollowUpAt = nextFollowUpAt;
   }
 
+  const auditLogData = {
+    tenantId,
+    actorId: saleIdToLog,
+    action: "SALES_CALL_OUTCOME_LOGGED",
+    entityType: "LEAD",
+    entityId: leadId,
+    metadataJson: JSON.stringify({
+      outcome,
+      hasNotes: !!notes,
+      createdFollowUp: !!followUpTaskData,
+      createdTrial: !!trialBookingData
+    }),
+  };
+
   await executeTransaction({
     callAttemptData: {
       tenantId,
@@ -137,6 +151,7 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
     leadUpdateData,
     followUpTaskData,
     trialBookingData,
+    auditLogData,
   });
 
   return { success: true };
