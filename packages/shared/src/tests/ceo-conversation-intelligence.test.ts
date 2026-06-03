@@ -166,7 +166,7 @@ describe('ceoConversationIntelligence', () => {
     const result = generateCEOIntelligence({ pendingDraftCount: 2 });
     const draftRisk = result.riskCards.find(r => r.category === 'AI_DRAFT_PENDING');
     expect(draftRisk).toBeDefined();
-    expect(draftRisk?.actionUrl).toBe('/fanpage-inbox?filter=HAS_DRAFT');
+    expect(draftRisk?.actionUrl).toBe('/approval-queue');
     expect(draftRisk?.actionLabel).toBeDefined();
   });
 });
