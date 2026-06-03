@@ -31,6 +31,9 @@ export async function logCallOutcome(formData: FormData) {
         await prisma.$transaction(async (tx) => {
           await tx.callAttempt.create({ data: data.callAttemptData });
           await tx.lead.update({ where: { id: leadId }, data: data.leadUpdateData });
+          if (data.followUpTaskData) {
+            await tx.followUpTask.create({ data: data.followUpTaskData });
+          }
         });
       }
     });

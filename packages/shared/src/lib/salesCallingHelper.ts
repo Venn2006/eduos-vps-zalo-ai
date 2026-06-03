@@ -1,4 +1,5 @@
 import { CallOutcome } from '@prisma/client';
+import { addDays, startOfDay, setHours } from 'date-fns';
 
 export interface LogCallOutcomeParams {
   tenantId: string;
@@ -48,9 +49,64 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
     throw new Error('You can only log calls for leads assigned to you');
   }
 
-  // 5. Build transaction payload and execute
+  // 5. Determine if a FollowUpTask is needed
+  let followUpTaskData: any = null;
+  const now = new Date();
+  let nextFollowUpAt: Date | undefined = undefined;
+
   const saleIdToLog = isOwnerOrAdmin ? (userId || null) : userId;
-  
+  const assignedToFollowUp = lead.assignedToId || saleIdToLog; // default to existing assignee or current caller
+
+  if (!assignedToFollowUp && (
+    outcome === 'NO_ANSWER' ||
+    outcome === 'BUSY_CALLBACK' ||
+    outcome === 'INTERESTED' ||
+    outcome === 'ASKED_PRICE' ||
+    outcome === 'NEEDS_PARENT_APPROVAL'
+  )) {
+    throw new Error('Cannot create follow-up task: no assignee found');
+  }
+
+  if (
+    outcome === 'NO_ANSWER' ||
+    outcome === 'BUSY_CALLBACK' ||
+    outcome === 'INTERESTED' ||
+    outcome === 'ASKED_PRICE'
+  ) {
+    // Follow up tomorrow
+    nextFollowUpAt = setHours(startOfDay(addDays(now, 1)), 9); // 9 AM tomorrow
+    followUpTaskData = {
+      tenantId,
+      leadId,
+      assignedTo: assignedToFollowUp,
+      dueDate: nextFollowUpAt,
+      description: `Follow up after call outcome: ${outcome}`,
+      isCompleted: false,
+    };
+  } else if (outcome === 'NEEDS_PARENT_APPROVAL') {
+    // Follow up in 2 days
+    nextFollowUpAt = setHours(startOfDay(addDays(now, 2)), 9); // 9 AM in 2 days
+    followUpTaskData = {
+      tenantId,
+      leadId,
+      assignedTo: assignedToFollowUp,
+      dueDate: nextFollowUpAt,
+      description: `Follow up after call outcome: ${outcome}`,
+      isCompleted: false,
+    };
+  }
+
+  // 6. Build transaction payload and execute
+  const leadUpdateData: any = {
+    callCount: { increment: 1 },
+    lastCallAt: now,
+    lastCallOutcome: outcome,
+  };
+
+  if (nextFollowUpAt) {
+    leadUpdateData.nextFollowUpAt = nextFollowUpAt;
+  }
+
   await executeTransaction({
     callAttemptData: {
       tenantId,
@@ -58,13 +114,10 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
       saleId: saleIdToLog,
       outcome,
       notes: notes || null,
-      calledAt: new Date(),
+      calledAt: now,
     },
-    leadUpdateData: {
-      callCount: { increment: 1 },
-      lastCallAt: new Date(),
-      lastCallOutcome: outcome,
-    }
+    leadUpdateData,
+    followUpTaskData,
   });
 
   return { success: true };

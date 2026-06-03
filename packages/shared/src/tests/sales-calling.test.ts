@@ -72,7 +72,7 @@ describe('Manual Call Outcome Logging Helper', () => {
     })).rejects.toThrow('You can only log calls for leads assigned to you');
   });
 
-  test('SALE successfully logs call for their assigned lead', async () => {
+  test('SALE successfully logs call for their assigned lead - INTERESTED creates follow-up', async () => {
     fetchLeadMock.mockResolvedValue({ id: 'lead_1', assignedToId: 'user_1' });
 
     const result = await validateAndLogCallOutcome({
@@ -107,6 +107,79 @@ describe('Manual Call Outcome Logging Helper', () => {
       lastCallOutcome: 'INTERESTED',
     });
     expect(txData.leadUpdateData.lastCallAt).toBeInstanceOf(Date);
+    expect(txData.leadUpdateData.nextFollowUpAt).toBeInstanceOf(Date);
+
+    // FollowUpTask payload
+    expect(txData.followUpTaskData).toBeDefined();
+    expect(txData.followUpTaskData).toMatchObject({
+      tenantId: defaultTenantId,
+      leadId: 'lead_1',
+      assignedTo: 'user_1',
+      isCompleted: false,
+    });
+    expect(txData.followUpTaskData.dueDate).toBeInstanceOf(Date);
+    expect(txData.followUpTaskData.description).toContain('INTERESTED');
+  });
+
+  // Parameterized tests for outcomes that CREATE follow-ups
+  const createsFollowUpOutcomes = ['NO_ANSWER', 'BUSY_CALLBACK', 'INTERESTED', 'ASKED_PRICE', 'NEEDS_PARENT_APPROVAL'];
+  test.each(createsFollowUpOutcomes)('Outcome %s creates a FollowUpTask', async (outcome) => {
+    fetchLeadMock.mockResolvedValue({ id: 'lead_1', assignedToId: 'user_1' });
+    executeTransactionMock.mockClear();
+
+    const result = await validateAndLogCallOutcome({
+      tenantId: defaultTenantId,
+      userId: 'user_1',
+      role: 'SALE',
+      leadId: 'lead_1',
+      outcome,
+      fetchLead: fetchLeadMock,
+      executeTransaction: executeTransactionMock
+    });
+
+    expect(result.success).toBe(true);
+    const txData = executeTransactionMock.mock.calls[0][0];
+    expect(txData.followUpTaskData).toBeDefined();
+    expect(txData.followUpTaskData.assignedTo).toBe('user_1');
+    expect(txData.followUpTaskData.dueDate).toBeInstanceOf(Date);
+    expect(txData.leadUpdateData.nextFollowUpAt).toBeInstanceOf(Date);
+  });
+
+  // Parameterized tests for outcomes that DO NOT create follow-ups
+  const noFollowUpOutcomes = ['NOT_INTERESTED', 'WRONG_NUMBER', 'BOOKED_TRIAL', 'ATTENDED_TRIAL', 'PAID', 'LOST'];
+  test.each(noFollowUpOutcomes)('Outcome %s does NOT create a FollowUpTask', async (outcome) => {
+    fetchLeadMock.mockResolvedValue({ id: 'lead_1', assignedToId: 'user_1' });
+    executeTransactionMock.mockClear();
+
+    const result = await validateAndLogCallOutcome({
+      tenantId: defaultTenantId,
+      userId: 'user_1',
+      role: 'SALE',
+      leadId: 'lead_1',
+      outcome,
+      fetchLead: fetchLeadMock,
+      executeTransaction: executeTransactionMock
+    });
+
+    expect(result.success).toBe(true);
+    const txData = executeTransactionMock.mock.calls[0][0];
+    expect(txData.followUpTaskData).toBeNull();
+    expect(txData.leadUpdateData.nextFollowUpAt).toBeUndefined();
+  });
+
+  test('Throws if no assignee can be determined for a follow-up task', async () => {
+    // Admin user logs call, but doesn't pass userId (e.g. system bot logic), and lead has no assignee
+    fetchLeadMock.mockResolvedValue({ id: 'lead_1', assignedToId: null });
+
+    await expect(validateAndLogCallOutcome({
+      tenantId: defaultTenantId,
+      userId: undefined,
+      role: 'ADMIN',
+      leadId: 'lead_1',
+      outcome: 'NO_ANSWER', // requires follow-up
+      fetchLead: fetchLeadMock,
+      executeTransaction: executeTransactionMock
+    })).rejects.toThrow('Cannot create follow-up task: no assignee found');
   });
 
   test('ADMIN can log call for unassigned or other lead', async () => {
@@ -128,5 +201,6 @@ describe('Manual Call Outcome Logging Helper', () => {
     // CallAttempt payload records admin's ID
     const txData = executeTransactionMock.mock.calls[0][0];
     expect(txData.callAttemptData.saleId).toBe('admin_1');
+    expect(txData.followUpTaskData).toBeNull();
   });
 });

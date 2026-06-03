@@ -56,7 +56,7 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
       <div className="bg-white px-4 py-2 mb-4 rounded border shadow-sm text-sm font-semibold text-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-2 border-l-4 border-l-blue-500">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-blue-500" />
-          <span>Phase 13.3: Ghi nhận kết quả cuộc gọi. Tạo follow-up và lịch học thử sẽ làm ở phase sau.</span>
+          <span>Một số kết quả như Không nghe máy hoặc Hẹn gọi lại sẽ tự tạo việc cần làm tiếp theo. Lịch học thử sẽ làm ở phase sau.</span>
         </div>
         {success && (
           <span className="flex items-center gap-1 text-green-600 font-bold bg-green-50 px-2 py-1 rounded">
