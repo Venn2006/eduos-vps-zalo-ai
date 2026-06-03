@@ -157,6 +157,7 @@ describe('Manual Call Outcome Logging Helper', () => {
     expect(txData.followUpTaskData.assignedTo).toBe('user_1');
     expect(txData.followUpTaskData.dueDate).toBeInstanceOf(Date);
     expect(txData.leadUpdateData.nextFollowUpAt).toBeInstanceOf(Date);
+    expect(txData.trialBookingData).toBeNull(); // explicitly confirm no booking created
   });
 
   const noFollowUpOutcomes = ['NOT_INTERESTED', 'WRONG_NUMBER', 'ATTENDED_TRIAL', 'PAID', 'LOST'];
@@ -178,6 +179,7 @@ describe('Manual Call Outcome Logging Helper', () => {
     const txData = executeTransactionMock.mock.calls[0][0];
     expect(txData.followUpTaskData).toBeNull();
     expect(txData.leadUpdateData.nextFollowUpAt).toBeUndefined();
+    expect(txData.trialBookingData).toBeNull(); // explicitly confirm no booking created
   });
 
   test('Throws if no assignee can be determined for a follow-up task', async () => {
