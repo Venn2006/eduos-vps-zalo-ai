@@ -162,4 +162,11 @@ describe('ceoConversationIntelligence', () => {
     expect(result.recommendedActions.length).toBeGreaterThan(0);
     expect(result.recommendedActions[0]).toMatch(/^[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-ỹ]/); // Starts with uppercase Vietnamese letter
   });
+  it('13. CEO actionUrl points to safe review bridge', () => {
+    const result = generateCEOIntelligence({ pendingDraftCount: 2 });
+    const draftRisk = result.riskCards.find(r => r.category === 'AI_DRAFT_PENDING');
+    expect(draftRisk).toBeDefined();
+    expect(draftRisk?.actionUrl).toBe('/fanpage-inbox?filter=HAS_DRAFT');
+    expect(draftRisk?.actionLabel).toBeDefined();
+  });
 });
