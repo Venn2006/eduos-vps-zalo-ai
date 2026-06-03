@@ -12,9 +12,11 @@ export async function logCallOutcome(formData: FormData) {
     const tenantId = await getCurrentTenantOrThrow();
     const userId = authSession?.userId;
 
-    const leadId = formData.get('leadId')?.toString() || '';
-    const outcome = formData.get('outcome')?.toString() || '';
-    const notes = formData.get('notes')?.toString();
+    const leadId = formData.get('leadId') as string;
+    const outcome = formData.get('outcome') as any;
+    const notes = formData.get('notes') as string;
+    const trialDate = formData.get('trialDate') as string;
+    const studentName = formData.get('studentName') as string;
 
     await validateAndLogCallOutcome({
       tenantId,
@@ -23,9 +25,13 @@ export async function logCallOutcome(formData: FormData) {
       leadId,
       outcome,
       notes,
-      fetchLead: async (lId, tId) => {
-        const lead = await prisma.lead.findUnique({ where: { id: lId, tenantId: tId } });
-        return lead ? { id: lead.id, assignedToId: lead.assignedToId } : null;
+      trialDate,
+      studentName,
+      fetchLead: async ({ id, tenantId }) => {
+        return await prisma.lead.findUnique({
+          where: { id, tenantId },
+          select: { id: true, assignedToId: true },
+        });
       },
       executeTransaction: async (data) => {
         await prisma.$transaction(async (tx) => {
@@ -34,14 +40,16 @@ export async function logCallOutcome(formData: FormData) {
           if (data.followUpTaskData) {
             await tx.followUpTask.create({ data: data.followUpTaskData });
           }
+          if (data.trialBookingData) {
+            await tx.trialBooking.create({ data: data.trialBookingData });
+          }
         });
       }
     });
 
     revalidatePath('/workspaces/sales/calling');
     return { success: true };
-  } catch (error: any) {
-    console.error('Failed to log call outcome:', error);
-    return { success: false, error: error.message || 'Internal server error' };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Lỗi hệ thống' };
   }
 }
