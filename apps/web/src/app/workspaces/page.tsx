@@ -11,12 +11,25 @@ import {
   Settings,
   Sparkles,
   ArrowRight,
-  Lock
+  Lock,
+  PhoneCall,
+  LayoutDashboard,
+  CalendarDays,
+  CheckSquare,
+  FileBarChart,
+  Bot,
+  Inbox,
+  Clock,
+  PiggyBank,
+  Wallet,
+  TrendingUp,
+  Percent,
+  Banknote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Reusable card for Workspace
-function WorkspaceCard({ 
+// Reusable card for Workspace Module
+function ModuleCard({ 
   title, 
   description, 
   href, 
@@ -55,33 +68,23 @@ function WorkspaceCard({
       <h3 className={cn("text-base font-bold mb-1.5", disabled ? "text-slate-500" : "text-slate-900")}>
         {title}
       </h3>
-      <p className="text-sm text-slate-500 flex-1 mb-5">
+      <p className="text-sm text-slate-500 flex-1 mb-5 leading-snug">
         {description}
       </p>
 
       {disabled ? (
         <div className="flex items-center gap-2 text-sm font-medium text-slate-400 mt-auto cursor-not-allowed">
           <Lock className="w-4 h-4" />
-          Không có quyền / Sắp ra mắt
+          Sắp có
         </div>
       ) : (
         <Link href={href} className="mt-auto">
           <button className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80 transition-colors">
-            Mở Workspace <ArrowRight className="w-4 h-4" />
+            Mở <ArrowRight className="w-4 h-4" />
           </button>
         </Link>
       )}
     </div>
-  );
-}
-
-// AI Prompt pill
-function AiPrompt({ text }: { text: string }) {
-  return (
-    <Link href={`/ai-center?prompt=${encodeURIComponent(text)}`} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-indigo-700 text-xs font-medium rounded-full border border-indigo-100 cursor-pointer">
-      <Sparkles className="w-3 h-3" />
-      "{text}"
-    </Link>
   );
 }
 
@@ -96,243 +99,248 @@ export default async function WorkspacesPage() {
   const isAccountant = isOwner || role === "ACCOUNTANT";
 
   return (
-    <div className="space-y-10 pb-12">
+    <div className="space-y-12 pb-16">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Danh mục công việc</h1>
-        <p className="text-slate-500 mt-2">
-          Chọn không gian làm việc theo đúng vai trò của bạn. Phần mềm sẽ tự động lọc các tính năng cần thiết.
+        <h1 className="text-3xl font-black tracking-tight text-slate-900">EduOS Launcher</h1>
+        <p className="text-slate-500 mt-2 text-lg max-w-3xl">
+          Hệ thống quản trị trung tâm toàn diện với trợ lý AI tích hợp. 
+          Lựa chọn phân hệ nghiệp vụ để bắt đầu làm việc.
         </p>
       </div>
 
-      <div className="space-y-12">
-        {/* GROUP 1: BAN GIÁM ĐỐC */}
-        <section className={cn(!isOwner && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Briefcase className="w-5 h-5 text-slate-400" />
-              1. Ban Giám Đốc (CEO / Admin)
-            </h2>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <AiPrompt text="Doanh thu hôm nay bao nhiêu?" />
-              <AiPrompt text="Có cảnh báo nào cần xử lý gấp không?" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard 
-              title="Tổng quan CEO" 
-              description="Bảng điều khiển chiến lược, các chỉ số nóng và phê duyệt AI." 
-              href="/dashboard" 
-              icon={Briefcase} 
-              disabled={!isOwner}
-            />
-            <WorkspaceCard 
-              title="Trung tâm AI" 
-              description="Trợ lý ảo phân tích trung tâm, soạn thảo kịch bản và ra quyết định." 
-              href="/ai-center" 
-              icon={Sparkles} 
-              disabled={!isOwner}
-            />
-            <WorkspaceCard 
-              title="Báo cáo tổng hợp" 
-              description="Xem tất cả báo cáo thu chi, tuyển sinh, và học thuật." 
-              href="/reports" 
-              icon={Briefcase} 
-              disabled={!isOwner}
-            />
-          </div>
-        </section>
-
-        {/* GROUP 2: TUYỂN SINH */}
+      <div className="space-y-16">
+        
+        {/* GROUP 1: TUYỂN SINH & CRM */}
         <section className={cn(!isSale && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-slate-400" />
-              2. Tư vấn Tuyển Sinh (Sales)
+          <div className="mb-6 border-b pb-2 border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Users className="w-6 h-6 text-indigo-500" />
+              Tuyển sinh & CRM
             </h2>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <AiPrompt text="Hôm nay cần gọi lead nào?" />
-              <AiPrompt text="Có bao nhiêu lịch học thử tuần này?" />
-            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard 
-              title="Leads & Khách hàng" 
-              description="Chăm sóc danh sách tiềm năng, cập nhật trạng thái phễu." 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <ModuleCard 
+              title="Lead & Data" 
+              description="Quản lý phễu khách hàng tiềm năng." 
               href="/leads" 
               icon={Users} 
               disabled={!isSale}
             />
-            <WorkspaceCard 
+            <ModuleCard 
+              title="Gọi điện tư vấn" 
+              description="Hỗ trợ telesale và lên kịch bản." 
+              href="/sales-calling" 
+              icon={PhoneCall} 
+              disabled={!isSale}
+            />
+            <ModuleCard 
               title="Học thử" 
-              description="Sắp xếp lịch, đánh giá học thử và làm thủ tục nhập học." 
+              description="Quản lý lịch học thử và chốt deal." 
               href="/trial-bookings" 
               icon={BookOpen} 
               disabled={!isSale}
             />
-            <WorkspaceCard 
+            <ModuleCard 
               title="Tổng quan Tuyển sinh" 
-              description="Bảng điều khiển các chỉ số lead mới, lịch học thử và KPI sales." 
+              description="Báo cáo hiệu suất đội sales." 
               href="/workspaces/sales" 
-              icon={Briefcase} 
+              icon={LayoutDashboard} 
               disabled={!isSale}
             />
           </div>
         </section>
 
-        {/* GROUP 3: GIÁO VIÊN & HỌC VỤ */}
+        {/* GROUP 2: ĐÀO TẠO */}
         <section className={cn(!isTeacher && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-slate-400" />
-              3. Giáo viên & Học vụ
+          <div className="mb-6 border-b pb-2 border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <GraduationCap className="w-6 h-6 text-emerald-500" />
+              Đào tạo
             </h2>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <AiPrompt text="Lớp nào chưa điểm danh?" />
-              <AiPrompt text="Nhắc học sinh nộp bài tập" />
-            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard
-              title="Tổng quan Giáo vụ"
-              description="Bảng điều khiển quản lý lớp học, điểm danh, chấm bài tập."
-              icon={Briefcase}
-              href="/workspaces/teacher"
-              disabled={!isTeacher}
-            />
-            <WorkspaceCard 
-              title="Lớp học của tôi" 
-              description="Xem lịch dạy, giáo trình và sĩ số lớp." 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <ModuleCard 
+              title="Lớp học" 
+              description="Quản lý danh sách lớp, giáo trình." 
               href="/classes" 
-              icon={Users} 
+              icon={CalendarDays} 
               disabled={!isTeacher}
             />
-            <WorkspaceCard 
+            <ModuleCard 
               title="Điểm danh" 
-              description="Điểm danh học viên nhanh chóng theo từng ca học." 
+              description="Ghi nhận chuyên cần hàng ngày." 
               href="/attendance" 
-              icon={GraduationCap} 
+              icon={CheckSquare} 
               disabled={!isTeacher}
             />
-            <WorkspaceCard 
-              title="Bài tập & Điểm" 
-              description="Chấm bài tập, cập nhật bảng điểm định kỳ." 
+            <ModuleCard 
+              title="Bài tập & AI Chấm nháp" 
+              description="Giao bài tập và duyệt điểm do AI đề xuất." 
               href="/homework" 
               icon={BookOpen} 
               disabled={!isTeacher}
             />
-            <WorkspaceCard 
-              title="Học viên" 
-              description="Tra cứu thông tin, lịch sử học tập của học viên." 
-              href="/students" 
-              icon={Users} 
-              disabled={!isTeacher}
+            <ModuleCard 
+              title="Báo cáo phụ huynh" 
+              description="Lịch sử gửi báo cáo định kỳ." 
+              href="/parent-reports" 
+              icon={FileBarChart} 
+              disabled={true}
+              badge="Sắp có"
             />
           </div>
         </section>
 
-        {/* GROUP 4: TÀI CHÍNH */}
+        {/* GROUP 3: TÀI CHÍNH */}
         <section className={cn(!isAccountant && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-slate-400" />
-              4. Kế toán & Tài chính
+          <div className="mb-6 border-b pb-2 border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Banknote className="w-6 h-6 text-amber-500" />
+              Tài chính
             </h2>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <AiPrompt text="Ai chưa đóng tiền?" />
-              <AiPrompt text="Ai sắp hết hạn khóa học?" />
-            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <ModuleCard 
               title="Tổng quan Tài chính" 
-              description="Bảng điều khiển học phí, công nợ, tái phí và nhắc phí." 
+              description="Bảng điều khiển học phí, công nợ." 
               href="/workspaces/finance" 
-              icon={Briefcase} 
+              icon={LayoutDashboard} 
               disabled={!isAccountant}
             />
-            <WorkspaceCard 
-              title="Thu học phí" 
-              description="Lập phiếu thu, xuất hóa đơn, quản lý công nợ." 
+            <ModuleCard 
+              title="Thu Học phí" 
+              description="Thu tiền và quản lý hóa đơn." 
               href="/payments" 
               icon={CreditCard} 
               disabled={!isAccountant}
             />
-            <WorkspaceCard 
-              title="Gia hạn (Tái phí)" 
-              description="Danh sách học viên sắp hết buổi cần đóng thêm tiền." 
+            <ModuleCard 
+              title="Tái phí" 
+              description="Quản lý học viên sắp hết hạn." 
               href="/renewals" 
-              icon={CreditCard} 
+              icon={TrendingUp} 
               disabled={!isAccountant}
             />
-            <WorkspaceCard 
-              title="Chi tiêu" 
-              description="Lập phiếu chi, trả lương và mua sắm vật tư." 
+            <ModuleCard 
+              title="Chi phí" 
+              description="Quản lý phiếu chi, lương." 
               href="#" 
-              icon={CreditCard} 
+              icon={Wallet} 
               disabled={true}
-              badge="Sắp ra mắt"
+              badge="Sắp có"
+            />
+            <ModuleCard 
+              title="Lợi nhuận" 
+              description="Báo cáo hiệu quả kinh doanh." 
+              href="#" 
+              icon={PiggyBank} 
+              disabled={true}
+              badge="Sắp có"
+            />
+            <ModuleCard 
+              title="Hoa hồng sale" 
+              description="Tính hoa hồng cho nhân viên." 
+              href="#" 
+              icon={Percent} 
+              disabled={true}
+              badge="Sắp có"
             />
           </div>
         </section>
 
-        {/* GROUP 5: TIN NHẮN */}
+        {/* GROUP 4: ZALO/FANPAGE & NHÂN VIÊN */}
         <section className={cn(!isOwner && !isSale && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-slate-400" />
-              5. Tin nhắn & CSKH
+          <div className="mb-6 border-b pb-2 border-slate-200">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <MessageCircle className="w-6 h-6 text-blue-500" />
+              Zalo/Fanpage & Nhân viên
             </h2>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <AiPrompt text="Tin nhắn nào cần phản hồi ngay?" />
-            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <ModuleCard 
               title="Fanpage Inbox" 
-              description="Nhắn tin với khách hàng từ Facebook Messenger." 
+              description="Nhắn tin với khách hàng từ Facebook." 
               href="/fanpage-inbox" 
               icon={MessageCircle} 
               disabled={!isOwner && !isSale}
             />
-            <WorkspaceCard 
-              title="Hộp thư Zalo" 
-              description="Chăm sóc phụ huynh qua Zalo OA & Zalo cá nhân." 
+            <ModuleCard 
+              title="Zalo Inbox (OA & Cá nhân)" 
+              description="Quản lý hộp thoại đa kênh Zalo." 
               href="/zalo-inbox" 
               icon={MessageCircle} 
               disabled={!isOwner && !isSale}
             />
-            <WorkspaceCard 
-              title="Nhóm Zalo" 
-              description="Quản lý đồng loạt các nhóm lớp học Zalo." 
+            <ModuleCard 
+              title="Nhóm lớp Zalo" 
+              description="Quản lý các nhóm Zalo lớp học." 
               href="/zalo-groups" 
               icon={Users} 
               disabled={!isOwner && !isSale}
             />
-          </div>
-        </section>
-
-        {/* GROUP 6: HỆ THỐNG */}
-        <section className={cn(!isOwner && "opacity-50 grayscale pointer-events-none")}>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-slate-400" />
-              6. Cài đặt hệ thống
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WorkspaceCard 
-              title="Tài khoản Zalo" 
-              description="Kết nối VPS và đồng bộ trạng thái Zalo." 
-              href="/zalo-accounts" 
+            <ModuleCard 
+              title="Tài khoản nhân viên" 
+              description="Quản lý quyền và thiết bị kết nối." 
+              href="/settings/zalo-accounts" 
               icon={Settings} 
               disabled={!isOwner}
             />
-            <WorkspaceCard 
-              title="Cài đặt chung" 
-              description="Phân quyền, cấu hình chi nhánh và hóa đơn." 
-              href="/settings" 
-              icon={Settings} 
+            <ModuleCard 
+              title="Nhật ký tin nhắn" 
+              description="Báo cáo và log chat an toàn." 
+              href="/message-reports" 
+              icon={Inbox} 
+              disabled={true}
+              badge="Sắp có"
+            />
+          </div>
+        </section>
+
+        {/* GROUP 5: TRỢ LÝ AI */}
+        <section className={cn(!isOwner && "opacity-50 grayscale pointer-events-none")}>
+          <div className="mb-6 border-b pb-2 border-slate-200 bg-indigo-50/50 -mx-4 px-4 pt-4 rounded-t-xl">
+            <h2 className="text-2xl font-bold text-indigo-900 flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-indigo-500" />
+              Trợ lý AI & Tự động hóa
+            </h2>
+            <p className="text-indigo-700 mt-1 mb-4">Các tính năng AI nâng cao hỗ trợ quản trị và tự động hóa.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <ModuleCard 
+              title="Kho AI tự động hóa" 
+              description="Bật/tắt các module AI tùy chỉnh cho trung tâm." 
+              href="/ai-addons" 
+              icon={Bot} 
               disabled={!isOwner}
+            />
+            <ModuleCard 
+              title="Trung tâm AI (Chatbot)" 
+              description="Hỏi đáp dữ liệu điều hành trung tâm." 
+              href="/ai-center" 
+              icon={Sparkles} 
+              disabled={!isOwner}
+            />
+            <ModuleCard 
+              title="Hàng đợi duyệt" 
+              description="Duyệt các tin nhắn nháp do AI soạn." 
+              href="/approval-queue" 
+              icon={Clock} 
+              disabled={!isOwner}
+            />
+            <ModuleCard 
+              title="Mock Outbox (Sandbox)" 
+              description="Hộp thư giả lập để test thử hệ thống." 
+              href="/settings/mock-outbox" 
+              icon={Inbox} 
+              disabled={!isOwner}
+            />
+            <ModuleCard 
+              title="Nhật ký hoạt động AI" 
+              description="Kiểm soát toàn bộ lịch sử AI đã xử lý." 
+              href="/settings/audit-log" 
+              icon={CheckSquare} 
+              disabled={true}
+              badge="Sắp có"
             />
           </div>
         </section>
@@ -341,3 +349,4 @@ export default async function WorkspacesPage() {
     </div>
   );
 }
+
