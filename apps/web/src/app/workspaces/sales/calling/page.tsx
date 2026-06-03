@@ -43,20 +43,28 @@ export default async function SalesCallingPage() {
     } 
   };
   
+  const bookedTrialCallsQuery = {
+    where: {
+      tenantId,
+      calledAt: { gte: start, lte: end },
+      outcome: 'BOOKED_TRIAL' as const,
+      ...(isOwnerOrAdmin ? {} : { saleId: userId })
+    }
+  };
+
   const trialsTodayQuery = {
     where: {
       tenantId,
-      createdAt: { gte: start, lte: end }, // Trials BOOKED today
+      trialDate: { gte: start, lte: end }, // Trials scheduled for today
       ...(isOwnerOrAdmin ? {} : { assignedSaleId: userId })
     }
   };
 
-  const wonTodayQuery = {
+  const followUpsTodayQuery = {
     where: {
       tenantId,
-      stage: "WON" as const,
-      updatedAt: { gte: start, lte: end },
-      ...(isOwnerOrAdmin ? {} : { assignedToId: userId })
+      createdAt: { gte: start, lte: end },
+      ...(isOwnerOrAdmin ? {} : { assignedTo: userId })
     }
   };
 
@@ -64,6 +72,7 @@ export default async function SalesCallingPage() {
     where: {
       tenantId,
       callCount: 0,
+      stage: { notIn: ["WON", "LOST"] as any },
       ...(isOwnerOrAdmin ? {} : { assignedToId: userId })
     }
   };
@@ -78,17 +87,65 @@ export default async function SalesCallingPage() {
 
   const [
     callsToday,
+    bookedTrialCallsToday,
     trialsToday,
-    wonToday,
+    followUpsToday,
     untouchedLeads,
     hotLeads
   ] = await Promise.all([
     prisma.callAttempt.count(callsTodayQuery),
+    prisma.callAttempt.count(bookedTrialCallsQuery),
     prisma.trialBooking.count(trialsTodayQuery),
-    prisma.lead.count(wonTodayQuery),
+    prisma.followUpTask.count(followUpsTodayQuery),
     prisma.lead.count(untouchedLeadsQuery),
     prisma.lead.count(hotLeadsQuery)
   ]);
+
+  const callsRemaining = Math.max(100 - callsToday, 0);
+  const conversionRate = callsToday > 0 ? ((bookedTrialCallsToday / callsToday) * 100).toFixed(1) + '%' : 'Chưa đủ dữ liệu';
+
+  // --- Caller Performance ---
+  let consultantPerformances: any[] = [];
+  if (isOwnerOrAdmin) {
+    const salesMembers = await prisma.tenantMember.findMany({
+      where: { tenantId, role: 'SALE', status: 'ACTIVE' },
+      include: { user: { select: { email: true } } }
+    });
+    
+    if (salesMembers.length > 0) {
+      const saleIds = salesMembers.map(m => m.userId);
+      const [callsBySale, bookedBySale, followUpsBySale] = await Promise.all([
+        prisma.callAttempt.groupBy({
+          by: ['saleId'],
+          where: { tenantId, calledAt: { gte: start, lte: end }, saleId: { in: saleIds } },
+          _count: true
+        }),
+        prisma.callAttempt.groupBy({
+          by: ['saleId'],
+          where: { tenantId, calledAt: { gte: start, lte: end }, outcome: 'BOOKED_TRIAL', saleId: { in: saleIds } },
+          _count: true
+        }),
+        prisma.followUpTask.groupBy({
+          by: ['assignedTo'],
+          where: { tenantId, createdAt: { gte: start, lte: end }, assignedTo: { in: saleIds } },
+          _count: true
+        })
+      ]);
+
+      consultantPerformances = salesMembers.map(m => {
+        const cCount = callsBySale.find(c => c.saleId === m.userId)?._count ?? 0;
+        const bCount = bookedBySale.find(b => b.saleId === m.userId)?._count ?? 0;
+        const fCount = followUpsBySale.find(f => f.assignedTo === m.userId)?._count ?? 0;
+        return {
+          userId: m.userId,
+          email: m.user.email,
+          callsToday: cCount,
+          bookedToday: bCount,
+          followUpsToday: fCount
+        };
+      });
+    }
+  }
 
   // --- Queue Fetching ---
   const leadQueue = await prisma.lead.findMany({
@@ -129,28 +186,71 @@ export default async function SalesCallingPage() {
       </div>
 
       {/* KPI STRIP */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
           <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><PhoneCall className="w-4 h-4 text-blue-500"/> Cuộc gọi hôm nay</span>
           <span className="text-2xl font-bold text-slate-900">{callsToday} <span className="text-sm font-normal text-slate-400">/ 100</span></span>
+          <span className="text-xs text-slate-500 mt-1">Mục tiêu: 100</span>
         </div>
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
-          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Calendar className="w-4 h-4 text-green-500"/> Học thử hôm nay</span>
+          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Clock className="w-4 h-4 text-amber-500"/> Còn lại hôm nay</span>
+          <span className="text-2xl font-bold text-slate-900">{callsRemaining}</span>
+          <span className="text-xs text-slate-500 mt-1">Cuộc gọi cần đạt</span>
+        </div>
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
+          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Calendar className="w-4 h-4 text-green-500"/> Lịch học thử hôm nay</span>
           <span className="text-2xl font-bold text-slate-900">{trialsToday}</span>
+          <span className="text-xs text-slate-500 mt-1">Lịch phải đón tiếp</span>
         </div>
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
-          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500"/> Chốt hôm nay</span>
-          <span className="text-2xl font-bold text-slate-900">{wonToday}</span>
-        </div>
-        <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
-          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><UserCircle className="w-4 h-4 text-indigo-500"/> Lead chưa gọi</span>
-          <span className="text-2xl font-bold text-slate-900">{untouchedLeads}</span>
+          <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><UserCircle className="w-4 h-4 text-indigo-500"/> Đặt lịch học thử</span>
+          <span className="text-2xl font-bold text-slate-900">{bookedTrialCallsToday}</span>
+          <span className="text-xs text-slate-500 mt-1">Tạo từ cuộc gọi: {conversionRate}</span>
         </div>
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
           <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Tag className="w-4 h-4 text-red-500"/> Lead nóng</span>
           <span className="text-2xl font-bold text-slate-900">{hotLeads}</span>
+          <span className="text-xs text-slate-500 mt-1">Lead chưa gọi: {untouchedLeads}</span>
         </div>
       </div>
+
+      {/* CALLER PERFORMANCE (OWNER/ADMIN ONLY) */}
+      {isOwnerOrAdmin && (
+        <div className="bg-white border shadow-sm rounded-xl p-6">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <History className="w-5 h-5 text-indigo-500" />
+            Hiệu suất tư vấn hôm nay
+          </h3>
+          {consultantPerformances.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {consultantPerformances.map(c => (
+                <div key={c.userId} className="border rounded-lg p-4 bg-slate-50">
+                  <div className="font-semibold text-slate-900 mb-2 truncate" title={c.email}>{c.email.split('@')[0]}</div>
+                  <div className="text-sm text-slate-600 space-y-1">
+                    <div className="flex justify-between"><span>Gọi:</span> <span className="font-medium text-slate-900">{c.callsToday}</span></div>
+                    <div className="flex justify-between"><span>Đặt hẹn:</span> <span className="font-medium text-slate-900">{c.bookedToday}</span></div>
+                    <div className="flex justify-between"><span>Follow-up:</span> <span className="font-medium text-slate-900">{c.followUpsToday}</span></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-slate-500 text-sm">Chưa đủ dữ liệu theo từng tư vấn. (Chưa có nhân viên Sales nào)</div>
+          )}
+        </div>
+      )}
+      
+      {!isOwnerOrAdmin && (
+        <div className="bg-white border shadow-sm rounded-xl p-4 flex items-center justify-between">
+           <div className="flex items-center gap-2">
+             <History className="w-5 h-5 text-indigo-500" />
+             <span className="font-bold text-slate-800">Hiệu suất của tôi hôm nay:</span>
+             <span className="text-sm text-slate-600 ml-2">Gọi: <strong className="text-slate-900">{callsToday}</strong></span>
+             <span className="text-sm text-slate-600 ml-2">Đặt hẹn: <strong className="text-slate-900">{bookedTrialCallsToday}</strong></span>
+             <span className="text-sm text-slate-600 ml-2">Follow-up: <strong className="text-slate-900">{followUpsToday}</strong></span>
+           </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT SIDEBAR: QUEUE */}
