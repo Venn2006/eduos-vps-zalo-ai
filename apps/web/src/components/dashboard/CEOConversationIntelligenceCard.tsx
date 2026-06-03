@@ -81,7 +81,7 @@ export function CEOConversationIntelligenceCard({ intelligence, isPreview = fals
             </CardTitle>
             {isPreview && (
               <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">
-                Bản xem trước từ dữ liệu hiện có
+                Bản xem trước AI
               </Badge>
             )}
           </div>

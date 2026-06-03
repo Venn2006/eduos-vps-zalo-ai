@@ -142,13 +142,16 @@ export function FanpageInboxClient({ initialConversations, initialFilter = 'ALL'
                   <p className="text-sm text-slate-800 bg-white p-3 border border-orange-100 rounded mb-3">
                     {activeConv.suggestions[0].suggestion}
                   </p>
-                  <div className="flex justify-end space-x-2">
+                  <div className="flex flex-col items-center">
                     <button 
                       onClick={() => setInputValue(activeConv.suggestions[0].suggestion)}
-                      className="px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 flex items-center transition-colors"
+                      className="px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 flex items-center justify-center transition-colors w-full mb-1"
                     >
-                      <CheckCircle className="w-3 h-3 mr-1" /> Sao chép trả lời (Duyệt nháp)
+                      <CheckCircle className="w-3 h-3 mr-1" /> Duyệt nháp (Sao chép vào ô trả lời)
                     </button>
+                    <span className="text-[10px] text-slate-500 block w-full text-center">
+                      Cần nhân viên kiểm tra trước khi gửi. Không tự động gửi.
+                    </span>
                   </div>
                 </div>
                 <GuardrailPreviewCard result={checkMessageQuality({
