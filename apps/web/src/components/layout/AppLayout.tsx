@@ -43,6 +43,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   
   if (isOwner || isSale) {
     sidebarItems.push({ href: '/fanpage-inbox', label: 'Tin nhắn', icon: MessageCircle });
+    sidebarItems.push({ href: '/approval-queue', label: 'Hàng đợi duyệt', icon: CheckSquare });
   }
 
   sidebarItems.push({ href: '/ai-center', label: 'Trung tâm AI', icon: Sparkles, highlight: true });

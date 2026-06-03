@@ -189,7 +189,7 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
       severity: 'LOW',
       category: 'AI_DRAFT_PENDING',
       recommendedAction: 'Kiểm tra và duyệt các tin nhắn nháp để AI tự động gửi đi.',
-      actionUrl: '/fanpage-inbox?filter=HAS_DRAFT',
+      actionUrl: '/approval-queue',
       actionLabel: 'Duyệt ngay'
     });
   }
