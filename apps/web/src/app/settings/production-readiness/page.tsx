@@ -78,6 +78,11 @@ export default async function ProductionReadinessPage() {
         </div>
 
         <div className="space-y-6">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+            <h3 className="font-bold text-indigo-800 mb-2">Tài liệu tham khảo</h3>
+            <p className="text-sm text-indigo-700">Playbook onboarding trung tâm đầu tiên: Quy trình triển khai an toàn 7 ngày.</p>
+          </div>
+
           {checklists.map((group, idx) => (
             <div key={idx} className="bg-white border rounded-xl overflow-hidden shadow-sm">
               <div className="bg-slate-50 px-5 py-3 border-b">
