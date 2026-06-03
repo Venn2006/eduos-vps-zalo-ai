@@ -2,7 +2,7 @@ import { canAccessRoute } from '../../../../apps/web/src/lib/rbac';
 
 describe('RBAC Route Guarding', () => {
   it('OWNER/ADMIN can access protected routes', () => {
-    const protectedRoutes = ['/dashboard', '/reports', '/payments', '/classes', '/leads', '/settings'];
+    const protectedRoutes = ['/dashboard', '/reports', '/payments', '/classes', '/leads', '/settings', '/settings/permissions', '/settings/connectors'];
     protectedRoutes.forEach(route => {
       expect(canAccessRoute('OWNER', route)).toBe(true);
       expect(canAccessRoute('ADMIN', route)).toBe(true);
@@ -32,6 +32,8 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('SALE', '/reports')).toBe(false);
     expect(canAccessRoute('SALE', '/classes')).toBe(false);
     expect(canAccessRoute('SALE', '/settings')).toBe(false);
+    expect(canAccessRoute('SALE', '/settings/permissions')).toBe(false);
+    expect(canAccessRoute('SALE', '/settings/connectors')).toBe(false);
     
     // Unknown routes and roles should default to false
     expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/sales')).toBe(false);
