@@ -81,6 +81,10 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
     for (const event of input.timelineEvents) {
       if (event.type === 'PARENT_COMPLAINT_DETECTED') {
         metrics.parentComplaintCount++;
+        let actionUrl = '/approval-queue';
+        if (event.source === 'ZALO') actionUrl = '/zalo-inbox?filter=COMPLAINT';
+        if (event.source === 'FACEBOOK') actionUrl = '/fanpage-inbox?filter=COMPLAINT';
+        
         riskCards.push({
           id: `risk_${event.id}`,
           title: 'Phụ huynh phàn nàn',
@@ -88,8 +92,8 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
           severity: 'HIGH', // Could be CRITICAL if we had more context
           category: 'PARENT_COMPLAINT',
           recommendedAction: 'Gọi điện thoại hỗ trợ và xin lỗi ngay lập tức.',
-          actionUrl: '/reports',
-          actionLabel: 'Xem Báo Cáo',
+          actionUrl,
+          actionLabel: 'Mở hội thoại',
           relatedEntityType: event.relatedEntityType,
           relatedEntityId: event.relatedEntityId,
           tags: event.tags,

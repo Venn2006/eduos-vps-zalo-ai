@@ -66,7 +66,7 @@ describe('messageQualityGuardrails', () => {
     });
     expect(res.status).toBe('BLOCKED');
     expect(res.issues.some(i => i.type === 'PHONE_OR_OTP_EXPOSED')).toBe(true);
-    expect(res.suggestedRewrite).toContain('[SĐT BẢO MẬT]');
+    expect(res.suggestedRewrite).toContain('[SĐT đã ẩn]');
     expect(res.suggestedRewrite).not.toContain('0912345678');
   });
 

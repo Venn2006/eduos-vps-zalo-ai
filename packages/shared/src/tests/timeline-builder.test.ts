@@ -30,7 +30,7 @@ describe('timelineBuilder', () => {
     const raw = 'Liên hệ phụ huynh qua số 0912345678 nhé.';
     const safe = redactSensitiveInfo(raw);
     expect(safe).not.toContain('0912345678');
-    expect(safe).toContain('[SĐT BẢO MẬT]');
+    expect(safe).toContain('[SĐT đã ẩn]');
   });
 
   it('3. safe summaries do not include OTP/token/password/api key', () => {

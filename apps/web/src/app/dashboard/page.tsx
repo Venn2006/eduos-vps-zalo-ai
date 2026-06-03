@@ -144,6 +144,12 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* THÔNG BÁO BẢO MẬT (PII REDACTION) */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-center gap-2 mb-2">
+        <span className="font-semibold">Lưu ý bảo mật:</span> 
+        Số điện thoại và thông tin nhạy cảm được tự động ẩn ở Dashboard. Mở hồ sơ/hội thoại chi tiết để xem đầy đủ và xử lý.
+      </div>
+
       {/* AI THEO DÕI HỘI THOẠI HÔM NAY (Phase 37) */}
       <CEOConversationIntelligenceCard intelligence={ceoIntelligence} isPreview />
 
@@ -225,8 +231,8 @@ export default async function DashboardPage() {
               metric="Chưa có dữ liệu"
               severity="info"
               reason="Tính năng Telesale đang phát triển."
-              ctaText="Xem lịch sử gọi"
-              ctaHref="/leads"
+              ctaText="Xem lịch trình gọi"
+              ctaHref="/workspaces/sales/calling"
             />
             <ActionCard 
               title="Đặt lịch học thử"
@@ -257,8 +263,8 @@ export default async function DashboardPage() {
               metric="Chưa có dữ liệu"
               severity="info"
               reason="Tính năng chấm điểm Lead nóng đang phát triển."
-              ctaText="Chăm sóc ngay"
-              ctaHref="/leads"
+              ctaText="Sắp có"
+              ctaHref="#"
             />
           </div>
         </section>
@@ -355,8 +361,8 @@ export default async function DashboardPage() {
               metric="Chưa đủ dữ liệu"
               severity="info"
               reason="Cảnh báo học sinh điểm thấp cần kèm thêm."
-              ctaText="Xem điểm thi"
-              ctaHref="/reports"
+              ctaText="Sắp có"
+              ctaHref="#"
             />
           </div>
         </section>

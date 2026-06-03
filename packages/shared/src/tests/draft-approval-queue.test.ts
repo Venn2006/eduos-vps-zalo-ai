@@ -118,7 +118,7 @@ describe('Draft Approval Queue Foundation', () => {
     };
     const res = evaluateDraftApproval(req, 'ADMIN');
     expect(res.safeSummary).not.toContain('0901234567');
-    expect(res.safeSummary).toContain('[SĐT BẢO MẬT]');
+    expect(res.safeSummary).toContain('[SĐT đã ẩn]');
     expect(res.safeSummary).not.toContain('123456');
     expect(res.safeSummary).toContain('[BẢO MẬT]');
   });

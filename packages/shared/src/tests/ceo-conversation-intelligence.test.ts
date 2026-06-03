@@ -86,7 +86,7 @@ describe('ceoConversationIntelligence', () => {
     // wait, in my implementation it adds to `riskCards` first, and then it is moved to `urgentItems` if severity is CRITICAL or HIGH?
     // Let me check my implementation. It adds to `riskCards` with severity 'HIGH' but in my code it says `urgentItems` is filtered from `riskCards`.
     expect(result.urgentItems[0].safeSummary).not.toContain('0912345678');
-    expect(result.urgentItems[0].safeSummary).toContain('[SĐT BẢO MẬT]');
+    expect(result.urgentItems[0].safeSummary).toContain('[SĐT đã ẩn]');
   });
 
   it('7. raw OTP/token/password/api key are redacted', () => {

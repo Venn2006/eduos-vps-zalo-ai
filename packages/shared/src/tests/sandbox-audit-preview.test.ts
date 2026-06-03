@@ -24,7 +24,7 @@ describe('Sandbox Audit Preview (Phase 44)', () => {
       reasons: []
     });
     expect(res.safeSummary).not.toContain('0912345678');
-    expect(res.safeSummary).toContain('[SĐT BẢO MẬT]');
+    expect(res.safeSummary).toContain('[SĐT đã ẩn]');
   });
 
   it('3. redacts OTP/token/password/api key', () => {
