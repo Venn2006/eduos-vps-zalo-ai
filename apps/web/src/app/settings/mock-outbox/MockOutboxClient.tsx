@@ -1,18 +1,58 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShieldAlert, Play, XCircle, CheckCircle, Clock, Server } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldAlert, Play, XCircle, CheckCircle, Clock, Server, Database } from 'lucide-react';
 import { 
-  MockOutboxItem, 
-  transitionMockOutbox, 
   getVietnameseMockStatusLabel,
   getSafeMockSummary
 } from '@eduos/shared/src/lib/mockOutbox';
-import { previewSandboxSendReadiness, PreviewSandboxSendReadinessResult } from './actions';
+import { 
+  previewSandboxSendReadiness, 
+  PreviewSandboxSendReadinessResult,
+  createSandboxOutboxItem,
+  listSandboxOutboxItems,
+  transitionSandboxOutboxItem
+} from './actions';
 
 export default function MockOutboxClient() {
   const [isRunningCheck, setIsRunningCheck] = useState(false);
   const [previewResult, setPreviewResult] = useState<PreviewSandboxSendReadinessResult | null>(null);
+  
+  const [items, setItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const loadItems = async () => {
+    setIsLoading(true);
+    try {
+      const res = await listSandboxOutboxItems();
+      setItems(res.items || []);
+      setIsFallback(!!res.fallback);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    try {
+      const res = await createSandboxOutboxItem({
+        content: "Tin nhắn thử nghiệm [BẢO MẬT]",
+        channel: "ZALO"
+      });
+      if (res.success && 'item' in res && res.item) {
+        setItems(current => [res.item, ...current]);
+        setIsFallback(!!res.fallback);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const runServerCheck = async () => {
     setIsRunningCheck(true);
@@ -28,33 +68,34 @@ export default function MockOutboxClient() {
     }
   };
 
-  const [items, setItems] = useState<MockOutboxItem[]>([
-    {
-      id: 'mock-1',
-      tenantId: 't-1',
-      channel: 'ZALO',
-      draftId: 'd-1',
-      recipientId: 'r-1',
-      content: 'Tin nhắn thử nghiệm 1 [BẢO MẬT]',
-      status: 'MOCK_READY',
-      idempotencyKey: 'mock_outbox_t-1_ZALO_d-1_r-1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ]);
-
-  const handleTransition = (id: string, action: Parameters<typeof transitionMockOutbox>[1]) => {
-    setItems(current => current.map(item => {
-      if (item.id === id) {
-        const result = transitionMockOutbox(item, action);
-        if (result.success && result.item) {
-          return result.item;
-        } else {
-          alert(`Lỗi: ${result.error}`);
+  const handleTransition = async (id: string, action: string) => {
+    if (isFallback) {
+      // Local fallback logic
+      setItems(current => current.map(item => {
+        if (item.id === id) {
+          let nextStatus = item.status;
+          if (action === 'QUEUE') nextStatus = 'MOCK_QUEUED';
+          else if (action === 'START_SEND') nextStatus = 'MOCK_SENDING';
+          else if (action === 'COMPLETE_SEND') nextStatus = 'MOCK_SENT';
+          else if (action === 'FAIL_SEND') nextStatus = 'MOCK_FAILED';
+          else if (action === 'CANCEL') nextStatus = 'MOCK_CANCELLED';
+          return { ...item, status: nextStatus };
         }
+        return item;
+      }));
+      return;
+    }
+
+    try {
+      const res = await transitionSandboxOutboxItem(id, action);
+      if (res.success && 'item' in res && res.item) {
+        setItems(current => current.map(item => item.id === id ? res.item : item));
+      } else if ('error' in res) {
+        alert(`Lỗi: ${res.error}`);
       }
-      return item;
-    }));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -64,7 +105,7 @@ export default function MockOutboxClient() {
         <div>
           <h1 className="text-lg font-bold">Hàng đợi gửi giả lập</h1>
           <p className="text-sm mt-1">Kiểm tra quy trình gửi trong sandbox. Hệ thống chưa gửi thật tới Zalo/Facebook. (Chế độ giả lập, Không gọi connector)</p>
-          <p className="text-sm mt-1 italic font-medium text-amber-900">Persisted sandbox outbox is planned but not implemented yet.</p>
+          <p className="text-sm mt-1 font-medium">Không tạo MESSAGE_SENT, Không gọi connector.</p>
         </div>
       </div>
 
@@ -75,7 +116,7 @@ export default function MockOutboxClient() {
         </div>
         <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 mb-4">
           <li>Chưa bật gửi thật</li>
-          <li>Phase 43 chỉ kiểm tra hợp đồng an toàn</li>
+          <li>Chỉ kiểm tra hợp đồng an toàn</li>
           <li>Không gọi connector</li>
           <li>Không gửi tới Zalo/Facebook</li>
         </ul>
@@ -86,13 +127,6 @@ export default function MockOutboxClient() {
           <Server className="w-5 h-5 text-blue-600" />
           <h2 className="text-md font-bold text-slate-800">Kiểm tra server sandbox</h2>
         </div>
-        <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 mb-4">
-          <li>Chạy kiểm tra an toàn phía server</li>
-          <li>Không gọi connector</li>
-          <li>Không gửi tới Zalo/Facebook</li>
-          <li>Không tạo MESSAGE_SENT</li>
-          <li>Kết quả chỉ là bản xem trước</li>
-        </ul>
         <button 
           onClick={runServerCheck}
           disabled={isRunningCheck}
@@ -106,7 +140,6 @@ export default function MockOutboxClient() {
             <div className="font-bold text-slate-800 mb-2">Kết quả: {previewResult.uiLabel}</div>
             <div className="text-slate-600 mb-2">{previewResult.uiDescription}</div>
             <div className="mb-1"><span className="font-semibold">Trạng thái:</span> {previewResult.readinessStatus}</div>
-            <div className="mb-1"><span className="font-semibold">canSendRealNow:</span> {previewResult.canSendRealNow ? 'true' : 'false'} (Chưa bật gửi thật)</div>
             
             {previewResult.reasons.length > 0 && (
               <div className="mt-2 text-red-600">
@@ -116,21 +149,35 @@ export default function MockOutboxClient() {
                 </ul>
               </div>
             )}
-            
-            {previewResult.auditPreviewMetadata && (
-              <div className="mt-4 p-3 bg-slate-50 rounded border border-slate-200">
-                <div className="font-semibold text-slate-700 mb-2">Bản xem trước Audit (Không lưu DB)</div>
-                <pre className="whitespace-pre-wrap text-xs text-slate-600 overflow-x-auto">
-                  {JSON.stringify(previewResult.auditPreviewMetadata, null, 2)}
-                </pre>
-              </div>
-            )}
           </div>
         )}
       </div>
 
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-800">Danh sách Sandbox Items</h2>
+          {isFallback ? (
+            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded font-semibold">Bản demo cục bộ — chưa ghi DB</span>
+          ) : (
+            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-800 rounded font-semibold flex items-center gap-1">
+              <Database className="w-3 h-3" /> Sandbox persisted
+            </span>
+          )}
+        </div>
+        <button 
+          onClick={handleCreate}
+          className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded font-medium text-sm"
+        >
+          Tạo sandbox item
+        </button>
+      </div>
+
       <div className="grid gap-4">
-        {items.map(item => (
+        {isLoading ? (
+          <div className="text-slate-500 text-sm">Đang tải...</div>
+        ) : items.length === 0 ? (
+          <div className="text-slate-500 text-sm italic">Chưa có item nào.</div>
+        ) : items.map(item => (
           <div key={item.id} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -139,13 +186,14 @@ export default function MockOutboxClient() {
                   {getVietnameseMockStatusLabel(item.status)}
                 </span>
               </div>
-              <p className="text-sm text-slate-600">{getSafeMockSummary(item.content)}</p>
+              <p className="text-sm text-slate-600">{getSafeMockSummary(item.messageSafeSummary || item.content || '')}</p>
+              <p className="text-xs text-slate-400 mt-1">Chưa gửi thật • Không gọi connector • Không tạo MESSAGE_SENT</p>
             </div>
             
             <div className="flex gap-2">
               {item.status === 'MOCK_READY' && (
                 <button onClick={() => handleTransition(item.id, 'QUEUE')} className="flex items-center px-3 py-1.5 text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 rounded">
-                  <Clock className="w-4 h-4 mr-1.5" /> Đưa vào hàng đợi giả lập
+                  <Clock className="w-4 h-4 mr-1.5" /> Xếp hàng giả lập
                 </button>
               )}
               {item.status === 'MOCK_QUEUED' && (
