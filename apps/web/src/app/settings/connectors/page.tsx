@@ -38,9 +38,17 @@ export default async function ConnectorCenterPage() {
   return (
     <PageShell 
       title="Trung tâm kết nối" 
-      description="Giám sát tình trạng kết nối các nền tảng bên ngoài"
+      description="Giám sát tình trạng kết nối các nền tảng bên ngoài (chỉ đọc)"
     >
       <div className="max-w-5xl space-y-6">
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-sm text-amber-800">
+          <p className="font-semibold mb-1">Lưu ý an toàn (Safety Guide):</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Đây là màn hình chỉ để giám sát (Read-only monitoring).</li>
+            <li>Hệ thống <strong>không gửi tin nhắn</strong> từ trang này. Mọi tin nhắn tự động cần được CEO phê duyệt.</li>
+            <li>Nếu trạng thái là "Cần kiểm tra", connector có thể đang ngoại tuyến hoặc hết phiên đăng nhập.</li>
+          </ul>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {/* Zalo VPS */}

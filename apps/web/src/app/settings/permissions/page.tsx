@@ -18,21 +18,23 @@ export default async function PermissionsPage() {
 
   return (
     <PageShell 
-      title="Phân quyền hệ thống" 
-      description="Quản lý quyền truy cập của các vai trò trong trung tâm"
+      title="Phân quyền & Kiểm soát (RBAC)" 
+      description="Quản lý quyền hạn của từng nhóm nhân viên và lịch sử thao tác."
     >
       <div className="max-w-4xl space-y-6">
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-start gap-3">
-          <ShieldAlert className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-blue-900">Hiện tại EduOS đang dùng quyền mặc định theo vai trò</h3>
-            <p className="text-sm text-blue-800 mt-1">
-              Sắp ra mắt: tuỳ chỉnh quyền theo nhân viên. Tùy chỉnh chi tiết sẽ được bật ở phase sau.
-            </p>
-          </div>
+        
+        <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded text-sm text-indigo-800">
+          <p className="font-semibold mb-1">Thông báo hệ thống:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Hiện tại hệ thống đang sử dụng <strong>phân quyền mặc định</strong> (OWNER, ADMIN, SALE, TEACHER, ACCOUNTANT).</li>
+            <li>Phase sau sẽ bật tính năng chỉnh quyền chi tiết theo từng nhân viên.</li>
+            <li>Mọi thay đổi quyền và thao tác quan trọng sẽ được ghi lại trong <strong>Audit Log</strong> để đảm bảo minh bạch.</li>
+          </ul>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* MOCK UI TẠM THỜI ĐỂ DEMO */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
           {/* OWNER / ADMIN */}
           <div className="bg-white border rounded-lg p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
@@ -86,6 +88,7 @@ export default async function PermissionsPage() {
               <li className="flex items-center gap-2 text-orange-600"><Lock className="w-3 h-3" /> Không xem được kịch bản chăm sóc Lead</li>
             </ul>
           </div>
+        </div>
         </div>
       </div>
     </PageShell>

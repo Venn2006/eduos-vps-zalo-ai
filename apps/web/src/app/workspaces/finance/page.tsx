@@ -90,7 +90,11 @@ export default async function FinanceWorkspacePage() {
     renewalCandidates,
     pendingReminders,
     todayRevenueResult,
-    monthRevenueResult
+    monthRevenueResult,
+    debtCurrentResult,
+    debt1to7Result,
+    debt8to14Result,
+    debt15PlusResult
   ] = await Promise.all([
     // Hóa đơn chưa thanh toán (UNPAID hoặc PARTIALLY_PAID)
     prisma.invoice.count({
@@ -134,6 +138,49 @@ export default async function FinanceWorkspacePage() {
       where: {
         tenantId,
         paidAt: { gte: startOfMonth, lte: endOfDay }
+      }
+    }),
+    // Công nợ hiện tại (chưa quá hạn)
+    prisma.invoice.aggregate({
+      _count: { id: true },
+      _sum: { remainingAmount: true },
+      where: {
+        tenantId,
+        status: { in: ["UNPAID", "PARTIALLY_PAID"] },
+        dueDate: { gte: startOfDay }
+      }
+    }),
+    // Công nợ quá hạn 1-7 ngày
+    prisma.invoice.aggregate({
+      _count: { id: true },
+      _sum: { remainingAmount: true },
+      where: {
+        tenantId,
+        status: { in: ["UNPAID", "PARTIALLY_PAID"] },
+        dueDate: { lt: startOfDay, gte: new Date(startOfDay.getTime() - 7 * 24 * 60 * 60 * 1000) }
+      }
+    }),
+    // Công nợ quá hạn 8-14 ngày
+    prisma.invoice.aggregate({
+      _count: { id: true },
+      _sum: { remainingAmount: true },
+      where: {
+        tenantId,
+        status: { in: ["UNPAID", "PARTIALLY_PAID"] },
+        dueDate: { 
+          lt: new Date(startOfDay.getTime() - 7 * 24 * 60 * 60 * 1000),
+          gte: new Date(startOfDay.getTime() - 14 * 24 * 60 * 60 * 1000) 
+        }
+      }
+    }),
+    // Công nợ quá hạn 15+ ngày
+    prisma.invoice.aggregate({
+      _count: { id: true },
+      _sum: { remainingAmount: true },
+      where: {
+        tenantId,
+        status: { in: ["UNPAID", "PARTIALLY_PAID"] },
+        dueDate: { lt: new Date(startOfDay.getTime() - 14 * 24 * 60 * 60 * 1000) }
       }
     })
   ]);
@@ -231,6 +278,47 @@ export default async function FinanceWorkspacePage() {
               reason="Chờ thêm dữ liệu để phân loại học viên."
               ctaText="Xem Tái phí"
               ctaHref="/renewals"
+            />
+          </div>
+        </section>
+
+        {/* DEBT AGING SECTION */}
+        <section>
+          <div className="flex items-center gap-2 mb-4 mt-8">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">⏳ Công nợ theo tuổi nợ (Debt Aging)</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <ActionCard 
+              title="Hiện tại (Chưa tới hạn)"
+              metric={formatVND(debtCurrentResult._sum.remainingAmount || 0)}
+              severity="info"
+              reason={`${debtCurrentResult._count.id} hóa đơn.`}
+              ctaText="Xem chi tiết"
+              ctaHref="/payments"
+            />
+            <ActionCard 
+              title="Quá hạn 1-7 ngày"
+              metric={formatVND(debt1to7Result._sum.remainingAmount || 0)}
+              severity="warning"
+              reason={`${debt1to7Result._count.id} hóa đơn cần nhắc nhẹ.`}
+              ctaText="Xem chi tiết"
+              ctaHref="/payments"
+            />
+            <ActionCard 
+              title="Quá hạn 8-14 ngày"
+              metric={formatVND(debt8to14Result._sum.remainingAmount || 0)}
+              severity="critical"
+              reason={`${debt8to14Result._count.id} hóa đơn rủi ro.`}
+              ctaText="Xem chi tiết"
+              ctaHref="/payments"
+            />
+            <ActionCard 
+              title="Quá hạn 15+ ngày"
+              metric={formatVND(debt15PlusResult._sum.remainingAmount || 0)}
+              severity="critical"
+              reason={`${debt15PlusResult._count.id} hóa đơn nợ xấu.`}
+              ctaText="Xem chi tiết"
+              ctaHref="/payments"
             />
           </div>
         </section>
