@@ -39,6 +39,26 @@ export default async function HomeworkPage() {
         action={<Button><FileEdit className="w-4 h-4 mr-2" /> Giao bài mới</Button>}
       />
 
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+        <h3 className="font-bold text-blue-900 mb-2">
+          Quy trình Bài tập & Chấm điểm (AI Draft)
+        </h3>
+        <div className="flex items-center gap-2 text-sm font-medium text-blue-800 flex-wrap">
+          <span className="px-2 py-1 bg-white rounded shadow-sm border border-blue-100">1. Giáo viên giao bài</span>
+          <span>➔</span>
+          <span className="px-2 py-1 bg-white rounded shadow-sm border border-blue-100">2. Học viên nộp</span>
+          <span>➔</span>
+          <span className="px-2 py-1 bg-white rounded shadow-sm border border-blue-100 border-l-4 border-l-amber-400">3. AI chấm nháp</span>
+          <span>➔</span>
+          <span className="px-2 py-1 bg-white rounded shadow-sm border border-blue-100 border-l-4 border-l-emerald-400">4. Giáo viên duyệt</span>
+          <span>➔</span>
+          <span className="px-2 py-1 bg-white rounded shadow-sm border border-blue-100">5. Phụ huynh nhận báo cáo</span>
+        </div>
+        <p className="mt-3 text-sm text-blue-700 italic">
+          * AI chỉ tạo bản nháp. Hệ thống không tự động chấm điểm cuối cùng hoặc tự động gửi cho phụ huynh. <strong>Cần giáo viên duyệt.</strong>
+        </p>
+      </div>
+
       {homeworks.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-slate-500">
@@ -99,7 +119,7 @@ export default async function HomeworkPage() {
                             <td className="px-6 py-4 text-right">
                               {aiDraft && (
                                 <Button variant="outline" size="sm" className="bg-white">
-                                  Duyệt & Gửi
+                                  Duyệt & Gửi (Vào Sandbox)
                                 </Button>
                               )}
                             </td>

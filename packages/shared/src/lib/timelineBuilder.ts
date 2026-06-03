@@ -44,7 +44,7 @@ const SECRET_REGEX = /(?:mật\s*khẩu|password|pass|otp|token|api\s*key).{0,30
 
 export function redactSensitiveInfo(text: string): string {
   if (!text) return text;
-  let result = text.replace(PHONE_REGEX, "[SĐT BẢO MẬT]");
+  let result = text.replace(PHONE_REGEX, "[SĐT đã ẩn]");
   result = result.replace(SECRET_REGEX, "[BẢO MẬT]");
   return result;
 }

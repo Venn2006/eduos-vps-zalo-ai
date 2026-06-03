@@ -167,7 +167,7 @@ export function checkMessageQuality(options: GuardrailCheckOptions): GuardrailCh
     // If there's already a suggested rewrite from other issues, mask that. Otherwise mask original text.
     // Also use the more robust regex from earlier for tests.
     let base = suggestedRewrite || text;
-    base = base.replace(PHONE_REGEX, "[SĐT BẢO MẬT]");
+    base = base.replace(PHONE_REGEX, "[SĐT đã ẩn]");
     base = base.replace(SECRET_REGEX, "[BẢO MẬT]");
     suggestedRewrite = base;
   }

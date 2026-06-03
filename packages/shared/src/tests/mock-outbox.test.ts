@@ -83,7 +83,7 @@ describe('Mock Outbox / Sandbox Delivery Foundation', () => {
   it('9. safe summary redacts phone/OTP/token/password/api key', () => {
     const summary = getSafeMockSummary('My phone is 0912345678 and OTP is 654321.');
     expect(summary).not.toContain('0912345678');
-    expect(summary).toContain('[SĐT BẢO MẬT]');
+    expect(summary).toContain('[SĐT đã ẩn]');
     expect(summary).not.toContain('654321');
     expect(summary).toContain('[BẢO MẬT]');
   });

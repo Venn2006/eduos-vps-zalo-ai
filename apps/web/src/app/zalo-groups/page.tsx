@@ -21,6 +21,19 @@ export default async function ZaloGroupsPage() {
       title="Zalo Groups" 
       description="Quản lý các nhóm Zalo lớp học, trạng thái liên kết và tự động hóa."
     >
+      <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm">
+        <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+          ℹ️ Quy trình Zalo Lớp học (Bản mô phỏng — chưa gửi thật)
+        </h3>
+        <ul className="list-disc pl-5 space-y-1 text-sm text-indigo-800">
+          <li><strong>Zalo Bot</strong> được thêm vào nhóm Zalo của lớp học.</li>
+          <li>Bot tự động hỗ trợ <strong>điểm danh</strong> dựa trên lịch học.</li>
+          <li>Giáo viên giao bài tập, học viên nộp bài qua nhóm Zalo.</li>
+          <li><strong>AI chấm nháp</strong>, Giáo viên duyệt điểm trước khi chốt kết quả.</li>
+          <li className="font-semibold text-red-600 mt-2">Lưu ý: Không bao giờ tự động gửi thông báo Nhắc học phí vào nhóm chung của lớp.</li>
+        </ul>
+      </div>
+
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold mb-4">Danh sách nhóm Zalo (Zalo VPS Connector)</h2>
         <div className="overflow-x-auto">

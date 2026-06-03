@@ -279,6 +279,38 @@ export default async function FinanceWorkspacePage() {
               ctaText="Xem Tái phí"
               ctaHref="/renewals"
             />
+            <ActionCard 
+              title="Tổng chi phí"
+              metric="Sắp có"
+              severity="info"
+              reason="Đang phát triển tính năng phiếu chi và bảng lương."
+              ctaText="Sắp ra mắt"
+              ctaHref="#"
+            />
+            <ActionCard 
+              title="Lợi nhuận tạm tính"
+              metric="Sắp có"
+              severity="info"
+              reason="Đang chờ hoàn thiện dữ liệu Tổng chi phí."
+              ctaText="Sắp ra mắt"
+              ctaHref="#"
+            />
+            <ActionCard 
+              title="Doanh thu theo nhân viên"
+              metric="Sắp có"
+              severity="info"
+              reason="Phân bổ doanh thu theo nguồn lead và chốt sale."
+              ctaText="Sắp ra mắt"
+              ctaHref="#"
+            />
+            <ActionCard 
+              title="Hoa hồng sale tạm tính"
+              metric="Sắp có"
+              severity="info"
+              reason="Dựa trên chính sách hoa hồng từng tháng."
+              ctaText="Sắp ra mắt"
+              ctaHref="#"
+            />
           </div>
         </section>
 

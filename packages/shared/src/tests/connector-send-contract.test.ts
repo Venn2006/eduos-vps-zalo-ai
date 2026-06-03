@@ -105,7 +105,7 @@ describe('Connector Send Contract & Audit Readiness (Phase 43)', () => {
     const summary = res.auditPreviewMetadata.safeSummary;
     expect(summary).not.toContain('0912345678');
     expect(summary).not.toContain('123456');
-    expect(summary).toContain('[SĐT BẢO MẬT]');
+    expect(summary).toContain('[SĐT đã ẩn]');
   });
 
   it('13. connector secret is never included', () => {
