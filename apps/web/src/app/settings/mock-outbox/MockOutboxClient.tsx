@@ -64,6 +64,7 @@ export default function MockOutboxClient() {
         <div>
           <h1 className="text-lg font-bold">Hàng đợi gửi giả lập</h1>
           <p className="text-sm mt-1">Kiểm tra quy trình gửi trong sandbox. Hệ thống chưa gửi thật tới Zalo/Facebook. (Chế độ giả lập, Không gọi connector)</p>
+          <p className="text-sm mt-1 italic font-medium text-amber-900">Persisted sandbox outbox is planned but not implemented yet.</p>
         </div>
       </div>
 
