@@ -24,9 +24,14 @@ export default async function SettingsPage() {
             <h3 className="font-semibold text-slate-800">Kiểm soát truy cập (RBAC)</h3>
           </div>
           <p className="text-sm text-slate-500 mb-4 h-10">Quản lý phân quyền chi tiết cho nhân viên và lịch sử thao tác.</p>
-          <Link href="/settings/permissions" className="text-indigo-600 text-sm font-medium hover:text-indigo-700">
-            Quản lý phân quyền &rarr;
-          </Link>
+          <div className="flex gap-4">
+            <Link href="/settings/permissions" className="text-indigo-600 text-sm font-medium hover:text-indigo-700">
+              Quản lý phân quyền &rarr;
+            </Link>
+            <Link href="/settings/audit-log" className="text-indigo-600 text-sm font-medium hover:text-indigo-700">
+              Nhật ký hoạt động &rarr;
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
