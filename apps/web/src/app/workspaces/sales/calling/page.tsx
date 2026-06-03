@@ -12,6 +12,8 @@ import { CallOutcomeForm } from './CallOutcomeForm';
 import { getSuggestionForOutcome } from '@eduos/shared/src/lib/salesCallingSuggestions';
 import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreviewCard';
 import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
+import { ParentStudentTimeline } from '@/components/timeline/ParentStudentTimeline';
+import { buildTimelineEvent, SafeTimelineEvent } from '@eduos/shared/src/lib/timelineBuilder';
 
 export default async function SalesCallingPage() {
   const authSession = await getSession();
@@ -173,6 +175,54 @@ export default async function SalesCallingPage() {
   });
 
   const activeLead = leadQueue.length > 0 ? leadQueue[0] : null;
+
+  // --- Derive Timeline for Preview ---
+  const timelineEvents: SafeTimelineEvent[] = [];
+  if (activeLead) {
+    timelineEvents.push(buildTimelineEvent({
+      id: `lead_created_${activeLead.id}`,
+      occurredAt: activeLead.createdAt,
+      type: 'LEAD_CREATED',
+      title: 'Tạo Lead mới',
+      rawSummary: `Lead ${activeLead.name} được tạo trên hệ thống từ nguồn ${activeLead.source?.name || 'không xác định'}. SĐT: ${activeLead.phone || 'trống'}.`,
+      actorLabel: 'Hệ thống',
+      actorType: 'SYSTEM',
+      source: 'EduOS Core',
+    }));
+
+    if (activeLead.callAttempts && activeLead.callAttempts.length > 0) {
+      const lastCall = activeLead.callAttempts[0];
+      timelineEvents.push(buildTimelineEvent({
+        id: `call_${lastCall.id}`,
+        occurredAt: lastCall.calledAt,
+        type: 'CALL_LOGGED',
+        title: 'Cuộc gọi Sale',
+        rawSummary: `Sale ghi nhận kết quả: ${lastCall.outcome}. Ghi chú: ${lastCall.notes || 'Không có ghi chú.'}`,
+        actorLabel: 'Tư vấn viên',
+        actorType: 'STAFF',
+        source: 'Sales Calling',
+        tags: [lastCall.outcome],
+      }));
+    }
+    
+    // Add a mock event to demonstrate timeline diversity if callCount > 0
+    if (activeLead.callCount > 0) {
+      const mockPast = new Date(activeLead.createdAt.getTime() + 1000 * 60 * 60 * 24); // +1 day
+      if (mockPast < new Date()) {
+        timelineEvents.push(buildTimelineEvent({
+          id: `mock_draft_${activeLead.id}`,
+          occurredAt: mockPast,
+          type: 'AI_DRAFT_CREATED',
+          title: 'AI tạo nháp tin nhắn',
+          rawSummary: `AI đã tạo 1 bản nháp Zalo gửi đến SĐT ${activeLead.phone} dựa trên kịch bản.`,
+          actorLabel: 'EduOS AI',
+          actorType: 'AI',
+          source: 'Zalo Inbox',
+          tags: ['Tự động hóa'],
+        }));
+      }
+    }
+  }
 
   return (
     <div className="space-y-6 pb-12 max-w-7xl mx-auto">
@@ -392,6 +442,13 @@ export default async function SalesCallingPage() {
               <div className="bg-white border shadow-sm rounded-xl p-6">
                 <CallOutcomeForm leadId={activeLead.id} />
               </div>
+
+              {/* TIMELINE (PREVIEW) */}
+              <ParentStudentTimeline 
+                events={timelineEvents} 
+                userRole={authSession?.role as any} 
+                isPreview={true} 
+              />
             </>
           ) : (
             <div className="bg-white border shadow-sm rounded-xl p-12 text-center flex flex-col items-center justify-center h-full">
