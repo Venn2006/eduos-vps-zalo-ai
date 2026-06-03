@@ -2,8 +2,19 @@ import { canAccessRoute } from '../../../../apps/web/src/lib/rbac';
 
 describe('RBAC Route Guarding', () => {
   it('OWNER/ADMIN can access protected routes', () => {
-    const protectedRoutes = ['/dashboard', '/reports', '/payments', '/classes', '/leads', '/settings', '/settings/permissions', '/settings/connectors'];
+    const protectedRoutes = ['/dashboard', '/reports', '/payments', '/classes', '/leads', '/settings'];
+    const protectedSettingsRoutes = [
+      '/settings/permissions',
+      '/settings/connectors',
+      '/settings/production-readiness',
+    ];
+
     protectedRoutes.forEach(route => {
+      expect(canAccessRoute('OWNER', route)).toBe(true);
+      expect(canAccessRoute('ADMIN', route)).toBe(true);
+    });
+
+    protectedSettingsRoutes.forEach(route => {
       expect(canAccessRoute('OWNER', route)).toBe(true);
       expect(canAccessRoute('ADMIN', route)).toBe(true);
     });
@@ -34,6 +45,7 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('SALE', '/settings')).toBe(false);
     expect(canAccessRoute('SALE', '/settings/permissions')).toBe(false);
     expect(canAccessRoute('SALE', '/settings/connectors')).toBe(false);
+    expect(canAccessRoute('SALE', '/settings/production-readiness')).toBe(false);
     
     // Unknown routes and roles should default to false
     expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces/sales')).toBe(false);
@@ -70,6 +82,7 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('TEACHER', '/trial-bookings')).toBe(false);
     expect(canAccessRoute('TEACHER', '/fanpage-inbox')).toBe(false);
     expect(canAccessRoute('TEACHER', '/settings')).toBe(false);
+    expect(canAccessRoute('TEACHER', '/settings/production-readiness')).toBe(false);
   });
 
   it('ACCOUNTANT access matrix', () => {
@@ -91,6 +104,7 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute('ACCOUNTANT', '/classes')).toBe(false);
     expect(canAccessRoute('ACCOUNTANT', '/attendance')).toBe(false);
     expect(canAccessRoute('ACCOUNTANT', '/settings')).toBe(false);
+    expect(canAccessRoute('ACCOUNTANT', '/settings/production-readiness')).toBe(false);
   });
   
   it('Blocked responses do not expose metrics (simulated via strict route block)', () => {
@@ -105,10 +119,12 @@ describe('RBAC Route Guarding', () => {
     expect(canAccessRoute(undefined, '/ai-center')).toBe(false);
     expect(canAccessRoute(null as any, '/payments')).toBe(false);
     expect(canAccessRoute('', '/dashboard')).toBe(false);
+    expect(canAccessRoute('', '/settings/production-readiness')).toBe(false);
     
     // Unknown roles gracefully default to a safe matrix (workspaces only, or false for others)
     expect(canAccessRoute('UNKNOWN_ROLE', '/workspaces')).toBe(false); // they can see the workspaces shell
     expect(canAccessRoute('UNKNOWN_ROLE', '/ai-center')).toBe(false);
     expect(canAccessRoute('UNKNOWN_ROLE', '/dashboard')).toBe(false);
+    expect(canAccessRoute('UNKNOWN_ROLE', '/settings/production-readiness')).toBe(false);
   });
 });
