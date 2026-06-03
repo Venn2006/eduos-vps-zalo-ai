@@ -75,6 +75,7 @@ export default async function ProductionReadinessPage() {
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded text-sm text-blue-800">
           <p className="font-semibold mb-1">Giao diện Báo cáo an toàn</p>
           <p>Trang này chỉ hiển thị trạng thái hiện tại. Không thực hiện thay đổi hệ thống trực tiếp từ đây.</p>
+          <p className="mt-2 text-blue-900 font-medium">Lưu ý: Production sending is intentionally not enabled yet. Current system is manual-review-only.</p>
         </div>
 
         <div className="space-y-6">
