@@ -23,6 +23,8 @@ export interface CEORiskCard {
   severity: CEORiskSeverity;
   category: CEORiskCategory;
   recommendedAction: string;
+  actionUrl?: string;
+  actionLabel?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
   tags?: string[];
@@ -86,6 +88,8 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
           severity: 'HIGH', // Could be CRITICAL if we had more context
           category: 'PARENT_COMPLAINT',
           recommendedAction: 'Gọi điện thoại hỗ trợ và xin lỗi ngay lập tức.',
+          actionUrl: '/reports',
+          actionLabel: 'Xem Báo Cáo',
           relatedEntityType: event.relatedEntityType,
           relatedEntityId: event.relatedEntityId,
           tags: event.tags,
@@ -125,6 +129,8 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
           severity: 'HIGH',
           category: 'MESSAGE_QUALITY_RISK',
           recommendedAction: 'Trực tiếp xử lý tin nhắn thay vì dùng AI tự động.',
+          actionUrl: '/fanpage-inbox',
+          actionLabel: 'Đến Hộp thư',
           tags: analysis.suggestedTags
         });
       }
@@ -144,6 +150,8 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
           severity: 'MEDIUM',
           category: 'UNANSWERED_LEAD',
           recommendedAction: 'Phân công Sale hoặc Giáo viên trả lời tin nhắn.',
+          actionUrl: '/fanpage-inbox?filter=NEEDS_REPLY',
+          actionLabel: 'Phản hồi ngay',
           tags: analysis.suggestedTags
         });
       }
@@ -165,7 +173,9 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
         safeSummary: `Có ${metrics.followUpDueCount} công việc follow-up cần thực hiện hôm nay.`,
         severity: 'MEDIUM',
         category: 'UNANSWERED_LEAD',
-        recommendedAction: 'Nhắc nhở nhân viên kinh doanh hoàn thành follow-up.'
+        recommendedAction: 'Nhắc nhở nhân viên kinh doanh hoàn thành follow-up.',
+        actionUrl: '/workspaces/sales/calling',
+        actionLabel: 'Xem tác vụ gọi'
       });
     }
   }
@@ -178,7 +188,9 @@ export function generateCEOIntelligence(input: CEOIntelligenceInput): CEOIntelli
       safeSummary: `Có ${metrics.pendingDraftCount} tin nhắn do AI nháp đang chờ bạn duyệt.`,
       severity: 'LOW',
       category: 'AI_DRAFT_PENDING',
-      recommendedAction: 'Kiểm tra và duyệt các tin nhắn nháp để AI tự động gửi đi.'
+      recommendedAction: 'Kiểm tra và duyệt các tin nhắn nháp để AI tự động gửi đi.',
+      actionUrl: '/fanpage-inbox?filter=HAS_DRAFT',
+      actionLabel: 'Duyệt ngay'
     });
   }
 

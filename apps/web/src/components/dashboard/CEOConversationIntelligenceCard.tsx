@@ -27,26 +27,38 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
+import Link from 'next/link';
+
 function RiskCardView({ risk }: { risk: CEORiskCard }) {
   return (
-    <div className="p-4 border rounded-lg bg-white shadow-sm flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {getCategoryIcon(risk.category)}
-          <h4 className="font-semibold text-slate-800">{risk.title}</h4>
+    <div className="p-4 border rounded-lg bg-white shadow-sm flex flex-col gap-2 h-full">
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {getCategoryIcon(risk.category)}
+            <h4 className="font-semibold text-slate-800 line-clamp-1">{risk.title}</h4>
+          </div>
+          <Badge className={cn("text-xs font-medium border shrink-0", getSeverityStyles(risk.severity))}>
+            {risk.severity === 'CRITICAL' ? 'NGUY HIỂM' : 
+             risk.severity === 'HIGH' ? 'CAO' : 
+             risk.severity === 'MEDIUM' ? 'TRUNG BÌNH' : 'THẤP'}
+          </Badge>
         </div>
-        <Badge className={cn("text-xs font-medium border", getSeverityStyles(risk.severity))}>
-          {risk.severity === 'CRITICAL' ? 'NGUY HIỂM' : 
-           risk.severity === 'HIGH' ? 'CAO' : 
-           risk.severity === 'MEDIUM' ? 'TRUNG BÌNH' : 'THẤP'}
-        </Badge>
+        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{risk.safeSummary}</p>
+        
+        <div className="mt-3 p-3 bg-slate-50 rounded text-sm text-slate-700 border border-slate-100">
+          <span className="font-semibold block mb-1 text-xs uppercase tracking-wider text-slate-500">Đề xuất xử lý:</span>
+          <p className="line-clamp-2">{risk.recommendedAction}</p>
+        </div>
       </div>
-      <p className="text-sm text-slate-600 mt-1">{risk.safeSummary}</p>
       
-      <div className="mt-3 p-3 bg-slate-50 rounded text-sm text-slate-700 border border-slate-100">
-        <span className="font-semibold block mb-1">Đề xuất xử lý:</span>
-        {risk.recommendedAction}
-      </div>
+      {risk.actionUrl && risk.actionLabel && (
+        <div className="pt-3 mt-1 border-t border-slate-100 flex justify-end">
+          <Link href={risk.actionUrl} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-blue-600 text-white shadow hover:bg-blue-700 rounded-md">
+            {risk.actionLabel}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
