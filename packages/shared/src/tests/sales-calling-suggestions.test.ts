@@ -10,14 +10,14 @@ describe('Sales Calling Suggestions Helper', () => {
     const result = getSuggestionForOutcome('WRONG_NUMBER');
     expect(result).not.toBeNull();
     expect(result?.label).toBe('Không cần nhắn');
-    expect(result?.shouldSend).toBe(false);
+    expect(result?.isMessageSuggested).toBe(false);
     expect(result?.copy).toContain('Số điện thoại không đúng');
   });
 
   it('should return a valid suggestion for BOOKED_TRIAL', () => {
     const result = getSuggestionForOutcome('BOOKED_TRIAL');
     expect(result).not.toBeNull();
-    expect(result?.shouldSend).toBe(true);
+    expect(result?.isMessageSuggested).toBe(true);
     expect(result?.label).toBe('Gợi ý xác nhận học thử');
     expect(result?.copy).toContain('đã ghi nhận lịch học thử');
   });

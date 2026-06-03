@@ -32,6 +32,7 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
     setIsPending(true);
     setError('');
     setSuccess(false);
+    setSubmittedOutcome(null);
 
     const outcomeVal = formData.get('outcome') as CallOutcome | null;
 
@@ -74,13 +75,13 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
           <span>Một số kết quả như Không nghe máy hoặc Hẹn gọi lại sẽ tự tạo việc cần làm tiếp theo. Lịch học thử sẽ tự động tạo Booking.</span>
         </div>
         {success && (
-          <span className="flex items-center gap-1 text-green-600 font-bold bg-green-50 px-2 py-1 rounded">
+          <span className="flex items-center gap-1 text-green-600 font-bold bg-green-50 px-2 py-1 rounded transition-opacity">
             <CheckCircle2 className="w-4 h-4" /> Đã lưu!
           </span>
         )}
       </div>
 
-      {success && suggestion && (
+      {submittedOutcome && suggestion && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
           <h4 className="font-bold text-indigo-900 flex items-center gap-2 mb-2">
             {suggestion.label}
@@ -92,7 +93,7 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
               rows={3} 
               value={suggestion.copy}
             />
-            {suggestion.shouldSend && (
+            {suggestion.isMessageSuggested && (
               <button 
                 type="button" 
                 onClick={handleCopy}
