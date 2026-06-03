@@ -89,6 +89,7 @@ export default async function PermissionsPage() {
             </ul>
           </div>
         </div>
+        </div>
       </div>
     </PageShell>
   );
