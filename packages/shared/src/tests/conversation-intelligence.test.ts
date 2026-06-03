@@ -2,16 +2,32 @@ import { analyzeConversation, createSafeSummary } from '../lib/conversationIntel
 
 describe('conversationIntelligence', () => {
   describe('createSafeSummary (PII Redaction)', () => {
-    it('redacts valid 10-digit phone numbers', () => {
-      expect(createSafeSummary('My phone is 0981234567')).toBe('My phone is [PHONE_REDACTED]');
-      expect(createSafeSummary('Call me at 090 123 4567')).toBe('Call me at [PHONE_REDACTED]');
-      expect(createSafeSummary('Contact +84981234567')).toBe('Contact [PHONE_REDACTED]');
+    it('redacts all phone number formats', () => {
+      const formats = [
+        '0912345678',
+        '0912 345 678',
+        '0912-345-678',
+        '0912.345.678',
+        '+84 912 345 678',
+        '84912345678',
+        '84 912 345 678'
+      ];
+      formats.forEach(phone => {
+        expect(createSafeSummary(`My phone is ${phone}`)).toBe('My phone is [PHONE_REDACTED]');
+      });
     });
 
     it('redacts secrets and passwords', () => {
       expect(createSafeSummary('Tài khoản của bạn có mật khẩu: 123456abc')).toBe('Tài khoản của bạn có mật khẩu [REDACTED]');
       expect(createSafeSummary('Đây là pass: secret123')).toBe('Đây là pass [REDACTED]');
       expect(createSafeSummary('Login with password mypass123')).toBe('Login with password [REDACTED]');
+    });
+
+    it('redacts tokens, api keys, and OTPs', () => {
+      expect(createSafeSummary('Your token is abcdef12345')).toBe('Your token [REDACTED]');
+      expect(createSafeSummary('Use API key: x-api-123')).toBe('Use api key [REDACTED]');
+      expect(createSafeSummary('Mã OTP của bạn là 123456')).toBe('mã OTP [REDACTED]');
+      expect(createSafeSummary('Đây là OTP: 987654')).toBe('Đây là OTP [REDACTED]');
     });
   });
 

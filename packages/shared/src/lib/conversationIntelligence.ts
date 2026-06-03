@@ -35,9 +35,14 @@ export function createSafeSummary(text: string): string {
   let safe = text.replace(/(?:\+?84|0)(?:[\s\.\-]*\d){9}/g, '[PHONE_REDACTED]');
   
   // Mask common secrets/passwords heuristically
-  safe = safe.replace(/mật khẩu\s*:?\s*\S+/gi, 'mật khẩu [REDACTED]');
-  safe = safe.replace(/\bpassword\b\s*:?\s*\S+/gi, 'password [REDACTED]');
-  safe = safe.replace(/\bpass\b\s*:?\s*\S+/gi, 'pass [REDACTED]');
+  const secretPattern = /(:|là|is|=)?\s*\S+/gi;
+  safe = safe.replace(/mật khẩu\s*(?:là|is|:|=)?\s*\S+/gi, 'mật khẩu [REDACTED]');
+  safe = safe.replace(/\bpassword\b\s*(?:là|is|:|=)?\s*\S+/gi, 'password [REDACTED]');
+  safe = safe.replace(/\bpass\b\s*(?:là|is|:|=)?\s*\S+/gi, 'pass [REDACTED]');
+  safe = safe.replace(/\btoken\b\s*(?:là|is|:|=)?\s*\S+/gi, 'token [REDACTED]');
+  safe = safe.replace(/api key\s*(?:là|is|:|=)?\s*\S+/gi, 'api key [REDACTED]');
+  safe = safe.replace(/mã otp\s*(?:của bạn là|là|is|:|=)?\s*\S+/gi, 'mã OTP [REDACTED]');
+  safe = safe.replace(/\botp\b\s*(?:là|is|:|=)?\s*\S+/gi, 'OTP [REDACTED]');
   
   return safe;
 }
