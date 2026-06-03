@@ -6,6 +6,10 @@ export type AuditAction =
   | "FOLLOW_UP_TASK_CREATED"
   | "PAYMENT_CREATED"
   | "REPORT_CREATED"
+  | "CONVERSATION_CLASSIFIED"
+  | "MESSAGE_GUARDRAIL_CHECKED"
+  | "MESSAGE_GUARDRAIL_BLOCKED"
+  | "MESSAGE_DRAFT_REWRITTEN"
   | string; // fallback for backwards compatibility
 
 export interface AuditLogPayload {

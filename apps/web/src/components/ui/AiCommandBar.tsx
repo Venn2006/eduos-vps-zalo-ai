@@ -78,10 +78,10 @@ export function AiCommandBar({ initialPrompt = '' }: { initialPrompt?: string })
       <div className="mt-4 flex flex-wrap gap-2 relative z-10 pl-1 md:pl-[140px]">
         {[
           "Hôm nay có vấn đề gì nghiêm trọng không?",
-          "Hôm nay tuyển được bao nhiêu?",
-          "Ai chưa đóng tiền?",
-          "Lớp nào có rủi ro học viên nghỉ?",
-          "Báo cáo phụ huynh nào chờ duyệt?",
+          "Hôm nay có tin nhắn nào cần xử lý gấp không?",
+          "Phụ huynh nào đang không hài lòng?",
+          "Lead nào chưa được phản hồi?",
+          "Học viên nào có nguy cơ nghỉ?",
           "Zalo/Facebook có lỗi gì không?"
         ].map((prompt, i) => (
           <button

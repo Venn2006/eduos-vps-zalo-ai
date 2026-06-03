@@ -6,7 +6,7 @@ import { prisma } from '@eduos/db';
 import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import { FanpageInboxClient } from './FanpageInboxClient';
 
-export default async function FanpageInboxPage() {
+export default async function FanpageInboxPage({ searchParams }: { searchParams: { filter?: string } }) {
   const authSession = await getSession();
   if (!canAccessRoute(authSession?.role, "/fanpage-inbox")) {
     return <ForbiddenRoleMessage role={authSession?.role} />;
@@ -47,7 +47,10 @@ export default async function FanpageInboxPage() {
       description="Quản lý tin nhắn từ Facebook Fanpage"
     >
       <div className="mt-6">
-        <FanpageInboxClient initialConversations={convWithSuggestions} />
+        <FanpageInboxClient 
+          initialConversations={convWithSuggestions} 
+          initialFilter={searchParams.filter || 'ALL'}
+        />
       </div>
     </PageShell>
   );

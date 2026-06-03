@@ -18,6 +18,8 @@ import {
 } from '@eduos/ai/src/fetchers/ceo-chat';
 import { buildComputedCeoSnapshot } from '@/lib/ceoSnapshot';
 import { Link, Users, GraduationCap, FileEdit, CreditCard, Bot, RefreshCw, MessageCircle } from 'lucide-react';
+import { CEOConversationIntelligenceCard } from '@/components/dashboard/CEOConversationIntelligenceCard';
+import { generateCEOIntelligence } from '@eduos/shared/src/lib/ceoConversationIntelligence';
 
 export default async function DashboardPage() {
   const authSession = await getSession();
@@ -79,6 +81,40 @@ export default async function DashboardPage() {
     where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "học phí" } }
   });
 
+  // Mock intelligence generation for Phase 37
+  const ceoIntelligence = generateCEOIntelligence({
+    pendingDraftCount: aiDrafts.pendingDrafts + renewalRemindersCount + debtRemindersCount,
+    timelineEvents: [
+      {
+        id: '1',
+        type: 'PARENT_COMPLAINT_DETECTED',
+        occurredAt: new Date(),
+        title: 'Báo cáo phàn nàn',
+        safeSummary: 'Phụ huynh 0912***678 nhắn tin không hài lòng về chất lượng buổi học.',
+        actorLabel: 'AI Monitor',
+        actorType: 'SYSTEM',
+        source: 'ZALO',
+        severity: 'HIGH',
+        visibility: ['OWNER_ADMIN']
+      }
+    ],
+    conversationAnalyses: [
+      {
+        intent: 'NEW_LEAD',
+        severity: 'MEDIUM',
+        safeSummary: 'Lead mới quan tâm khóa học IELTS.',
+        suggestedNextAction: '',
+        suggestedTags: [],
+        shouldCreateFollowUpTask: false,
+        shouldCreateAiDraft: false,
+        sentiment: 'NEUTRAL',
+        summary: 'Lead mới quan tâm khóa học IELTS.',
+        tags: ['Chưa phản hồi'],
+        needsHumanHandoff: true
+      } as any
+    ]
+  });
+
   return (
     <div className="space-y-8 pb-12">
       {!tenant && (
@@ -107,6 +143,9 @@ export default async function DashboardPage() {
           <AiCommandBar />
         </div>
       </section>
+
+      {/* AI THEO DÕI HỘI THOẠI HÔM NAY (Phase 37) */}
+      <CEOConversationIntelligenceCard intelligence={ceoIntelligence} isPreview />
 
       <div className="space-y-10">
         

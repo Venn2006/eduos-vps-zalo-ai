@@ -37,9 +37,24 @@ const quickReplies = [
   'Mình inbox riêng admin giúp em nhé'
 ];
 
+import { analyzeConversation } from '@eduos/shared/src/lib/conversationIntelligence';
+import { ConversationIntelligenceCard } from '@/components/conversation/ConversationIntelligenceCard';
+import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreviewCard';
+import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
+
 export default function ZaloInboxPage() {
   const [activeTab, setActiveTab] = useState('Tất cả');
   const [activeChat, setActiveChat] = useState('1');
+  const [draft, setDraft] = useState('');
+
+  const transcript = mockMessages.map(m => m.text).join('\n');
+  const intelligenceResult = analyzeConversation(transcript, 'ZALO');
+  const guardrailResult = draft.trim().length > 0 ? checkMessageQuality({
+    message: draft,
+    channel: 'ZALO',
+    audience: 'PARENT',
+    staffRole: 'SALE',
+  }) : null;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex overflow-hidden border border-border rounded-xl bg-background shadow-sm mt-4">
@@ -205,6 +220,11 @@ export default function ZaloInboxPage() {
 
         {/* Composer */}
         <div className="p-3 bg-white border-t border-border">
+          {guardrailResult && (
+            <div className="mb-3 px-2">
+              <GuardrailPreviewCard result={guardrailResult} />
+            </div>
+          )}
           <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><Paperclip className="w-4 h-4"/></Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><ImageIcon className="w-4 h-4"/></Button>
@@ -212,9 +232,19 @@ export default function ZaloInboxPage() {
               placeholder="Nhập tin nhắn..." 
               className="flex-1 max-h-32 min-h-[40px] resize-none bg-transparent outline-none text-sm py-2 px-1 scrollbar-hide"
               rows={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
             />
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><Smile className="w-4 h-4"/></Button>
-            <Button size="icon" className="h-8 w-8 bg-primary text-white rounded-lg shadow-sm hover:shadow"><Send className="w-4 h-4"/></Button>
+            <Button 
+              size="icon" 
+              className={cn("h-8 w-8 text-white rounded-lg shadow-sm hover:shadow", 
+                guardrailResult?.status === 'BLOCKED' ? "bg-slate-300 cursor-not-allowed" : "bg-primary"
+              )}
+              disabled={guardrailResult?.status === 'BLOCKED'}
+            >
+              <Send className="w-4 h-4"/>
+            </Button>
           </div>
         </div>
       </div>
@@ -223,22 +253,8 @@ export default function ZaloInboxPage() {
       <div className="w-80 border-l border-border flex flex-col bg-slate-50/50">
         
         {/* AI Panel */}
-        <div className="p-4 border-b border-border bg-gradient-to-br from-fuchsia-50 to-purple-50 space-y-3">
-          <div className="flex items-center gap-2 text-fuchsia-700 font-bold text-sm">
-            <BrainCircuit className="w-4 h-4" /> AI Assistant
-          </div>
-          <Card className="border-fuchsia-200 shadow-sm bg-white/80 backdrop-blur">
-            <CardContent className="p-3 text-sm text-slate-700">
-              <span className="font-semibold text-slate-900 block mb-1">Tóm tắt:</span>
-              Phụ huynh muốn cho bé Na học thử lớp HSK1 khóa mới. Đã xếp lịch học thử 19:00 Thứ 7 tuần này. Phụ huynh vừa xin nghỉ hôm nay do bé sốt.
-            </CardContent>
-          </Card>
-          
-          <div className="grid grid-cols-2 gap-2 pt-1">
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs"><Edit3 className="w-3.5 h-3.5 mr-1.5"/>Gợi ý trả lời</Button>
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs"><CheckSquare className="w-3.5 h-3.5 mr-1.5"/>Tạo phiếu nghỉ</Button>
-             <Button size="sm" variant="outline" className="bg-white border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50 h-8 text-xs col-span-2"><Users className="w-3.5 h-3.5 mr-1.5"/>Chuyển thành Học viên</Button>
-          </div>
+        <div className="p-4 border-b border-border bg-gradient-to-br from-slate-50 to-blue-50/20 space-y-3">
+          <ConversationIntelligenceCard result={intelligenceResult} />
         </div>
 
         {/* CRM Panel */}
