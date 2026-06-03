@@ -247,7 +247,16 @@ export function ApprovalQueueClient() {
             )}
             {activeDraft.status !== 'PENDING_APPROVAL' && (
               <div className={`p-4 border-t border-slate-200 text-center font-medium ${activeDraft.status === 'APPROVED' ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
-                {activeDraft.status === 'APPROVED' ? 'Tin nhắn đã được duyệt (Chưa xếp hàng gửi, Chưa có outbox gửi thật, Không tự động gửi)' : 'Tin nhắn nháp đã bị hủy'}
+                {activeDraft.status === 'APPROVED' ? (
+                  <div>
+                    Tin nhắn đã được duyệt (Chưa xếp hàng gửi, Chưa có outbox gửi thật, Không tự động gửi)
+                    <div className="mt-2">
+                      <a href="/settings/mock-outbox" className="inline-flex items-center text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline">
+                        Xem mô phỏng hàng đợi gửi →
+                      </a>
+                    </div>
+                  </div>
+                ) : 'Tin nhắn nháp đã bị hủy'}
               </div>
             )}
           </>
