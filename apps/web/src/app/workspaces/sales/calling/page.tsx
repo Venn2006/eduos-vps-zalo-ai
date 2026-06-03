@@ -9,6 +9,7 @@ import { startOfDay, endOfDay, format } from "date-fns";
 import { vi } from 'date-fns/locale';
 import Link from 'next/link';
 import { CallOutcomeForm } from './CallOutcomeForm';
+import { getSuggestionForOutcome } from '@eduos/shared/src/lib/salesCallingSuggestions';
 
 export default async function SalesCallingPage() {
   const authSession = await getSession();
@@ -348,11 +349,11 @@ export default async function SalesCallingPage() {
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><MessageSquare className="w-4 h-4"/> Gợi ý kịch bản (AI)</h4>
+                    <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><MessageSquare className="w-4 h-4"/> Gợi ý kịch bản cuộc gọi tiếp theo</h4>
                     <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-indigo-900 leading-relaxed">
                       {activeLead.callCount === 0 
                         ? "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp." 
-                        : "Lead đã gọi. Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử."}
+                        : (activeLead.lastCallOutcome ? getSuggestionForOutcome(activeLead.lastCallOutcome as any)?.copy || "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử." : "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử.")}
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { logCallOutcome } from './actions';
 import { CallOutcome } from '@prisma/client';
-import { CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, Copy } from 'lucide-react';
+import { getSuggestionForOutcome } from '@eduos/shared/src/lib/salesCallingSuggestions';
 
 interface CallOutcomeFormProps {
   leadId: string;
@@ -13,6 +14,7 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [submittedOutcome, setSubmittedOutcome] = useState<CallOutcome | null>(null);
 
   const [showBookingForm, setShowBookingForm] = useState(false);
 
@@ -31,12 +33,15 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
     setError('');
     setSuccess(false);
 
+    const outcomeVal = formData.get('outcome') as CallOutcome | null;
+
     try {
       const result = await logCallOutcome(formData);
       if (result.success) {
         setSuccess(true);
+        setSubmittedOutcome(outcomeVal);
         setShowBookingForm(false);
-        setTimeout(() => setSuccess(false), 3000);
+        setTimeout(() => setSuccess(false), 5000);
       } else {
         setError(result.error || 'Lỗi không xác định');
       }
@@ -46,6 +51,14 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
       setIsPending(false);
     }
   }
+
+  const suggestion = getSuggestionForOutcome(submittedOutcome);
+
+  const handleCopy = () => {
+    if (suggestion?.copy) {
+      navigator.clipboard.writeText(suggestion.copy);
+    }
+  };
 
   return (
     <div className="relative">
@@ -66,6 +79,32 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
           </span>
         )}
       </div>
+
+      {success && suggestion && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+          <h4 className="font-bold text-indigo-900 flex items-center gap-2 mb-2">
+            {suggestion.label}
+          </h4>
+          <div className="relative">
+            <textarea 
+              readOnly 
+              className="w-full bg-white border border-indigo-100 rounded p-3 text-sm text-slate-700 outline-none resize-none pr-24" 
+              rows={3} 
+              value={suggestion.copy}
+            />
+            {suggestion.shouldSend && (
+              <button 
+                type="button" 
+                onClick={handleCopy}
+                className="absolute top-2 right-2 px-3 py-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded flex items-center gap-1.5 text-xs font-bold transition-colors"
+              >
+                <Copy className="w-3 h-3" /> Sao chép
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-indigo-600 mt-2 font-medium italic">Chỉ là gợi ý. Chưa gửi cho phụ huynh.</p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm font-medium border border-red-200">
