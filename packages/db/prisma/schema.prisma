@@ -343,11 +343,13 @@ model Tenant {
   scheduledTaskRuns ScheduledTaskRun[]
 
   // AI Command Center
-  aiCommandThreads  AiCommandThread[]
-  aiCommandMessages AiCommandMessage[]
-  aiCommandRuns     AiCommandRun[]
-  aiAgentFindings   AiAgentFinding[]
-  aiActionDrafts    AiActionDraft[]
+  aiCommandThreads   AiCommandThread[]
+  aiCommandMessages  AiCommandMessage[]
+  aiCommandRuns      AiCommandRun[]
+  aiAgentFindings    AiAgentFinding[]
+  aiActionDrafts     AiActionDraft[]
+  SandboxOutboxItem  SandboxOutboxItem[]
+  SandboxOutboxEvent SandboxOutboxEvent[]
 
   @@index([slug])
 }
@@ -360,8 +362,8 @@ model User {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  tenantMembers   TenantMember[]
-  reportedReports WeeklyParentReport[] @relation("ReportApprover")
+  tenantMembers    TenantMember[]
+  reportedReports  WeeklyParentReport[] @relation("ReportApprover")
   aiCommandThreads AiCommandThread[]
   approvedActions  AiActionDraft[]      @relation("ActionApprover")
 }
@@ -440,16 +442,16 @@ model Lead {
   updatedAt          DateTime        @updatedAt
   deletedAt          DateTime?
 
-  source           LeadSource?       @relation(fields: [sourceId], references: [id])
-  batch            LeadBatch?        @relation(fields: [batchId], references: [id])
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  course           Course?           @relation(fields: [interestedCourseId], references: [id])
-  trialBookings    TrialBooking[]
-  activities       LeadActivity[]
-  followUpTasks    FollowUpTask[]
-  callAttempts     CallAttempt[]
-  enrollmentOffers EnrollmentOffer[]
-  enrollments      Enrollment[]
+  source                LeadSource?            @relation(fields: [sourceId], references: [id])
+  batch                 LeadBatch?             @relation(fields: [batchId], references: [id])
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id])
+  course                Course?                @relation(fields: [interestedCourseId], references: [id])
+  trialBookings         TrialBooking[]
+  activities            LeadActivity[]
+  followUpTasks         FollowUpTask[]
+  callAttempts          CallAttempt[]
+  enrollmentOffers      EnrollmentOffer[]
+  enrollments           Enrollment[]
   facebookConversations FacebookConversation[]
 
   @@index([tenantId, stage])
@@ -1482,9 +1484,9 @@ model AiCommandThread {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant             @relation(fields: [tenantId], references: [id])
-  user      User               @relation(fields: [userId], references: [id])
-  messages  AiCommandMessage[]
+  tenant   Tenant             @relation(fields: [tenantId], references: [id])
+  user     User               @relation(fields: [userId], references: [id])
+  messages AiCommandMessage[]
 
   @@index([tenantId, userId])
 }
@@ -1493,16 +1495,16 @@ model AiCommandMessage {
   id                   String   @id @default(cuid())
   tenantId             String
   threadId             String
-  role                 String   // USER, ASSISTANT, SYSTEM
+  role                 String // USER, ASSISTANT, SYSTEM
   content              String   @db.Text
   evidenceJson         String?  @db.Text
   suggestedActionsJson String?  @db.Text
   severity             String?
   createdAt            DateTime @default(now())
 
-  thread AiCommandThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  tenant Tenant          @relation(fields: [tenantId], references: [id])
-  runs   AiCommandRun[]
+  thread       AiCommandThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  runs         AiCommandRun[]
   actionDrafts AiActionDraft[]
 
   @@index([tenantId, threadId])
@@ -1510,18 +1512,18 @@ model AiCommandMessage {
 }
 
 model AiCommandRun {
-  id               String   @id @default(cuid())
-  tenantId         String
-  messageId        String
-  sourceModule     String   // e.g., 'FINANCE', 'ACADEMIC', 'SALES'
-  dbQueryContext   String?  @db.Text
-  rawResultJson    String?  @db.Text
-  status           String   @default("COMPLETED")
-  executedAt       DateTime @default(now())
-  durationMs       Int?
+  id             String   @id @default(cuid())
+  tenantId       String
+  messageId      String
+  sourceModule   String // e.g., 'FINANCE', 'ACADEMIC', 'SALES'
+  dbQueryContext String?  @db.Text
+  rawResultJson  String?  @db.Text
+  status         String   @default("COMPLETED")
+  executedAt     DateTime @default(now())
+  durationMs     Int?
 
-  message AiCommandMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  message  AiCommandMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
   findings AiAgentFinding[]
 
   @@index([tenantId, messageId])
@@ -1529,14 +1531,14 @@ model AiCommandRun {
 }
 
 model AiAgentFinding {
-  id             String   @id @default(cuid())
-  tenantId       String
-  runId          String
-  findingType    String   // e.g., 'RISK', 'METRIC', 'ANOMALY'
-  description    String   @db.Text
-  severity       String?  // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
-  metadataJson   String?  @db.Text
-  createdAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  runId        String
+  findingType  String // e.g., 'RISK', 'METRIC', 'ANOMALY'
+  description  String   @db.Text
+  severity     String? // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  metadataJson String?  @db.Text
+  createdAt    DateTime @default(now())
 
   run    AiCommandRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   tenant Tenant       @relation(fields: [tenantId], references: [id])
@@ -1546,16 +1548,16 @@ model AiAgentFinding {
 }
 
 model AiActionDraft {
-  id             String   @id @default(cuid())
-  tenantId       String
-  messageId      String
-  actionType     String   // e.g., 'CREATE_REMINDER', 'SEND_ZALO', 'FLAG_RISK'
-  payloadJson    String   @db.Text
-  status         String   @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, EXECUTED
-  approvedById   String?
-  executedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String    @id @default(cuid())
+  tenantId     String
+  messageId    String
+  actionType   String // e.g., 'CREATE_REMINDER', 'SEND_ZALO', 'FLAG_RISK'
+  payloadJson  String    @db.Text
+  status       String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, EXECUTED
+  approvedById String?
+  executedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   message  AiCommandMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   tenant   Tenant           @relation(fields: [tenantId], references: [id])
@@ -1564,4 +1566,65 @@ model AiActionDraft {
   @@index([tenantId, messageId])
   @@index([tenantId, status])
   @@index([approvedById])
+}
+
+model SandboxOutboxItem {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  draftId            String?
+  sourceType         String
+  sourceId           String?
+  channel            String
+  connectorAccountId String?
+  recipientType      String
+  recipientId        String
+  recipientSafeLabel String?
+  messageSafeSummary String    @db.Text
+  messageBodyRef     String?   @db.Text
+  idempotencyKey     String
+  status             String
+  readinessStatus    String
+  guardrailStatus    String?
+  approvalStatus     String?
+  riskLevel          String?
+  attemptCount       Int       @default(0)
+  maxAttempts        Int       @default(3)
+  lastAttemptAt      DateTime?
+  nextAttemptAt      DateTime?
+  failureReason      String?   @db.Text
+  createdByUserId    String?
+  approvedByUserId   String?
+  cancelledByUserId  String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  queuedAt           DateTime?
+  sandboxSentAt      DateTime?
+  cancelledAt        DateTime?
+
+  tenant Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events SandboxOutboxEvent[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, channel, createdAt])
+  @@index([tenantId, recipientType, recipientId])
+  @@index([tenantId, draftId])
+}
+
+model SandboxOutboxEvent {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  sandboxOutboxItemId String
+  eventType           String
+  safeSummary         String   @db.Text
+  metadataJson        Json?
+  actorUserId         String?
+  actorRole           String?
+  createdAt           DateTime @default(now())
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sandboxOutboxItem SandboxOutboxItem @relation(fields: [sandboxOutboxItemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sandboxOutboxItemId, createdAt])
+  @@index([tenantId, eventType, createdAt])
 }
