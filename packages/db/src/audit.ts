@@ -1,9 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 
+export type AuditAction =
+  | "SALES_CALL_OUTCOME_LOGGED"
+  | "TRIAL_BOOKING_CREATED"
+  | "FOLLOW_UP_TASK_CREATED"
+  | "PAYMENT_CREATED"
+  | "REPORT_CREATED"
+  | string; // fallback for backwards compatibility
+
 export interface AuditLogPayload {
   tenantId: string;
   actorId?: string;
-  action: string;
+  action: AuditAction;
   entityType: string;
   entityId: string;
   beforeJson?: any;

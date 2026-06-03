@@ -24,17 +24,19 @@ export default async function PermissionsPage() {
       <div className="max-w-4xl space-y-6">
         
         <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded text-sm text-indigo-800">
-          <p className="font-semibold mb-1">Thông báo hệ thống:</p>
+          <p className="font-semibold mb-1">Thông báo hệ thống (Foundation Preview):</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Hiện tại hệ thống đang sử dụng <strong>phân quyền mặc định</strong> (OWNER, ADMIN, SALE, TEACHER, ACCOUNTANT).</li>
-            <li>Phase sau sẽ bật tính năng chỉnh quyền chi tiết theo từng nhân viên.</li>
-            <li>Mọi thay đổi quyền và thao tác quan trọng sẽ được ghi lại trong <strong>Audit Log</strong> để đảm bảo minh bạch.</li>
+            <li>Đây là nền tảng chuẩn bị cho tính năng tuỳ chỉnh phân quyền động (Dynamic Permissions) trong tương lai.</li>
+            <li>Hiện tại hệ thống vẫn đang được <strong>bảo vệ an toàn tuyệt đối</strong> bởi bộ quy tắc RBAC cứng (hardcoded fallback).</li>
+            <li><strong>Quyền mặc định hiện tại</strong> được thể hiện trực quan bên dưới theo từng nhóm (OWNER, ADMIN, SALE, TEACHER, ACCOUNTANT).</li>
+            <li>Mọi thay đổi quyền trong tương lai sẽ được ghi lại trong hệ thống Audit Log.</li>
           </ul>
         </div>
 
-        {/* MOCK UI TẠM THỜI ĐỂ DEMO */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Quyền mặc định hiện tại</h2>
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
           {/* OWNER / ADMIN */}
           <div className="bg-white border rounded-lg p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
@@ -88,6 +90,7 @@ export default async function PermissionsPage() {
               <li className="flex items-center gap-2 text-orange-600"><Lock className="w-3 h-3" /> Không xem được kịch bản chăm sóc Lead</li>
             </ul>
           </div>
+        </div>
         </div>
         </div>
       </div>

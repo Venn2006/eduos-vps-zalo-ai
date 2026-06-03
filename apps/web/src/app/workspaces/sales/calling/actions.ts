@@ -43,6 +43,9 @@ export async function logCallOutcome(formData: FormData) {
           if (data.trialBookingData) {
             await tx.trialBooking.create({ data: data.trialBookingData });
           }
+          if (data.auditLogData) {
+            await tx.auditLog.create({ data: data.auditLogData });
+          }
         });
       }
     });
