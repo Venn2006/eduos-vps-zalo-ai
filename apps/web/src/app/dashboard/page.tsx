@@ -16,6 +16,7 @@ import {
   getZaloFacebookHealthSummary, 
   getAiDraftsPendingApproval 
 } from '@eduos/ai/src/fetchers/ceo-chat';
+import { buildComputedCeoSnapshot } from '@/lib/ceoSnapshot';
 import { Link, Users, GraduationCap, FileEdit, CreditCard, Bot, RefreshCw, MessageCircle } from 'lucide-react';
 
 export default async function DashboardPage() {
