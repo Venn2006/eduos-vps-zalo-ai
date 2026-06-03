@@ -219,8 +219,24 @@ export default async function FinanceWorkspacePage() {
       <div className="px-2 space-y-12">
         {/* KPI SECTION */}
         <section>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">📊 Chỉ số Tài chính</h2>
+            
+            {/* Visual Filters (UI Placeholder) */}
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button className="px-4 py-1.5 text-sm font-bold bg-white text-indigo-700 shadow-sm rounded-md border border-slate-200">
+                Hôm nay
+              </button>
+              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
+                Tháng này
+              </button>
+              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
+                Quý này
+              </button>
+              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
+                Năm nay
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <ActionCard 

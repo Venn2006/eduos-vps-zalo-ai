@@ -52,10 +52,35 @@ export default async function AiCenterPage({ searchParams }: Props) {
   return (
     <div className="space-y-8 pb-10">
       <SectionHeader 
-        title="AI Command Center" 
-        description="Quản lý toàn bộ các tác vụ tự động và trợ lý ảo Zalo"
+        title="Trung tâm AI (Command Center)" 
+        description="Nơi tương tác với AI và quản lý dữ liệu tập trung"
         action={<Button><RefreshCw className="w-4 h-4 mr-2" /> Làm mới dữ liệu</Button>}
       />
+
+      {/* AI Ecosystem Explanation Panel */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-8">
+        <h3 className="font-bold text-indigo-900 mb-3 text-sm flex items-center gap-2">
+          <Bot className="w-4 h-4" /> Hệ sinh thái AI của trung tâm
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
+            <p className="font-bold text-slate-800 mb-1">Trung tâm AI</p>
+            <p className="text-slate-600 text-xs">Nơi truy vấn dữ liệu (CEO Chat) và xem các phát hiện (Insights) do AI đề xuất.</p>
+          </div>
+          <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
+            <p className="font-bold text-slate-800 mb-1">Kho AI tự động hóa</p>
+            <p className="text-slate-600 text-xs">Nơi Giám đốc chọn mua/bật tắt các module AI theo nghiệp vụ (Nhắc phí, Điểm danh).</p>
+          </div>
+          <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
+            <p className="font-bold text-slate-800 mb-1">Hàng đợi duyệt</p>
+            <p className="text-slate-600 text-xs">Nơi nhân viên/giáo viên kiểm tra và duyệt tay các tin nhắn nháp trước khi cho phép AI gửi.</p>
+          </div>
+          <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
+            <p className="font-bold text-slate-800 mb-1">Mock Outbox</p>
+            <p className="text-slate-600 text-xs">Hộp thư giả lập (Sandbox). Tin nhắn rơi vào đây nghĩa là AI đang hoạt động an toàn, chưa gửi ra ngoài thật.</p>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-10">
         
