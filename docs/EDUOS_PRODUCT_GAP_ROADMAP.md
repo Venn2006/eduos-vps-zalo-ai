@@ -105,3 +105,7 @@ Must include:
 - [x] **Phase 61: Connector Readiness UI / Admin Safety Dashboard**
 - [x] **Phase 62: Manual Import Wizard (Preview Only)**
 - [x] **Phase 63: Sandbox Connector Simulator**
+- [x] **Phase 64: Tenant Consent & Privacy Center**
+- [x] **Phase 65: Audit Log & Mock Outbox Governance**
+- [x] **Phase 66: Pilot Go-Live Readiness Checklist**
+- [x] **Phase 67: Founder Demo Handoff Pack**

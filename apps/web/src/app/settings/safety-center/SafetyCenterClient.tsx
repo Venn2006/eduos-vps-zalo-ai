@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks, Lock, FileText, Rocket, Presentation } from 'lucide-react';
 import { connectorMatrix, checklistItems, importTemplates } from '@/lib/safetyCenterDemoData';
 import { runSandboxSimulation, SimulatorScenarioId } from '@/lib/sandboxConnectorSimulator';
+import { consentScopes, privacyChecklist } from '@/lib/consentPrivacyDemoData';
+import { mockAuditLogs, governanceCounters } from '@/lib/auditGovernanceDemoData';
+import { readinessScorecard, blockedCapabilities, pilotScope } from '@/lib/pilotReadinessDemoData';
+import { demoStoryline, demoMessaging, doNotPromise, pilotNextSteps } from '@/lib/demoHandoffData';
+
+type TabType = 'readiness' | 'import' | 'simulator' | 'consent' | 'audit' | 'pilot' | 'demo';
 
 export function SafetyCenterClient() {
-  const [activeTab, setActiveTab] = useState<'readiness' | 'import' | 'simulator'>('readiness');
+  const [activeTab, setActiveTab] = useState<TabType>('readiness');
 
   return (
     <div className="space-y-6">
@@ -35,25 +41,14 @@ export function SafetyCenterClient() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab('readiness')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'readiness' ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-        >
-          <ListChecks className="w-4 h-4" /> Connector Readiness
-        </button>
-        <button
-          onClick={() => setActiveTab('import')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'import' ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-        >
-          <FileUp className="w-4 h-4" /> Import Wizard (Demo)
-        </button>
-        <button
-          onClick={() => setActiveTab('simulator')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'simulator' ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-        >
-          <PlayCircle className="w-4 h-4" /> Mô phỏng Connector
-        </button>
+      <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg">
+        <TabButton active={activeTab === 'readiness'} onClick={() => setActiveTab('readiness')} icon={ListChecks} label="Readiness" />
+        <TabButton active={activeTab === 'import'} onClick={() => setActiveTab('import')} icon={FileUp} label="Import Wizard" />
+        <TabButton active={activeTab === 'simulator'} onClick={() => setActiveTab('simulator')} icon={PlayCircle} label="Simulator" />
+        <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={Lock} label="Consent & Privacy" />
+        <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} icon={FileText} label="Audit Log" />
+        <TabButton active={activeTab === 'pilot'} onClick={() => setActiveTab('pilot')} icon={Rocket} label="Pilot Readiness" />
+        <TabButton active={activeTab === 'demo'} onClick={() => setActiveTab('demo')} icon={Presentation} label="Demo Handoff" />
       </div>
 
       {/* Tab Content */}
@@ -61,11 +56,27 @@ export function SafetyCenterClient() {
         {activeTab === 'readiness' && <ReadinessTab />}
         {activeTab === 'import' && <ImportTab />}
         {activeTab === 'simulator' && <SimulatorTab />}
+        {activeTab === 'consent' && <ConsentPrivacyTab />}
+        {activeTab === 'audit' && <AuditGovernanceTab />}
+        {activeTab === 'pilot' && <PilotReadinessTab />}
+        {activeTab === 'demo' && <DemoHandoffTab />}
       </div>
     </div>
   );
 }
 
+function TabButton({ active, onClick, icon: Icon, label }: { active: boolean, onClick: () => void, icon: any, label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${active ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+    >
+      <Icon className="w-4 h-4" /> {label}
+    </button>
+  );
+}
+
+// ... original tabs ReadinessTab, ImportTab, SimulatorTab
 function ReadinessTab() {
   return (
     <div className="space-y-8">
@@ -180,13 +191,13 @@ function ImportTab() {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 border-b">
                 <tr>
-                  {previewData.split('\\n')[0].split(',').map((header, i) => (
+                  {previewData.split('\n')[0].split(',').map((header, i) => (
                     <th key={i} className="p-2 font-semibold text-slate-600">{header}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {previewData.split('\\n').slice(1).map((row, i) => (
+                {previewData.split('\n').slice(1).map((row, i) => (
                   <tr key={i} className="border-b">
                     {row.split(',').map((cell, j) => (
                       <td key={j} className="p-2 text-slate-700">{cell}</td>
@@ -260,6 +271,263 @@ function SimulatorTab() {
   );
 }
 
+// Phase 64: Consent & Privacy Tab
+function ConsentPrivacyTab() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-bold mb-2">Tenant Consent & Privacy Center</h2>
+        <p className="text-sm text-slate-600 mb-6">EduOS không xử lý dữ liệu thật nếu trung tâm chưa ký Consent. Demo chỉ sử dụng dữ liệu sandbox an toàn.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {consentScopes.map(scope => (
+            <div key={scope.id} className="bg-white border rounded-lg p-4 shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm mb-2">{scope.name}</h3>
+                <div className="space-y-1 mb-4">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Hiện tại:</span>
+                    <span className="font-semibold text-slate-700">{scope.status}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Tương lai:</span>
+                    <span className="font-semibold text-slate-700">{scope.futureMode}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Rủi ro:</span>
+                    <Badge status={scope.risk} />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-50 text-slate-600 p-2 rounded text-xs text-center font-medium border">
+                {scope.blockedReason}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-bold mb-4">Privacy & Data Retention Checklist</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {privacyChecklist.map(item => (
+            <div key={item.id} className="flex items-center gap-2 bg-white p-3 border rounded-lg">
+              {item.status === 'Done' ? <CheckCircle2 className="w-5 h-5 text-success" /> : <AlertTriangle className="w-5 h-5 text-warning" />}
+              <span className="text-sm font-medium">{item.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 65: Audit & Governance Tab
+function AuditGovernanceTab() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold mb-4">Governance Counters (Sandbox Simulation)</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CounterCard title="Real Send Blocked" count={governanceCounters.realSendBlocked} type="danger" />
+          <CounterCard title="Draft-Only Items" count={governanceCounters.draftOnlyItems} type="neutral" />
+          <CounterCard title="Admin Approval Reqs" count={governanceCounters.adminApprovalRequired} type="warning" />
+          <CounterCard title="Teacher Approval Reqs" count={governanceCounters.teacherApprovalRequired} type="warning" />
+          <CounterCard title="Connectors Disabled" count={governanceCounters.connectorDisabled} type="danger" />
+          <CounterCard title="Import Warnings" count={governanceCounters.importPreviewWarnings} type="neutral" />
+          <CounterCard title="Mock Outbox Items" count={governanceCounters.mockOutboxItems} type="success" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border shadow-sm">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-lg">
+          <h2 className="text-lg font-bold">Mock Audit Log Preview</h2>
+          <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded">No DB Persistence</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="p-3 text-slate-600">Time</th>
+                <th className="p-3 text-slate-600">Source</th>
+                <th className="p-3 text-slate-600">Workflow / Event</th>
+                <th className="p-3 text-slate-600">Automation Mode</th>
+                <th className="p-3 text-slate-600">Actor / Status</th>
+                <th className="p-3 text-slate-600">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockAuditLogs.map(log => (
+                <tr key={log.id} className="border-b last:border-0 hover:bg-slate-50">
+                  <td className="p-3 whitespace-nowrap text-xs text-slate-500">{log.time}</td>
+                  <td className="p-3 font-medium text-slate-800">{log.source}</td>
+                  <td className="p-3 text-slate-700">{log.workflow}</td>
+                  <td className="p-3"><Badge status={log.automationMode} /></td>
+                  <td className="p-3">
+                    <div className="flex flex-col text-xs">
+                      <span className="font-semibold text-slate-700">{log.actor}</span>
+                      <span className="text-slate-500">{log.approvalStatus}</span>
+                    </div>
+                  </td>
+                  <td className="p-3 text-slate-600 text-xs">{log.result}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 66: Pilot Readiness Tab
+function PilotReadinessTab() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-bold mb-4">Pilot Go-Live Readiness Scorecard</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {readinessScorecard.map(item => (
+            <div key={item.id} className="flex items-start gap-2 bg-white p-3 border rounded-lg shadow-sm">
+              <div className="mt-0.5 shrink-0">
+                {item.status === 'Ready' ? <CheckCircle2 className="w-5 h-5 text-success" /> : 
+                 item.status === 'Blocked' ? <AlertTriangle className="w-5 h-5 text-danger" /> :
+                 <AlertTriangle className="w-5 h-5 text-warning" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-800">{item.item}</p>
+                <p className={`text-xs font-semibold ${
+                  item.status === 'Ready' ? 'text-success' : 
+                  item.status === 'Blocked' ? 'text-danger' : 'text-warning'
+                }`}>{item.status}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-5 border rounded-lg shadow-sm">
+          <h3 className="font-bold mb-4 text-slate-800">Pilot Scope (Phạm vi Pilot)</h3>
+          <ul className="space-y-2">
+            {pilotScope.map((scope, idx) => (
+              <li key={idx} className="flex items-center gap-2 text-sm text-slate-700">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                {scope}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-white p-5 border rounded-lg shadow-sm border-danger/20">
+          <h3 className="font-bold mb-4 text-danger-800 flex items-center gap-2">
+            <ServerOff className="w-5 h-5" /> Blocked Capabilities (Bị cấm)
+          </h3>
+          <ul className="space-y-2">
+            {blockedCapabilities.map((cap, idx) => (
+              <li key={idx} className="flex items-center gap-2 text-sm text-slate-700">
+                <ShieldAlert className="w-4 h-4 text-danger shrink-0" />
+                {cap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 67: Demo Handoff Tab
+function DemoHandoffTab() {
+  return (
+    <div className="space-y-8">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+        <h2 className="text-xl font-bold text-primary-800 mb-4 flex items-center gap-2">
+          <Presentation className="w-6 h-6" /> Founder Demo Handoff Pack
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="font-semibold text-slate-800 mb-3">Thông điệp chính (Demo Messaging)</h3>
+            <ul className="space-y-3">
+              {demoMessaging.map((msg, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm text-slate-700 bg-white p-3 rounded shadow-sm border border-slate-100">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <span>{msg}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold text-danger-800 mb-3">Không hứa tính năng live (Do Not Promise)</h3>
+            <ul className="space-y-3">
+              {doNotPromise.map((msg, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm text-slate-700 bg-white p-3 rounded shadow-sm border border-danger/10">
+                  <ShieldAlert className="w-4 h-4 text-danger mt-0.5 shrink-0" />
+                  <span>{msg}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 className="font-bold text-lg mb-4">Kịch bản Demo (Demo Storyline)</h3>
+          <div className="space-y-3 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+            {demoStoryline.map((step, idx) => (
+              <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                  <span className="text-sm font-bold">{idx + 1}</span>
+                </div>
+                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded border shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-bold text-slate-800">{step.title}</div>
+                  </div>
+                  <div className="text-xs text-primary font-mono mb-2">{step.route}</div>
+                  <div className="text-sm text-slate-600">{step.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div>
+          <h3 className="font-bold text-lg mb-4">Pilot Next Steps</h3>
+          <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-slate-50 p-4 border-b">
+              <p className="text-sm text-slate-600">Quy trình bắt đầu chạy thử nghiệm thật với khách hàng (Controlled Pilot)</p>
+            </div>
+            <ul className="p-4 space-y-3">
+              {pilotNextSteps.map((step, idx) => (
+                <li key={idx} className="flex items-center gap-3 text-sm">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0 border">{idx + 1}</div>
+                  <span className="font-medium text-slate-700">{step}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helpers
+function CounterCard({ title, count, type }: { title: string, count: number, type: 'success' | 'warning' | 'danger' | 'neutral' }) {
+  const bg = {
+    success: 'bg-success/10 text-success-800 border-success/20',
+    warning: 'bg-warning/10 text-warning-800 border-warning/20',
+    danger: 'bg-danger/10 text-danger-800 border-danger/20',
+    neutral: 'bg-slate-100 text-slate-800 border-slate-200'
+  }[type];
+
+  return (
+    <div className={`p-4 border rounded-lg ${bg} flex flex-col justify-between`}>
+      <span className="text-xs font-semibold uppercase mb-2">{title}</span>
+      <span className="text-2xl font-bold">{count.toLocaleString()}</span>
+    </div>
+  );
+}
+
 function StatusCard({ title, status, icon: Icon, type }: { title: string, status: string, icon: any, type: 'success' | 'warning' | 'danger' }) {
   const colors = {
     success: 'bg-success/10 border-success/20 text-success-800',
@@ -285,12 +553,14 @@ function StatusCard({ title, status, icon: Icon, type }: { title: string, status
 
 function Badge({ status }: { status: string }) {
   let colorClass = 'bg-slate-100 text-slate-800';
-  if (status === 'Disabled' || status === 'Prohibited until explicit pilot' || status === 'High') {
+  if (status === 'Disabled' || status === 'Prohibited until explicit pilot' || status === 'High' || status === 'OFF') {
     colorClass = 'bg-danger/10 text-danger-800';
-  } else if (status === 'Sandbox-only' || status === 'Preview-only' || status === 'Medium') {
+  } else if (status === 'Sandbox-only' || status === 'Preview-only' || status === 'Medium' || status === 'ADMIN_APPROVAL_REQUIRED' || status === 'TEACHER_APPROVAL_REQUIRED' || status === 'Pending') {
     colorClass = 'bg-warning/10 text-warning-800';
-  } else if (status === 'Low') {
+  } else if (status === 'Low' || status === 'AUTO_WITH_DASHBOARD_REPORT' || status === 'Approved') {
     colorClass = 'bg-success/10 text-success-800';
+  } else if (status === 'DRAFT_ONLY' || status === 'STAFF_HANDOFF') {
+    colorClass = 'bg-primary/10 text-primary-800';
   }
 
   return (
