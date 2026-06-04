@@ -6,7 +6,7 @@ import {
   Search, Filter, MoreVertical, Paperclip, Smile, Send, Mic, 
   Image as ImageIcon, FileText, CheckCircle2, Clock, Info, 
   MessageCircle, Users, GraduationCap, CheckSquare, BrainCircuit,
-  Tag, Phone, Mail, Calendar, Edit3, Plus
+  Tag, Phone, Mail, Calendar, Edit3, Plus, Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -220,11 +220,38 @@ export default function ZaloInboxPage() {
 
         {/* Composer */}
         <div className="p-3 bg-white border-t border-border">
-          {guardrailResult && (
-            <div className="mb-3 px-2">
-              <GuardrailPreviewCard result={guardrailResult} />
+          <div className="mb-3 px-2">
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center text-indigo-700 font-semibold text-sm">
+                  <Bot className="w-4 h-4 mr-1.5" /> AI Gợi Ý
+                </div>
+                <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-bold">
+                  Tự động (Rủi ro thấp)
+                </span>
+              </div>
+              <p className="text-sm text-slate-800 bg-white p-2 border border-indigo-100 rounded mb-2">
+                Dạ lớp HSK1-A06 tối nay giáo viên có thông báo chuyển sang học online qua Zoom do thời tiết ạ. Em gửi link cho phụ huynh nhé.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button 
+                  onClick={() => setDraft('Dạ lớp HSK1-A06 tối nay giáo viên có thông báo chuyển sang học online qua Zoom do thời tiết ạ. Em gửi link cho phụ huynh nhé.')}
+                  className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 flex items-center justify-center transition-colors flex-1"
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1" /> Trả lời ngay (Copy)
+                </button>
+                <button className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-medium rounded hover:bg-slate-300 transition-colors flex-1">
+                  Giao cho tư vấn
+                </button>
+                <button className="px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors flex-1">
+                  Bật AI tự trả lời
+                </button>
+              </div>
             </div>
-          )}
+            {guardrailResult && (
+              <GuardrailPreviewCard result={guardrailResult} />
+            )}
+          </div>
           <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><Paperclip className="w-4 h-4"/></Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600"><ImageIcon className="w-4 h-4"/></Button>

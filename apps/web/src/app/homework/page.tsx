@@ -118,9 +118,12 @@ export default async function HomeworkPage() {
                             </td>
                             <td className="px-6 py-4 text-right">
                               {aiDraft && (
-                                <Button variant="outline" size="sm" className="bg-white">
-                                  Duyệt & Gửi (Vào Sandbox)
-                                </Button>
+                                <>
+                                  <Button variant="outline" size="sm" className="bg-white">
+                                    Duyệt điểm & lưu báo cáo
+                                  </Button>
+                                  <div className="text-[10px] text-slate-400 mt-1">Chưa gửi Zalo thật</div>
+                                </>
                               )}
                             </td>
                           </tr>

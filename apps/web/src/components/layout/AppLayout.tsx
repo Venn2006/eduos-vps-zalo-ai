@@ -18,7 +18,8 @@ import {
   Sparkles,
   Bell,
   Search,
-  Wifi
+  Wifi,
+  Monitor
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -37,6 +38,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   
   if (isOwner) {
     sidebarItems.push({ href: '/dashboard', label: 'Tổng quan CEO', icon: LayoutDashboard });
+    sidebarItems.push({ href: '/crm-command-center', label: 'Command Center', icon: Monitor });
   }
   
   sidebarItems.push({ href: '/workspaces', label: 'Danh mục công việc', icon: CheckSquare });

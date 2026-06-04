@@ -136,23 +136,34 @@ export function FanpageInboxClient({ initialConversations, initialFilter = 'ALL'
             {activeConv.suggestions && activeConv.suggestions.length > 0 && !activeConv.suggestions[0].isUsed && (
               <div className="mx-4 mb-4">
                 <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
-                  <div className="flex items-center text-orange-700 font-semibold mb-2 text-sm">
-                    <Bot className="w-4 h-4 mr-1.5" /> AI Đề Xuất Trả Lời
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center text-orange-700 font-semibold text-sm">
+                      <Bot className="w-4 h-4 mr-1.5" /> AI Đề Xuất Trả Lời
+                    </div>
+                    <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-bold">
+                      Tự động (Rủi ro thấp)
+                    </span>
                   </div>
                   <p className="text-sm text-slate-800 bg-white p-3 border border-orange-100 rounded mb-3">
                     {activeConv.suggestions[0].suggestion}
                   </p>
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-wrap gap-2 justify-center mb-2">
                     <button 
                       onClick={() => setInputValue(activeConv.suggestions[0].suggestion)}
-                      className="px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded hover:bg-orange-700 flex items-center justify-center transition-colors w-full mb-1"
+                      className="px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded hover:bg-orange-700 flex items-center justify-center transition-colors flex-1"
                     >
-                      <CheckCircle className="w-3 h-3 mr-1" /> Duyệt nháp (Sao chép vào ô trả lời)
+                      <CheckCircle className="w-3 h-3 mr-1" /> Sao chép vào ô trả lời
                     </button>
-                    <span className="text-[10px] text-slate-500 block w-full text-center">
-                      Cần nhân viên kiểm tra trước khi gửi. Không tự động gửi.
-                    </span>
+                    <button className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-medium rounded hover:bg-slate-300 transition-colors flex-1">
+                      Đưa vào duyệt
+                    </button>
+                    <button className="px-3 py-1.5 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors flex-1">
+                      Bật AI tự trả lời
+                    </button>
                   </div>
+                  <span className="text-[10px] text-slate-500 block w-full text-center">
+                    Mô phỏng AI tự trả lời theo cấu hình. Không gửi thật.
+                  </span>
                 </div>
                 <GuardrailPreviewCard result={checkMessageQuality({
                   message: activeConv.suggestions[0].suggestion,
