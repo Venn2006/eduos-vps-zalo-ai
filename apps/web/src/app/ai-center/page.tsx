@@ -60,24 +60,24 @@ export default async function AiCenterPage({ searchParams }: Props) {
       {/* AI Ecosystem Explanation Panel */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-8">
         <h3 className="font-bold text-indigo-900 mb-3 text-sm flex items-center gap-2">
-          <Bot className="w-4 h-4" /> Hệ sinh thái AI của trung tâm
+          <Bot className="w-4 h-4" /> Lớp áo AI trên nền tảng Zalo CRM
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
           <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
-            <p className="font-bold text-slate-800 mb-1">Trung tâm AI</p>
-            <p className="text-slate-600 text-xs">Nơi truy vấn dữ liệu (CEO Chat) và xem các phát hiện (Insights) do AI đề xuất.</p>
+            <p className="font-bold text-slate-800 mb-1">CRM (Cốt lõi)</p>
+            <p className="text-slate-600 text-xs">Phần mềm quản lý đa kênh Zalo/Fanpage cho đội ngũ sales và giáo viên. Con người nắm quyền kiểm soát 100%.</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
-            <p className="font-bold text-slate-800 mb-1">Kho AI tự động hóa</p>
-            <p className="text-slate-600 text-xs">Nơi Giám đốc chọn mua/bật tắt các module AI theo nghiệp vụ (Nhắc phí, Điểm danh).</p>
+            <p className="font-bold text-slate-800 mb-1">Kho Module AI (Tùy chọn)</p>
+            <p className="text-slate-600 text-xs">Các add-on Giám đốc có thể bật tắt: Tự động trả lời, Chấm bài tập, Nhắc phí báo cáo. Cấu hình linh hoạt.</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
-            <p className="font-bold text-slate-800 mb-1">Hàng đợi duyệt</p>
-            <p className="text-slate-600 text-xs">Nơi nhân viên/giáo viên kiểm tra và duyệt tay các tin nhắn nháp trước khi cho phép AI gửi.</p>
+            <p className="font-bold text-slate-800 mb-1">Việc cần kiểm tra</p>
+            <p className="text-slate-600 text-xs">Chỉ những tác vụ NHẠY CẢM (học phí, khiếu nại, báo cáo phụ huynh) mới cần con người duyệt trước khi gửi.</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-indigo-50/50 shadow-sm">
             <p className="font-bold text-slate-800 mb-1">Mock Outbox</p>
-            <p className="text-slate-600 text-xs">Hộp thư giả lập (Sandbox). Tin nhắn rơi vào đây nghĩa là AI đang hoạt động an toàn, chưa gửi ra ngoài thật.</p>
+            <p className="text-slate-600 text-xs">Môi trường giả lập (Sandbox). Tin nhắn rơi vào đây nghĩa là AI đang hoạt động an toàn, chưa gửi thật.</p>
           </div>
         </div>
       </div>

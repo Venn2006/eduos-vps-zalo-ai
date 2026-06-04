@@ -19,12 +19,12 @@ const CATEGORY_LABELS: Record<AIAddonCategory, string> = {
 };
 
 const MODE_LABELS: Record<string, string> = {
-  AUTO: "Tự động hoàn toàn",
+  AUTO: "Tự động (Rủi ro thấp)",
   AUTO_FOR_LOW_RISK: "Tự động (Rủi ro thấp)",
   AUTO_WITH_DASHBOARD_REPORT: "Tự động & Báo cáo",
   AUTO_SANDBOX: "Tự động (Sandbox)",
-  REVIEW_REQUIRED: "Cần duyệt trước khi gửi",
-  REVIEW_REQUIRED_FOR_HIGH_RISK: "Cần duyệt (Rủi ro cao)",
+  REVIEW_REQUIRED: "Duyệt tay hoặc Staff Handoff",
+  REVIEW_REQUIRED_FOR_HIGH_RISK: "Staff Handoff (Chuyển nhân viên)",
   TEACHER_APPROVAL_REQUIRED: "Giáo viên duyệt",
   DRAFT_ONLY: "Chỉ tạo nháp",
   SCHEDULE_WITH_APPROVAL: "Lên lịch (Cần duyệt)",
@@ -66,11 +66,11 @@ export default async function AIAddonsPage() {
           </div>
           <h1 className="text-3xl font-black tracking-tight mb-3 flex items-center gap-3">
             <Bot className="w-8 h-8 opacity-90" />
-            Kho AI Tự Động Hóa
+            Kho Tính Năng AI Mở Rộng
           </h1>
           <p className="text-indigo-100 max-w-2xl text-lg leading-relaxed">
-            Nâng cấp trung tâm bằng các trợ lý AI chuyên biệt. Bạn toàn quyền quyết định mức độ tự động hóa: 
-            <strong className="text-white"> Tự động hoàn toàn</strong>, hoặc <strong className="text-white">Kiểm duyệt trước khi gửi</strong> để đảm bảo an toàn tối đa.
+            Nâng cấp trung tâm bằng các trợ lý AI chuyên biệt. Bạn toàn quyền quyết định cơ chế hoạt động: 
+            <strong className="text-white"> Tự động xử lý</strong>, <strong className="text-white">Chuyển giao nhân viên (Staff Handoff)</strong>, hoặc <strong className="text-white">Trình duyệt (Approval)</strong> để đảm bảo an toàn tối đa.
           </p>
         </div>
       </div>

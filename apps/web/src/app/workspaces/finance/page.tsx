@@ -222,19 +222,19 @@ export default async function FinanceWorkspacePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">📊 Chỉ số Tài chính</h2>
             
-            {/* Visual Filters (UI Placeholder) */}
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-              <button className="px-4 py-1.5 text-sm font-bold bg-white text-indigo-700 shadow-sm rounded-md border border-slate-200">
+            {/* Visual Filters */}
+            <div className="flex bg-slate-100/80 p-1.5 rounded-xl border border-slate-200">
+              <button className="px-5 py-2 text-sm font-bold bg-white text-emerald-700 shadow-sm rounded-lg border border-slate-200">
                 Hôm nay
               </button>
-              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
+              <button className="px-5 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                Tuần này
+              </button>
+              <button className="px-5 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                 Tháng này
               </button>
-              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
-                Quý này
-              </button>
-              <button className="px-4 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors" disabled>
-                Năm nay
+              <button className="px-5 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                Tùy chỉnh
               </button>
             </div>
           </div>
