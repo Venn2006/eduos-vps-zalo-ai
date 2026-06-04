@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks, Lock, FileText, Rocket, Presentation } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks, Lock, FileText, Rocket, Presentation, Settings, Filter, Eye, ToggleLeft } from 'lucide-react';
 import { connectorMatrix, checklistItems, importTemplates } from '@/lib/safetyCenterDemoData';
 import { runSandboxSimulation, SimulatorScenarioId } from '@/lib/sandboxConnectorSimulator';
 import { consentScopes, privacyChecklist } from '@/lib/consentPrivacyDemoData';
 import { mockAuditLogs, governanceCounters } from '@/lib/auditGovernanceDemoData';
 import { readinessScorecard, blockedCapabilities, pilotScope } from '@/lib/pilotReadinessDemoData';
 import { demoStoryline, demoMessaging, doNotPromise, pilotNextSteps } from '@/lib/demoHandoffData';
+import { pilotConsentChecklist, featureFlags, importSimulatorWarnings } from '@/lib/phase68-71-demoData';
 
-type TabType = 'readiness' | 'import' | 'simulator' | 'consent' | 'audit' | 'pilot' | 'demo';
+type TabType = 'readiness' | 'import' | 'simulator' | 'consent' | 'audit' | 'pilot' | 'demo' | 'flags';
 
 export function SafetyCenterClient() {
   const [activeTab, setActiveTab] = useState<TabType>('readiness');
@@ -48,6 +49,7 @@ export function SafetyCenterClient() {
         <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={Lock} label="Consent & Privacy" />
         <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} icon={FileText} label="Audit Log" />
         <TabButton active={activeTab === 'pilot'} onClick={() => setActiveTab('pilot')} icon={Rocket} label="Pilot Readiness" />
+        <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon={Settings} label="Feature Flags" />
         <TabButton active={activeTab === 'demo'} onClick={() => setActiveTab('demo')} icon={Presentation} label="Demo Handoff" />
       </div>
 
@@ -59,6 +61,7 @@ export function SafetyCenterClient() {
         {activeTab === 'consent' && <ConsentPrivacyTab />}
         {activeTab === 'audit' && <AuditGovernanceTab />}
         {activeTab === 'pilot' && <PilotReadinessTab />}
+        {activeTab === 'flags' && <FeatureFlagsTab />}
         {activeTab === 'demo' && <DemoHandoffTab />}
       </div>
     </div>
@@ -182,7 +185,20 @@ function ImportTab() {
 
       {previewData && (
         <div className="bg-white p-6 border rounded-lg shadow-sm">
-          <h3 className="font-bold mb-4">Preview Results</h3>
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="font-bold">Preview Results</h3>
+            <div className="flex gap-2">
+              {importSimulatorWarnings[importType]?.map((warn, idx) => (
+                <span key={idx} className={`text-xs px-2 py-1 rounded font-medium flex items-center gap-1 ${
+                  warn.type === 'consent' || warn.type === 'debt' ? 'bg-danger/10 text-danger-800' : 
+                  warn.type === 'phone' ? 'bg-warning/10 text-warning-800' : 'bg-primary/10 text-primary-800'
+                }`}>
+                  {warn.type === 'approval' ? <ShieldCheck className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {warn.msg}
+                </span>
+              ))}
+            </div>
+          </div>
           <div className="bg-warning/10 border border-warning/30 p-3 rounded-lg mb-4 flex items-center gap-2 text-warning-800 text-sm">
             <AlertTriangle className="w-4 h-4" />
             Bản demo chỉ xem trước, chưa lưu dữ liệu thật vào hệ thống. Cần admin duyệt để tiếp tục trong bản live.
@@ -317,12 +333,42 @@ function ConsentPrivacyTab() {
           ))}
         </div>
       </div>
+
+      <div>
+        <h2 className="text-lg font-bold mb-4 mt-8">Pilot Consent Pack (Customer Facing)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {pilotConsentChecklist.map(item => (
+            <div key={item.id} className="flex flex-col gap-1 bg-white p-3 border rounded-lg shadow-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">{item.text}</span>
+                {item.status === 'Done' ? <CheckCircle2 className="w-4 h-4 text-success" /> : <Lock className="w-4 h-4 text-warning" />}
+              </div>
+              <span className={`text-xs font-semibold ${item.status === 'Done' ? 'text-success' : 'text-warning'}`}>{item.status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Phase 65: Audit & Governance Tab
+// Phase 65 & 69: Audit & Governance Tab
 function AuditGovernanceTab() {
+  const [filter, setFilter] = useState<string>('All');
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  const filters = ['All', 'Admin approval', 'Teacher approval', 'Draft only', 'Blocked', 'Sandbox only'];
+  
+  const filteredLogs = mockAuditLogs.filter(log => {
+    if (filter === 'All') return true;
+    if (filter === 'Draft only' && log.automationMode === 'DRAFT_ONLY') return true;
+    if (filter === 'Sandbox only' && log.result.includes('Sandbox')) return true;
+    if (filter === 'Blocked' && log.result.includes('Blocked')) return true;
+    if (filter === 'Admin approval' && log.approvalStatus === 'Requires Admin') return true;
+    if (filter === 'Teacher approval' && log.approvalStatus === 'Requires Teacher') return true;
+    return false;
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -339,9 +385,18 @@ function AuditGovernanceTab() {
       </div>
 
       <div className="bg-white rounded-lg border shadow-sm">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-lg">
-          <h2 className="text-lg font-bold">Mock Audit Log Preview</h2>
-          <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded">No DB Persistence</span>
+        <div className="p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 rounded-t-lg">
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2"><Filter className="w-5 h-5"/> Mock Audit Log Preview</h2>
+            <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded mt-2 inline-block">No DB Persistence</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {filters.map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1.5 rounded-full border ${filter === f ? 'bg-primary text-white border-primary' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -353,23 +408,38 @@ function AuditGovernanceTab() {
                 <th className="p-3 text-slate-600">Automation Mode</th>
                 <th className="p-3 text-slate-600">Actor / Status</th>
                 <th className="p-3 text-slate-600">Result</th>
+                <th className="p-3 text-slate-600"></th>
               </tr>
             </thead>
             <tbody>
-              {mockAuditLogs.map(log => (
-                <tr key={log.id} className="border-b last:border-0 hover:bg-slate-50">
-                  <td className="p-3 whitespace-nowrap text-xs text-slate-500">{log.time}</td>
-                  <td className="p-3 font-medium text-slate-800">{log.source}</td>
-                  <td className="p-3 text-slate-700">{log.workflow}</td>
-                  <td className="p-3"><Badge status={log.automationMode} /></td>
-                  <td className="p-3">
-                    <div className="flex flex-col text-xs">
-                      <span className="font-semibold text-slate-700">{log.actor}</span>
-                      <span className="text-slate-500">{log.approvalStatus}</span>
-                    </div>
-                  </td>
-                  <td className="p-3 text-slate-600 text-xs">{log.result}</td>
-                </tr>
+              {filteredLogs.map(log => (
+                <React.Fragment key={log.id}>
+                  <tr className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}>
+                    <td className="p-3 whitespace-nowrap text-xs text-slate-500">{log.time}</td>
+                    <td className="p-3 font-medium text-slate-800">{log.source}</td>
+                    <td className="p-3 text-slate-700">{log.workflow}</td>
+                    <td className="p-3"><Badge status={log.automationMode} /></td>
+                    <td className="p-3">
+                      <div className="flex flex-col text-xs">
+                        <span className="font-semibold text-slate-700">{log.actor}</span>
+                        <span className="text-slate-500">{log.approvalStatus}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-slate-600 text-xs">{log.result}</td>
+                    <td className="p-3 text-slate-400"><Eye className="w-4 h-4" /></td>
+                  </tr>
+                  {expandedLogId === log.id && (
+                    <tr className="bg-slate-50 border-b">
+                      <td colSpan={7} className="p-4">
+                        <div className="text-xs font-mono bg-slate-900 text-green-400 p-3 rounded">
+                          {`// Event Detail Payload`}
+                          <br />
+                          {`{ "id": ${log.id}, "timestamp": "${log.time}", "tenantId": "demo-tenant", "metadata": { "automation": "${log.automationMode}", "action": "${log.workflow}" } }`}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -505,6 +575,32 @@ function DemoHandoffTab() {
               ))}
             </ul>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 71: Feature Flags Tab
+function FeatureFlagsTab() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold mb-2 flex items-center gap-2"><ToggleLeft className="w-6 h-6 text-primary" /> Tenant Feature Flags (Demo)</h2>
+        <p className="text-sm text-slate-600 mb-6">Mô phỏng cài đặt Feature Flags cấp Tenant. Tất cả đều là read-only (chỉ đọc) và bị vô hiệu hóa gửi thật trong bản Demo.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {featureFlags.map(flag => (
+            <div key={flag.id} className="bg-white border rounded-lg p-4 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-800 text-sm">{flag.label}</p>
+                <p className="text-xs text-slate-500 font-mono mt-1">{flag.id}</p>
+              </div>
+              <div className={`w-12 h-6 rounded-full flex items-center p-1 cursor-not-allowed ${flag.value ? 'bg-primary' : 'bg-slate-200'}`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${flag.value ? 'translate-x-6' : 'translate-x-0'}`} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
