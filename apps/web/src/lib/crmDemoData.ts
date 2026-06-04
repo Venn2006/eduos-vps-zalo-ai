@@ -19,7 +19,7 @@ export const LIFECYCLE_LABELS: Record<LifecycleStage, string> = {
 
 export interface CrmTimelineEvent {
   id: string;
-  type: 'LEAD_CREATED' | 'MESSAGE_RECEIVED' | 'STAFF_REPLY' | 'AI_SUGGESTION' | 'TRIAL_BOOKED' | 'TRIAL_ATTENDED' | 'TRIAL_MISSED' | 'CONVERTED_STUDENT' | 'CLASS_ASSIGNED' | 'ATTENDANCE_ABSENCE' | 'HOMEWORK_MISSING' | 'HOMEWORK_SUBMITTED' | 'TEACHER_NOTE' | 'PARENT_COMPLAINT' | 'ADMIN_HANDOFF' | 'TUITION_REMINDER_DRAFT' | 'PAYMENT_NOTE' | 'TASK_CREATED' | 'TASK_COMPLETED' | 'CHURN_RISK_ALERT' | 'RETENTION_CALL';
+  type: 'LEAD_CREATED' | 'MESSAGE_RECEIVED' | 'STAFF_REPLY' | 'AI_SUGGESTION' | 'TRIAL_BOOKED' | 'TRIAL_ATTENDED' | 'TRIAL_MISSED' | 'CONVERTED_STUDENT' | 'CLASS_ASSIGNED' | 'ATTENDANCE_ABSENCE' | 'HOMEWORK_MISSING' | 'HOMEWORK_SUBMITTED' | 'TEACHER_NOTE' | 'PARENT_COMPLAINT' | 'ADMIN_HANDOFF' | 'TUITION_REMINDER_DRAFT' | 'PAYMENT_NOTE' | 'TASK_CREATED' | 'TASK_COMPLETED' | 'CHURN_RISK_ALERT' | 'RETENTION_CALL' | 'PARENT_REPORT_DRAFTED';
   timestamp: string;
   title: string;
   description: string;
@@ -88,7 +88,8 @@ export const mockTimelineStudent: CrmTimelineEvent[] = [
   { id: '103', type: 'HOMEWORK_MISSING', timestamp: '1 tuần trước', title: 'Thiếu bài tập về nhà', description: 'Chưa nộp bài Unit 4.', actor: 'Trần Giáo Viên (Teacher)', source: 'Homework' },
   { id: '104', type: 'ATTENDANCE_ABSENCE', timestamp: 'Hôm qua', title: 'Nghỉ học không phép', description: 'Học viên vắng mặt buổi thứ 12.', actor: 'Hệ thống', source: 'Attendance' },
   { id: '105', type: 'PARENT_COMPLAINT', timestamp: 'Hôm nay', title: 'Phụ huynh phản ánh', description: '"Sao cháu đi học về bảo không hiểu bài hả em?"', actor: 'Phụ huynh', source: 'Zalo cá nhân' },
-  { id: '106', type: 'CHURN_RISK_ALERT', timestamp: 'Vừa xong', title: 'Cảnh báo nguy cơ nghỉ học', description: 'Vắng mặt + Bài tập thiếu + Phụ huynh phàn nàn.', actor: 'AI', source: 'Hệ thống', aiMode: 'STAFF_HANDOFF' }
+  { id: '106', type: 'PARENT_REPORT_DRAFTED', timestamp: '1 giờ trước', title: 'AI tạo nháp báo cáo học tập', description: 'Đang chờ giáo viên duyệt.', actor: 'AI', source: 'Homework', aiMode: 'TEACHER_APPROVAL_REQUIRED' },
+  { id: '107', type: 'CHURN_RISK_ALERT', timestamp: 'Vừa xong', title: 'Cảnh báo nguy cơ nghỉ học', description: 'Vắng mặt + Bài tập thiếu + Phụ huynh phàn nàn.', actor: 'AI', source: 'Hệ thống', aiMode: 'STAFF_HANDOFF' }
 ];
 
 export const mockTimelineAlumni: CrmTimelineEvent[] = [
