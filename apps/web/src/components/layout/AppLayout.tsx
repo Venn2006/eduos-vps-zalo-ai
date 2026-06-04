@@ -19,7 +19,8 @@ import {
   Bell,
   Search,
   Wifi,
-  Monitor
+  Monitor,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -53,6 +54,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   if (isOwner) {
     // Only Owner/Admin gets reports as it's not server-side protected for other roles
     sidebarItems.push({ href: '/reports', label: 'Báo cáo', icon: PieChart });
+    sidebarItems.push({ href: '/settings/safety-center', label: 'Trung tâm an toàn', icon: ShieldCheck });
     sidebarItems.push({ href: '/settings', label: 'Cài đặt', icon: Settings });
   }
 

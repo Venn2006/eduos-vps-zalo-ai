@@ -102,5 +102,6 @@ Must include:
   - Automate homework creation and grading suggestions.
   - Expand teacher workspace with curriculum generation module.
 
-- [x] **Phase 59: Safe Data Pipeline / Connector Architecture Plan**
-- [x] **Phase 60: Controlled Real Connector Readiness Plan**
+- [x] **Phase 61: Connector Readiness UI / Admin Safety Dashboard**
+- [x] **Phase 62: Manual Import Wizard (Preview Only)**
+- [x] **Phase 63: Sandbox Connector Simulator**
