@@ -102,5 +102,5 @@ Must include:
   - Automate homework creation and grading suggestions.
   - Expand teacher workspace with curriculum generation module.
 
-* Phase 59 — Safe Data Pipeline / Connector Architecture Plan
-* Phase 60 — Controlled Real Connector Readiness Plan, only if there is a paying pilot and explicit approval.
+- [x] **Phase 59: Safe Data Pipeline / Connector Architecture Plan**
+- [x] **Phase 60: Controlled Real Connector Readiness Plan**
