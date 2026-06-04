@@ -38,7 +38,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   
   if (isOwner) {
     sidebarItems.push({ href: '/dashboard', label: 'Tổng quan CEO', icon: LayoutDashboard });
-    sidebarItems.push({ href: '/crm-command-center', label: 'Command Center', icon: Monitor });
+    sidebarItems.push({ href: '/crm-command-center', label: 'CRM & Zalo/Fanpage', icon: Monitor });
   }
   
   sidebarItems.push({ href: '/workspaces', label: 'Danh mục công việc', icon: CheckSquare });
