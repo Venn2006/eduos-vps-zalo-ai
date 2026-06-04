@@ -98,7 +98,7 @@ Must include:
   - Add finance follow-up Task Center with Tuition Reminder Draft Preview panel.
   - Connect TUITION tasks in CRM Command Center to Finance Workspace.
 
-- [ ] **Phase 58: Embedded AI Homework/Curriculum Generator**
+- [x] **Phase 58: Embedded AI Homework/Curriculum Generator**
   - Automate homework creation and grading suggestions.
   - Expand teacher workspace with curriculum generation module.
 
