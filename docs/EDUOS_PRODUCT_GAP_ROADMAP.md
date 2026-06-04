@@ -92,7 +92,15 @@ Must include:
   - Timeline Drawer (Lịch sử tương tác AI/Nhân viên).
 - [x] **Phase 55**: Student/Parent Timeline + Follow-up Task Center Hardening
 - [x] **Phase 56**: Teacher/Học vụ Workspace + Scheduling Conflict Detection
-- [ ] **Phase 57**: Finance Real Reporting Hardening
-* Phase 58 — Embedded AI Homework/Curriculum Generator
+- [x] **Phase 57: Finance Real Reporting Hardening**
+  - Implement dynamic, deterministic Finance Dashboard with KPIs, cost, profit, and commissions.
+  - Implement detailed tuition/debt tracking table.
+  - Add finance follow-up Task Center with Tuition Reminder Draft Preview panel.
+  - Connect TUITION tasks in CRM Command Center to Finance Workspace.
+
+- [ ] **Phase 58: Embedded AI Homework/Curriculum Generator**
+  - Automate homework creation and grading suggestions.
+  - Expand teacher workspace with curriculum generation module.
+
 * Phase 59 — Safe Data Pipeline / Connector Architecture Plan
 * Phase 60 — Controlled Real Connector Readiness Plan, only if there is a paying pilot and explicit approval.

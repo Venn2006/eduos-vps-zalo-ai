@@ -197,9 +197,15 @@ export function CrmCommandCenterClient({ staffAccounts, classGroups }: { staffAc
                         {task.suggestedNextStep}
                         <div className="text-[9px] font-mono text-slate-400 mt-1">Rule: {task.automationMode}</div>
                       </div>
-                      <Button size="sm" className="w-full text-[11px] h-7 mt-2" variant="outline">
-                        {task.automationMode.includes('APPROVAL') ? 'Xem & Duyệt (Demo)' : 'Đánh dấu đã xử lý (Demo)'}
-                      </Button>
+                      {task.category === 'TUITION' ? (
+                        <Button size="sm" className="w-full text-[11px] h-7 mt-2" variant="outline" asChild>
+                          <a href="/workspaces/finance">Đến Finance Workspace xử lý</a>
+                        </Button>
+                      ) : (
+                        <Button size="sm" className="w-full text-[11px] h-7 mt-2" variant="outline">
+                          {task.automationMode.includes('APPROVAL') ? 'Xem & Duyệt (Demo)' : 'Đánh dấu đã xử lý (Demo)'}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
