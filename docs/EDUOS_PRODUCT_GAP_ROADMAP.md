@@ -90,8 +90,8 @@ Must include:
   - Lead Kanban (Lead Mới -> Đã Liên Hệ -> Học Thử -> Chốt).
   - SLA Alerts (Cảnh báo chìa khóa: "Lead quá hạn phản hồi").
   - Timeline Drawer (Lịch sử tương tác AI/Nhân viên).
-* Phase 55 — Student/Parent Timeline + Follow-up Task Center
-* Phase 56 — Teacher/Học vụ Workspace + Scheduling Conflict Detection
+- [x] **Phase 55**: Student/Parent Timeline + Follow-up Task Center Hardening
+- [ ] **Phase 56**: Teacher/Học vụ Workspace + Scheduling Conflict Detection
 * Phase 57 — Finance Real Reporting Hardening
 * Phase 58 — Embedded AI Homework/Curriculum Generator
 * Phase 59 — Safe Data Pipeline / Connector Architecture Plan
