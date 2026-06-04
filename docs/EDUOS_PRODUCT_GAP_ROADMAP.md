@@ -83,7 +83,13 @@ Must include:
 * Chế độ Sandbox luôn được bật cho tất cả các bản Demo trước khi Pilot.
 
 ## Recommended Next Phases
-* Phase 54 — CRM Command Center + Lead Kanban Polish
+### Phase 54: CRM Command Center + Lead Kanban Polish (✅ DONE)
+- **Status:** Hoàn thành (Mock Data/Frontend only).
+- **Goal:** Turn the Zalo CRM concept into a visual Kanban board to show founders how leads move through stages.
+- **Key Features:**
+  - Lead Kanban (Lead Mới -> Đã Liên Hệ -> Học Thử -> Chốt).
+  - SLA Alerts (Cảnh báo chìa khóa: "Lead quá hạn phản hồi").
+  - Timeline Drawer (Lịch sử tương tác AI/Nhân viên).
 * Phase 55 — Student/Parent Timeline + Follow-up Task Center
 * Phase 56 — Teacher/Học vụ Workspace + Scheduling Conflict Detection
 * Phase 57 — Finance Real Reporting Hardening
