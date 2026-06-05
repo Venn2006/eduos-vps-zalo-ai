@@ -154,10 +154,15 @@ export function TaskManagementClient() {
                           ))}
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 mt-2">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <UserSquare2 className="w-3.5 h-3.5" />
-                            <span className="truncate">{task.ownerName}</span>
+                        <div className="flex items-start justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 mt-2">
+                          <div className="flex flex-col gap-1 truncate pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <UserSquare2 className="w-3.5 h-3.5" />
+                              <span className="truncate font-medium">{task.ownerName}</span>
+                            </div>
+                            <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded w-fit">
+                              {task.ownerName.includes('Teacher') ? 'Giáo viên' : task.ownerName.includes('Finance') ? 'Kế toán' : task.ownerName.includes('Sale') ? 'Sale' : 'Quản lý'}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Clock className="w-3.5 h-3.5" />
@@ -248,14 +253,26 @@ export function TaskManagementClient() {
                     <UserSquare2 className="w-4 h-4 text-slate-400" />
                     {selectedTask.ownerName}
                   </p>
+                  <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                    {selectedTask.ownerName.includes('Teacher') ? 'Giáo viên' : selectedTask.ownerName.includes('Finance') ? 'Kế toán' : selectedTask.ownerName.includes('Sale') ? 'Sale' : 'Quản lý'}
+                  </span>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Hạn chót</p>
-                  <p className="font-medium text-rose-600 text-sm flex items-center gap-1.5">
-                    <Clock className="w-4 h-4" />
-                    {selectedTask.dueTime}
+                  <p className="text-xs text-slate-500 mb-1">Cần ai duyệt?</p>
+                  <p className="font-medium text-indigo-700 text-sm flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4" />
+                    {selectedTask.tags.includes('Học phí') ? 'Kế toán trưởng' : selectedTask.tags.includes('Báo cáo') ? 'Quản lý học vụ' : selectedTask.tags.includes('Hotline') ? 'CEO/Admin' : 'Quản lý'}
                   </p>
+                  <span className="inline-block mt-1 text-[10px] text-slate-500">Phân quyền Demo</span>
                 </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-rose-50 border border-rose-100 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-rose-600" />
+                  <span className="text-xs text-slate-600 font-medium">Hạn chót xử lý:</span>
+                </div>
+                <span className="font-bold text-rose-600 text-sm">{selectedTask.dueTime}</span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
