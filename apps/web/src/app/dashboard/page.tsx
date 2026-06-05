@@ -1,25 +1,30 @@
-import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
-import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
-import { SectionHeader } from '@/components/ui/SectionHeader';
+import Link from 'next/link';
+import { canAccessRoute } from '@/lib/rbac';
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { getSession } from '@/lib/auth';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ActionCard } from '@/components/ui/ActionCard';
-import { AiCommandBar } from '@/components/ui/AiCommandBar';
-import { getDashboardSummaryForTenant, prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
 import { 
-  getCriticalAlertsSummary, 
-  getTodayAdmissionsSummary, 
-  getSalesPerformanceToday, 
-  getFinanceRiskSummary, 
-  getAcademicRiskSummary, 
-  getParentReportPendingSummary, 
-  getZaloFacebookHealthSummary, 
-  getAiDraftsPendingApproval 
-} from '@eduos/ai/src/fetchers/ceo-chat';
-import { buildComputedCeoSnapshot } from '@/lib/ceoSnapshot';
-import { Link, Users, GraduationCap, FileEdit, CreditCard, Bot, RefreshCw, MessageCircle } from 'lucide-react';
-import { CEOConversationIntelligenceCard } from '@/components/dashboard/CEOConversationIntelligenceCard';
-import { generateCEOIntelligence } from '@eduos/shared/src/lib/ceoConversationIntelligence';
+  demoKpiData, 
+  demoCommandFeed, 
+  demoStaffWorkload, 
+  demoAiInsights, 
+  demoUrgentAlerts 
+} from '@/lib/ceoCommandDemoData';
+import { 
+  Wallet, 
+  UserPlus, 
+  MessageSquareWarning, 
+  ListTodo, 
+  UserX, 
+  BadgeDollarSign,
+  AlertTriangle,
+  ArrowRight,
+  BrainCircuit,
+  Bot
+} from 'lucide-react';
 
 export default async function DashboardPage() {
   const authSession = await getSession();
@@ -27,403 +32,214 @@ export default async function DashboardPage() {
     return <ForbiddenRoleMessage role={authSession?.role} />;
   }
 
-  const session = await getSession();
-  const tenantId = await getCurrentTenantOrThrow();
-
-  
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }});
-  
-  // Fetch from Phase 9 CEO Chat deterministic fetchers
-  const [
-    criticalAlerts,
-    admissionsToday,
-    salesToday,
-    financeRisk,
-    academicRisk,
-    parentReports,
-    health,
-    aiDrafts
-  ] = await Promise.all([
-    getCriticalAlertsSummary(tenantId),
-    getTodayAdmissionsSummary(tenantId),
-    getSalesPerformanceToday(tenantId),
-    getFinanceRiskSummary(tenantId),
-    getAcademicRiskSummary(tenantId),
-    getParentReportPendingSummary(tenantId),
-    getZaloFacebookHealthSummary(tenantId),
-    getAiDraftsPendingApproval(tenantId)
-  ]);
-
-  // A few manual queries for metrics not covered by fetchers
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  
-  const classesToday = await prisma.classSession.count({
-    where: { tenantId, startTime: { gte: startOfDay } }
-  });
-
-  const studentsAbsentMultiple = await prisma.attendance.groupBy({
-    by: ['studentId'],
-    where: { tenantId, status: { in: ['ABSENT', 'EXCUSED'] } },
-    _count: { studentId: true },
-    having: { studentId: { _count: { gte: 2 } } }
-  }).then(res => res.length);
-
-  const pendingCommandsCount = await prisma.classBootstrapCommand.count({
-    where: { tenantId, status: "NEEDS_REVIEW" }
-  });
-
-  const renewalRemindersCount = await prisma.zaloOutboxMessage.count({
-    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "tái phí" } }
-  });
-
-  const debtRemindersCount = await prisma.zaloOutboxMessage.count({
-    where: { tenantId, status: "PENDING_APPROVAL", text: { contains: "học phí" } }
-  });
-
-  // Mock intelligence generation for Phase 37
-  const ceoIntelligence = generateCEOIntelligence({
-    pendingDraftCount: aiDrafts.pendingDrafts + renewalRemindersCount + debtRemindersCount,
-    timelineEvents: [
-      {
-        id: '1',
-        type: 'PARENT_COMPLAINT_DETECTED',
-        occurredAt: new Date(),
-        title: 'Báo cáo phàn nàn',
-        safeSummary: 'Phụ huynh 0912***678 nhắn tin không hài lòng về chất lượng buổi học.',
-        actorLabel: 'AI Monitor',
-        actorType: 'SYSTEM',
-        source: 'ZALO',
-        severity: 'HIGH',
-        visibility: ['OWNER_ADMIN']
-      }
-    ],
-    conversationAnalyses: [
-      {
-        intent: 'NEW_LEAD',
-        severity: 'MEDIUM',
-        safeSummary: 'Lead mới quan tâm khóa học IELTS.',
-        suggestedNextAction: '',
-        suggestedTags: [],
-        shouldCreateFollowUpTask: false,
-        shouldCreateAiDraft: false,
-        sentiment: 'NEUTRAL',
-        summary: 'Lead mới quan tâm khóa học IELTS.',
-        tags: ['Chưa phản hồi'],
-        needsHumanHandoff: true
-      } as any
-    ]
-  });
+  // Calculate currency format
+  const formattedRevenue = `${(demoKpiData.revenueMonth / 1000000).toFixed(1)} Tr`;
+  const formattedDebt = `${(demoKpiData.outstandingDebt / 1000000).toFixed(1)} Tr`;
 
   return (
-    <div className="space-y-8 pb-12">
-      {!tenant && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <h3 className="text-red-800 font-bold">Lỗi Phiên Đăng Nhập (Phiên Cũ)</h3>
-          <p className="text-red-700 text-sm mt-1">
-            Không tìm thấy trung tâm (Tenant ID: {tenantId}). Vui lòng đăng xuất và đăng nhập lại.
+    <div className="space-y-8 pb-12 max-w-7xl mx-auto">
+      {/* 1. HERO HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Tổng quan CEO</h1>
+          <p className="text-slate-400">
+            Hôm nay trung tâm có gì cần xử lý? Dữ liệu demo từ hệ thống.
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge status="warning" label="Demo: Chưa gửi thật" />
+        </div>
+      </div>
+
+      {/* URGENT ALERTS */}
+      {demoUrgentAlerts.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-3">
+          {demoUrgentAlerts.map(alert => (
+            <div key={alert.id} className="flex items-center gap-3 text-red-400">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span className="font-medium">{alert.message}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* TÓM TẮT HÔM NAY & CEO AI COMMAND CENTER */}
-      <section className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-xl">
-        <div className="mb-6">
-          <h2 className="text-lg font-medium text-slate-300 mb-2">Tóm tắt hôm nay</h2>
-          <ul className="space-y-2">
-            {criticalAlerts.criticalCount > 0 && <li className="flex gap-2">🚨 <span className="font-semibold text-red-400">{criticalAlerts.criticalCount} cảnh báo nghiêm trọng</span> cần xử lý ngay.</li>}
-            {aiDrafts.pendingDrafts > 0 && <li className="flex gap-2">🤖 <span className="font-semibold text-yellow-400">{aiDrafts.pendingDrafts} AI drafts</span> đang chờ CEO duyệt.</li>}
-            <li className="flex gap-2">🚀 Tuyển sinh: <span className="font-semibold text-green-400">{admissionsToday.newLeads} leads mới</span> và <span className="font-semibold text-green-400">{admissionsToday.newTrials} lịch hẹn học thử</span>.</li>
-            <li className="flex gap-2">💰 Tài chính: Ghi nhận <span className="font-semibold text-emerald-400">{(salesToday.revenueToday / 1000000).toFixed(1)}Tr</span> doanh thu, tuy nhiên còn <span className="font-semibold text-red-400">{financeRisk.unpaidInvoices} hóa đơn</span> chưa thu.</li>
-          </ul>
-        </div>
-        
-        <div>
-          <h3 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">CEO Command Center</h3>
-          <AiCommandBar />
-        </div>
-      </section>
-
-      {/* THÔNG BÁO BẢO MẬT (PII REDACTION) */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex items-center gap-2 mb-2">
-        <span className="font-semibold">Lưu ý bảo mật:</span> 
-        Số điện thoại và thông tin nhạy cảm được tự động ẩn ở Dashboard. Mở hồ sơ/hội thoại chi tiết để xem đầy đủ và xử lý.
+      {/* 2. KPI CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <MetricCard 
+          title="Doanh thu tháng này"
+          value={formattedRevenue}
+          icon={<Wallet className="w-5 h-5" />}
+          trend="up"
+          trendValue="12%"
+        />
+        <MetricCard 
+          title="Lead mới"
+          value={demoKpiData.newLeadsToday}
+          icon={<UserPlus className="w-5 h-5" />}
+          trend="up"
+          trendValue="5%"
+        />
+        <MetricCard 
+          title="Tin nhắn chưa trả lời"
+          value={demoKpiData.unreadMessages}
+          icon={<MessageSquareWarning className="w-5 h-5" />}
+          color="warning"
+        />
+        <MetricCard 
+          title="Công nợ cần chú ý"
+          value={formattedDebt}
+          icon={<BadgeDollarSign className="w-5 h-5" />}
+          color="danger"
+        />
+        <MetricCard 
+          title="Việc quá hạn"
+          value={demoKpiData.overdueTasks}
+          icon={<ListTodo className="w-5 h-5" />}
+          color="warning"
+        />
+        <MetricCard 
+          title="Học viên rủi ro"
+          value={demoKpiData.atRiskStudents}
+          icon={<UserX className="w-5 h-5" />}
+          color="warning"
+        />
       </div>
 
-      {/* AI THEO DÕI HỘI THOẠI HÔM NAY (Phase 37) */}
-      <CEOConversationIntelligenceCard intelligence={ceoIntelligence} isPreview />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* LEFT COLUMN (2/3 width) */}
+        <div className="xl:col-span-2 space-y-8">
+          
+          {/* 3. TODAY COMMAND FEED */}
+          <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-xl">
+            <div className="px-6 py-5 border-b border-slate-800">
+              <h2 className="text-xl font-semibold text-white">Việc cần xử lý hôm nay</h2>
+            </div>
+            <div className="divide-y divide-slate-800/50">
+              {demoCommandFeed.map(cmd => (
+                <div key={cmd.id} className="p-6 hover:bg-slate-800/30 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge 
+                          status={cmd.priority === 'urgent' ? 'danger' : cmd.priority === 'high' ? 'warning' : 'info'} 
+                          label={cmd.owner} 
+                        />
+                        <h3 className="text-lg font-medium text-white">{cmd.title}</h3>
+                      </div>
+                      <p className="text-slate-400">{cmd.description}</p>
+                    </div>
+                    <Link 
+                      href={cmd.relatedRoute}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors shrink-0"
+                    >
+                      Xử lý ngay <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <div className="space-y-10">
-        
-        {/* ROW 1: Việc cần xử lý gấp */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🚨 Việc cần xử lý gấp</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <ActionCard 
-              title="Cảnh báo nghiêm trọng"
-              metric={criticalAlerts.criticalCount}
-              severity={criticalAlerts.criticalCount > 0 ? "critical" : "success"}
-              reason="Tổng số vấn đề ngắt mạch hoạt động trung tâm."
-              ctaText="Xem chi tiết"
-              ctaHref="/ai-center"
-            />
-            <ActionCard 
-              title="Cần phê duyệt"
-              metric={aiDrafts.pendingDrafts}
-              severity={aiDrafts.pendingDrafts > 0 ? "warning" : "info"}
-              reason="Hành động nhạy cảm do AI đề xuất chờ bạn duyệt."
-              ctaText="Duyệt AI Drafts"
-              ctaHref="/ai-center"
-            />
-            <ActionCard 
-              title="Zalo Offline"
-              metric={health.offlineConnectors}
-              severity={health.offlineConnectors > 0 ? "critical" : "success"}
-              reason="Connector mất kết nối, hệ thống auto-reply ngưng trệ."
-              ctaText="Sửa lỗi VPS"
-              ctaHref="/settings/zalo-accounts"
-            />
-            <ActionCard 
-              title="Chưa điểm danh"
-              metric={academicRisk.needsReviewAttendance}
-              severity={academicRisk.needsReviewAttendance > 0 ? "warning" : "success"}
-              reason="Giáo viên quên điểm danh, cần nhắc nhở."
-              ctaText="Quản lý điểm danh"
-              ctaHref="/attendance"
-            />
-            <ActionCard 
-              title="Hóa đơn quá hạn"
-              metric={financeRisk.overdueInvoices}
-              severity={financeRisk.overdueInvoices > 0 ? "critical" : "success"}
-              reason="Học viên chưa đóng tiền dù đã quá hạn."
-              ctaText="Xem công nợ"
-              ctaHref="/payments"
-            />
-            <ActionCard 
-              title="Báo cáo chờ duyệt"
-              metric={parentReports.pendingReports}
-              severity={parentReports.pendingReports > 0 ? "warning" : "success"}
-              reason="Báo cáo phụ huynh do AI viết chưa được gửi."
-              ctaText="Duyệt báo cáo"
-              ctaHref="/parent-reports"
-            />
-          </div>
-        </section>
+          {/* 4. AI INSIGHTS PANEL */}
+          <section className="bg-gradient-to-br from-indigo-950/40 to-slate-900/50 border border-indigo-500/20 rounded-xl overflow-hidden backdrop-blur-xl relative">
+            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+              <BrainCircuit className="w-32 h-32 text-indigo-400" />
+            </div>
+            <div className="px-6 py-5 border-b border-slate-800 relative z-10 flex items-center gap-2">
+              <Bot className="h-5 w-5 text-indigo-400" />
+              <h2 className="text-xl font-semibold text-white">AI gợi ý ưu tiên</h2>
+            </div>
+            <div className="p-6 relative z-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {demoAiInsights.map(insight => (
+                  <div key={insight.id} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-5">
+                    <h3 className="text-white font-medium mb-2">{insight.title}</h3>
+                    <p className="text-slate-400 text-sm mb-4">{insight.reason}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+                        {insight.safetyMode}
+                      </span>
+                      <Link href={insight.route} className="text-sm text-blue-400 hover:text-blue-300 font-medium">
+                        {insight.suggestedAction} &rarr;
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
 
-        {/* ROW 2: Tuyển sinh hôm nay */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🚀 Tuyển sinh (Hôm nay)</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <ActionCard 
-              title="Leads mới"
-              metric={admissionsToday.newLeads}
-              severity="info"
-              reason="Data mới đổ về hệ thống hôm nay."
-              ctaText="Chia lead"
-              ctaHref="/leads"
-            />
-            <ActionCard 
-              title="Đã gọi (Telesale)"
-              metric="Chưa có dữ liệu"
-              severity="info"
-              reason="Tính năng Telesale đang phát triển."
-              ctaText="Xem lịch trình gọi"
-              ctaHref="/workspaces/sales/calling"
-            />
-            <ActionCard 
-              title="Đặt lịch học thử"
-              metric={admissionsToday.newTrials}
-              severity={admissionsToday.newTrials > 0 ? "success" : "info"}
-              reason="Số lịch hẹn học thử được chốt."
-              ctaText="Xếp lớp"
-              ctaHref="/trial-bookings"
-            />
-            <ActionCard 
-              title="Đã tới học thử"
-              metric={admissionsToday.attendedTrials}
-              severity={admissionsToday.attendedTrials > 0 ? "success" : "info"}
-              reason="Học viên đã tham gia buổi học thử hôm nay."
-              ctaText="Đánh giá"
-              ctaHref="/trial-bookings"
-            />
-            <ActionCard 
-              title="Đã chốt (WON)"
-              metric={salesToday.wonLeads}
-              severity={salesToday.wonLeads > 0 ? "success" : "info"}
-              reason="Khách hàng đã đồng ý mua khóa học."
-              ctaText="Làm thủ tục"
-              ctaHref="/leads"
-            />
-            <ActionCard 
-              title="Leads tiềm năng"
-              metric="Chưa có dữ liệu"
-              severity="info"
-              reason="Tính năng chấm điểm Lead nóng đang phát triển."
-              ctaText="Sắp có"
-              ctaHref="#"
-            />
-          </div>
-        </section>
+        </div>
 
-        {/* ROW 3: Tài chính */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">💰 Tài chính</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <ActionCard 
-              title="Doanh thu hôm nay"
-              metric={`${(salesToday.revenueToday / 1000000).toFixed(1)}Tr`}
-              severity="success"
-              reason="Tiền thực nhận trong ngày hôm nay."
-              ctaText="Báo cáo thu chi"
-              ctaHref="/reports"
-            />
-            <ActionCard 
-              title="Chưa thanh toán"
-              metric={financeRisk.unpaidInvoices}
-              severity={financeRisk.unpaidInvoices > 0 ? "warning" : "success"}
-              reason="Số hóa đơn đã phát hành nhưng chưa thu tiền."
-              ctaText="Truy thu"
-              ctaHref="/payments"
-            />
-            <ActionCard 
-              title="Tổng nợ quá hạn"
-              metric={`${(financeRisk.totalOverdueAmount / 1000000).toFixed(1)}Tr`}
-              severity={financeRisk.totalOverdueAmount > 0 ? "critical" : "success"}
-              reason="Tiền cần thu hồi gấp."
-              ctaText="Xem danh sách"
-              ctaHref="/payments"
-            />
-            <ActionCard 
-              title="Sắp hết hạn khóa"
-              metric="Chưa đủ dữ liệu"
-              severity="info"
-              reason="Học viên cần tư vấn tái phí khóa mới."
-              ctaText="Danh sách tái phí"
-              ctaHref="/renewals"
-            />
-            <ActionCard 
-              title="Tin nhắc nợ chờ duyệt"
-              metric={debtRemindersCount + renewalRemindersCount}
-              severity={(debtRemindersCount + renewalRemindersCount) > 0 ? "warning" : "success"}
-              reason="Finance AI đã soạn tin nhắc nhở qua Zalo chờ bạn duyệt."
-              ctaText="Duyệt gửi Zalo"
-              ctaHref="/zalo-inbox"
-            />
-          </div>
-        </section>
+        {/* RIGHT COLUMN (1/3 width) */}
+        <div className="space-y-8">
+          
+          {/* 5. QUICK ACTIONS */}
+          <section className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 backdrop-blur-xl">
+            <h2 className="text-lg font-semibold text-white mb-4">Lối tắt CEO</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/fanpage-inbox" className="bg-slate-800 hover:bg-slate-700 p-3 rounded-lg text-center transition-colors border border-slate-700">
+                <span className="block text-sm font-medium text-slate-200">Mở Inbox</span>
+              </Link>
+              <Link href="#" className="bg-slate-800 hover:bg-slate-700 p-3 rounded-lg text-center transition-colors border border-slate-700 opacity-60 cursor-not-allowed" title="Giao việc chưa khả dụng">
+                <span className="block text-sm font-medium text-slate-200">Giao việc</span>
+              </Link>
+              <Link href="/crm-command-center" className="bg-slate-800 hover:bg-slate-700 p-3 rounded-lg text-center transition-colors border border-slate-700">
+                <span className="block text-sm font-medium text-slate-200">Xem CRM</span>
+              </Link>
+              <Link href="/workspaces/finance" className="bg-slate-800 hover:bg-slate-700 p-3 rounded-lg text-center transition-colors border border-slate-700">
+                <span className="block text-sm font-medium text-slate-200">Tài chính</span>
+              </Link>
+            </div>
+          </section>
 
-        {/* ROW 4: Lớp học & học viên */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🎓 Lớp học & Học viên</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <ActionCard 
-              title="Ca học hôm nay"
-              metric={classesToday}
-              severity="info"
-              reason="Số buổi học diễn ra trong ngày hôm nay."
-              ctaText="Quản lý lịch"
-              ctaHref="/classes"
-            />
-            <ActionCard 
-              title="Lỗi điểm danh"
-              metric={academicRisk.needsReviewAttendance}
-              severity={academicRisk.needsReviewAttendance > 0 ? "warning" : "success"}
-              reason="Giáo viên chưa điểm danh hoặc điểm danh lỗi."
-              ctaText="Xử lý ngay"
-              ctaHref="/attendance"
-            />
-            <ActionCard 
-              title="Vắng 2+ buổi"
-              metric={studentsAbsentMultiple}
-              severity={studentsAbsentMultiple > 0 ? "critical" : "success"}
-              reason="Học viên có nguy cơ nghỉ hẳn."
-              ctaText="Gọi phụ huynh"
-              ctaHref="/attendance"
-            />
-            <ActionCard 
-              title="Bài tập chưa chấm"
-              metric={academicRisk.missingHomeworks}
-              severity={academicRisk.missingHomeworks > 0 ? "warning" : "success"}
-              reason="Giáo viên chưa chấm bài tập cho học sinh."
-              ctaText="Nhắc giáo viên"
-              ctaHref="/homework"
-            />
-            <ActionCard 
-              title="Học viên yếu kém"
-              metric="Chưa đủ dữ liệu"
-              severity="info"
-              reason="Cảnh báo học sinh điểm thấp cần kèm thêm."
-              ctaText="Sắp có"
-              ctaHref="#"
-            />
-          </div>
-        </section>
+          {/* 6. STAFF WORKLOAD PANEL */}
+          <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-xl">
+            <div className="px-6 py-5 border-b border-slate-800">
+              <h2 className="text-lg font-semibold text-white">Nhân viên đang xử lý</h2>
+            </div>
+            <div className="divide-y divide-slate-800/50">
+              {demoStaffWorkload.map(staff => (
+                <div key={staff.id} className="p-5 hover:bg-slate-800/30 transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold">
+                          {staff.staffName.charAt(0)}
+                        </div>
+                        <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${staff.isOnline ? 'bg-green-500' : 'bg-slate-500'}`}></div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-white text-sm">{staff.staffName}</div>
+                        <div className="text-xs text-slate-400">{staff.role}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="bg-slate-800/50 rounded p-2 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Leads</div>
+                      <div className="font-semibold text-white">{staff.activeLeads}</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded p-2 text-center">
+                      <div className="text-xs text-slate-400 mb-1">Tin nhắn</div>
+                      <div className="font-semibold text-white">{staff.conversations}</div>
+                    </div>
+                    <div className={`rounded p-2 text-center ${staff.overdueTasks > 0 ? 'bg-red-500/10' : 'bg-slate-800/50'}`}>
+                      <div className="text-xs text-slate-400 mb-1">Quá hạn</div>
+                      <div className={`font-semibold ${staff.overdueTasks > 0 ? 'text-red-400' : 'text-white'}`}>{staff.overdueTasks}</div>
+                    </div>
+                  </div>
 
-        {/* ROW 5: AI Agents */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">🤖 AI Agents</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <ActionCard 
-              title="CEO Agent"
-              metric="Online"
-              severity="success"
-              reason="Sẵn sàng tư vấn quản trị trung tâm."
-              ctaText="Mở CEO Chat"
-              ctaHref="/ai-center"
-            />
-            <ActionCard 
-              title="Zalo Group Agent"
-              metric={health.offlineConnectors > 0 ? "Offline" : "Online"}
-              severity={health.offlineConnectors > 0 ? "critical" : "success"}
-              reason="Hỗ trợ trả lời câu hỏi phụ huynh trên nhóm Zalo."
-              ctaText="Cấu hình Zalo"
-              ctaHref="/settings/zalo-accounts"
-            />
-            <ActionCard 
-              title="Sales Agent"
-              metric="Online"
-              severity="success"
-              reason="Chấm điểm lead và đề xuất kịch bản sale."
-              ctaText="Xem CRM"
-              ctaHref="/leads"
-            />
-            <ActionCard 
-              title="Finance Agent"
-              metric={(debtRemindersCount + renewalRemindersCount) > 0 ? "Chờ duyệt" : "Online"}
-              severity={(debtRemindersCount + renewalRemindersCount) > 0 ? "warning" : "success"}
-              reason="Tự động thu hồi công nợ và gia hạn tái phí."
-              ctaText="Duyệt lệnh"
-              ctaHref="/zalo-inbox"
-            />
-            <ActionCard 
-              title="Parent Report Agent"
-              metric={parentReports.pendingReports > 0 ? "Chờ duyệt" : "Online"}
-              severity={parentReports.pendingReports > 0 ? "warning" : "success"}
-              reason="Tổng hợp nhận xét học tập tự động gửi phụ huynh."
-              ctaText="Duyệt báo cáo"
-              ctaHref="/parent-reports"
-            />
-            <ActionCard 
-              title="Fanpage Agent"
-              metric={health.totalFacebookPages === 0 ? "Chưa cấu hình" : (health.offlineFacebookPages > 0 ? "Offline" : "Online")}
-              severity={health.totalFacebookPages === 0 ? "info" : (health.offlineFacebookPages > 0 ? "critical" : "success")}
-              reason="Tự động CSKH qua Facebook Messenger."
-              ctaText={health.totalFacebookPages === 0 ? "Cài đặt ngay" : "Xem Fanpage Inbox"}
-              ctaHref={health.totalFacebookPages === 0 ? "/settings" : "/fanpage-inbox"}
-            />
-          </div>
-        </section>
+                  <div className="text-xs text-slate-400 bg-slate-800/30 p-2 rounded">
+                    <span className="font-medium text-slate-300">Tiếp theo:</span> {staff.nextAction}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
+        </div>
       </div>
     </div>
   );

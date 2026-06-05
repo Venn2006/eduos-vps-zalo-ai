@@ -109,3 +109,9 @@ Must include:
 - [x] **Phase 65: Audit Log & Mock Outbox Governance**
 - [x] **Phase 66: Pilot Go-Live Readiness Checklist**
 - [x] **Phase 67: Founder Demo Handoff Pack**
+
+### Bundle A: SaaS Visual Redesign & Management Core
+- [x] **Phase 68: Product Direction Reset & UI Research**
+- [x] **Phase 69: SaaS UI Visual Redesign Foundation**
+- [x] **Phase 70: CEO Command Center Polish**
+- [ ] **Phase 71: Task Management / Giao Việc Workspace**
