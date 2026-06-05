@@ -8,8 +8,28 @@ import {
   PiggyBank, ArrowRight, CheckCircle2, Clock, AlertTriangle, Sparkles, 
   Wallet, Receipt, Users, Calculator, FileText, X, Send, UserCheck, Bot 
 } from 'lucide-react';
-import { MOCK_FINANCE_RECORDS, MOCK_COSTS, FinanceRecord } from '@/lib/financeDemoData';
-import { calculateFinanceMetrics } from '@/lib/financeReporting';
+import { MOCK_COSTS } from '@/lib/financeDemoData';
+import { createPaymentReminder } from '../../actions/finance';
+import { toast } from 'sonner';
+
+interface FinanceWorkspaceClientProps {
+  initialMetrics: {
+    currentMonthRevenue: number;
+    currentMonthCollected: number;
+    totalDebt: number;
+    estimatedProfit: number;
+    totalCost: number;
+    expiringSessionsCount: number;
+    overdueCount: number;
+    approvalRequiredCount: number;
+    commissionsByStaff: Record<string, {
+      wonStudents: number;
+      collectedTuition: number;
+      commissionAmount: number;
+    }>;
+  };
+  initialRecords: any[];
+}
 
 // Reusable Action Card
 function ActionCard({ 
@@ -60,11 +80,13 @@ function ActionCard({
   );
 }
 
-export function FinanceWorkspaceClient() {
+export function FinanceWorkspaceClient({ initialMetrics, initialRecords }: FinanceWorkspaceClientProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'records' | 'tasks'>('overview');
-  const [selectedRecord, setSelectedRecord] = useState<FinanceRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const metrics = calculateFinanceMetrics();
+  const metrics = initialMetrics;
+  const records = initialRecords;
 
   const formatVND = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
@@ -213,7 +235,12 @@ export function FinanceWorkspaceClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {MOCK_FINANCE_RECORDS.map(record => (
+                {records.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500">Chưa có dữ liệu học phí.</td>
+                  </tr>
+                )}
+                {records.map(record => (
                   <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">{record.studentName}</div>
@@ -255,7 +282,10 @@ export function FinanceWorkspaceClient() {
               <CardTitle className="text-lg flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-primary" /> Finance Follow-up Tasks</CardTitle>
             </CardHeader>
             <CardContent className="p-0 divide-y">
-              {MOCK_FINANCE_RECORDS.filter(r => r.status !== 'Đã thu đủ').map(record => (
+              {records.filter(r => r.status !== 'Đã thu đủ').length === 0 && (
+                <div className="p-8 text-center text-slate-500">Tuyệt vời! Không có hoá đơn nào cần xử lý.</div>
+              )}
+              {records.filter(r => r.status !== 'Đã thu đủ').map(record => (
                 <div key={record.id} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start">
                   <div>
                     <h4 className="font-bold text-sm text-slate-800">{record.recommendedAction}</h4>
@@ -318,7 +348,22 @@ Em cảm ơn anh/chị nhiều ạ!`}
 
                 <div className="flex gap-2">
                   {selectedRecord.approvalRequired ? (
-                    <Button className="flex-1 bg-purple-600 hover:bg-purple-700 gap-2"><UserCheck className="w-4 h-4"/> Duyệt & Chờ gửi (Demo)</Button>
+                    <Button 
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 gap-2"
+                      disabled={isSubmitting}
+                      onClick={async () => {
+                        setIsSubmitting(true);
+                        try {
+                          await createPaymentReminder(selectedRecord.id);
+                          toast.success('Đã duyệt và chuyển vào Hàng đợi Sandbox');
+                          setSelectedRecord(null);
+                        } catch (e) {
+                          toast.error('Có lỗi xảy ra');
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                    ><UserCheck className="w-4 h-4"/> Duyệt & Chờ gửi (Sandbox)</Button>
                   ) : (
                     <Button className="flex-1 gap-2"><Send className="w-4 h-4"/> Lưu Nháp (Demo)</Button>
                   )}
