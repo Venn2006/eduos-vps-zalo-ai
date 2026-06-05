@@ -104,49 +104,51 @@ export function HomeworkWorkspaceClient() {
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <h3 className="font-bold text-lg text-slate-900">Danh sách Bài tập hiện tại</h3>
               </div>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-sm font-bold text-slate-500 bg-white">
-                    <th className="py-3 px-6">Học viên / Lớp</th>
-                    <th className="py-3 px-6">Bài tập</th>
-                    <th className="py-3 px-6">Trạng thái nộp</th>
-                    <th className="py-3 px-6">Trạng thái AI</th>
-                    <th className="py-3 px-6">Báo cáo</th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm font-medium text-slate-800">
-                  {mockHomeworkSubmissions.map(hw => (
-                    <tr key={hw.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                      <td className="py-4 px-6">
-                        <div className="font-bold text-slate-900">{hw.studentName}</div>
-                        <div className="text-slate-500 text-xs mt-1">{hw.className}</div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="font-bold text-slate-700">{hw.assignmentTitle}</div>
-                        <div className="text-slate-500 text-xs mt-1">{hw.assignmentType} • {hw.cefrLevel}</div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          hw.submissionStatus === 'Đã nộp' ? 'bg-emerald-100 text-emerald-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {hw.submissionStatus}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          hw.aiDraftStatus === 'Cần giáo viên duyệt' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                          hw.aiDraftStatus === 'AI chấm nháp' ? 'bg-blue-100 text-blue-800' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
-                          {hw.aiDraftStatus}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-slate-500">{hw.parentReportDraftStatus}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-sm font-bold text-slate-500 bg-white">
+                      <th className="py-3 px-6 whitespace-nowrap">Học viên / Lớp</th>
+                      <th className="py-3 px-6 whitespace-nowrap">Bài tập</th>
+                      <th className="py-3 px-6 whitespace-nowrap">Trạng thái nộp</th>
+                      <th className="py-3 px-6 whitespace-nowrap">Trạng thái AI</th>
+                      <th className="py-3 px-6 whitespace-nowrap">Báo cáo</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="text-sm font-medium text-slate-800">
+                    {mockHomeworkSubmissions.map(hw => (
+                      <tr key={hw.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{hw.studentName}</div>
+                          <div className="text-slate-500 text-xs mt-1">{hw.className}</div>
+                        </td>
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <div className="font-bold text-slate-700">{hw.assignmentTitle}</div>
+                          <div className="text-slate-500 text-xs mt-1">{hw.assignmentType} • {hw.cefrLevel}</div>
+                        </td>
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            hw.submissionStatus === 'Đã nộp' ? 'bg-emerald-100 text-emerald-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {hw.submissionStatus}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            hw.aiDraftStatus === 'Cần giáo viên duyệt' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                            hw.aiDraftStatus === 'AI chấm nháp' ? 'bg-blue-100 text-blue-800' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {hw.aiDraftStatus}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-slate-500 whitespace-nowrap">{hw.parentReportDraftStatus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

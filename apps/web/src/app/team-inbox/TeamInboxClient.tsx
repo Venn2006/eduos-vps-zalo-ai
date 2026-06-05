@@ -45,7 +45,7 @@ export function TeamInboxClient() {
   });
 
   return (
-    <div className="space-y-6 flex flex-col h-[calc(100vh-8rem)]">
+    <div className="space-y-6 flex flex-col min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-8rem)]">
       {/* Header & Badges */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 shrink-0">
         <div>

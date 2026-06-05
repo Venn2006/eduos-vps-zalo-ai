@@ -105,7 +105,7 @@ export function FinanceWorkspaceClient() {
         </div>
       </div>
 
-      <div className="flex space-x-1 bg-slate-100/50 p-1 rounded-lg w-fit border">
+      <div className="flex space-x-1 bg-slate-100/50 p-1 rounded-lg w-fit border overflow-x-auto max-w-full">
         <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-white shadow-sm text-primary' : 'text-slate-600 hover:text-slate-900'}`}>Tổng quan báo cáo</button>
         <button onClick={() => setActiveTab('records')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'records' ? 'bg-white shadow-sm text-primary' : 'text-slate-600 hover:text-slate-900'}`}>Danh sách Học phí / Công nợ</button>
         <button onClick={() => setActiveTab('tasks')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'tasks' ? 'bg-white shadow-sm text-primary flex items-center gap-2' : 'text-slate-600 hover:text-slate-900 flex items-center gap-2'}`}>
