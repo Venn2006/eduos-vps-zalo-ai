@@ -7,15 +7,35 @@ import {
   CalendarX2, ClipboardList, PenTool, ExternalLink
 } from 'lucide-react';
 import { 
-  mockSessions, 
   mockAcademicTasks, 
   mockRooms,
-  mockClasses,
-  MockAcademicSession,
-  MockAcademicTask
 } from '@/lib/academicDemoData';
 import { detectScheduleConflicts, ScheduleConflict } from '@/lib/scheduleConflictDetection';
 import Link from 'next/link';
+import { markAttendance } from '../../actions/teacher';
+import { toast } from 'sonner';
+
+export type RealSession = {
+  id: string;
+  className: string;
+  teacherName: string;
+  roomName: string;
+  startTime: string;
+  endTime: string;
+  studentCount: number;
+  attendances: { id: string; studentId: string; studentName: string; status: string }[];
+  attendanceStatus: string;
+  homeworkStatus: string;
+};
+
+export type RealClass = {
+  id: string;
+  classCode: string;
+  courseId: string;
+  teacherName: string;
+  studentCount: number;
+  status: string;
+};
 
 function ActionCard({ 
   title, 
@@ -77,16 +97,45 @@ function DemoBanner() {
   );
 }
 
-export function TeacherWorkspaceClient() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'conflicts' | 'attendance' | 'approval'>('overview');
+export function TeacherWorkspaceClient({
+  initialClasses,
+  initialSessions
+}: {
+  initialClasses: RealClass[];
+  initialSessions: RealSession[];
+}) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'schedule' | 'conflicts' | 'attendance' | 'approval'>('overview');
+  const [sessions, setSessions] = useState<RealSession[]>(initialSessions);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const conflicts = useMemo(() => detectScheduleConflicts(mockSessions), []);
+  // For the demo we won't detect complex real conflicts right now, just show a placeholder
+  const conflicts: any[] = []; // useMemo(() => detectScheduleConflicts(sessions as any), [sessions]);
 
-  const totalClasses = mockSessions.length;
-  const missingAttendance = mockSessions.filter(s => s.attendanceStatus !== 'Đủ').length;
-  const missingHomework = mockSessions.filter(s => s.homeworkStatus === 'Thiếu bài').length;
+  const totalClasses = sessions.length;
+  const missingAttendance = sessions.filter(s => s.attendanceStatus !== 'Đủ').length;
+  const missingHomework = sessions.filter(s => s.homeworkStatus === 'Thiếu bài').length;
   const pendingApprovals = mockAcademicTasks.filter(t => t.status === 'Chờ giáo viên duyệt').length;
-  const criticalConflicts = conflicts.filter(c => c.severity === 'Chặn demo').length;
+  const criticalConflicts = 0;
+
+  const handleMarkAttendance = async (attendanceId: string, status: any) => {
+    try {
+      setIsUpdating(true);
+      await markAttendance(attendanceId, status);
+      toast.success("Đã cập nhật điểm danh!");
+      
+      // Optimistic update
+      setSessions(prev => prev.map(session => ({
+        ...session,
+        attendances: session.attendances.map(a => 
+          a.id === attendanceId ? { ...a, status } : a
+        )
+      })));
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi điểm danh");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -101,7 +150,16 @@ export function TeacherWorkspaceClient() {
               ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
               : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
         >
-          <LayoutDashboard className="w-4 h-4" /> Tổng quan học vụ
+          <LayoutDashboard className="w-4 h-4" /> Tổng quan
+        </button>
+        <button 
+          onClick={() => setActiveTab('classes')}
+          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
+            ${activeTab === 'classes' 
+              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+        >
+          <BookOpen className="w-4 h-4" /> Lớp học <span className="bg-slate-100 text-slate-900 px-2 py-0.5 rounded-full text-xs">{initialClasses.length}</span>
         </button>
         <button 
           onClick={() => setActiveTab('schedule')}
@@ -208,12 +266,60 @@ export function TeacherWorkspaceClient() {
           </div>
         )}
 
+        {/* CLASSES TAB */}
+        {activeTab === 'classes' && (
+          <div className="bg-white border rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-indigo-600" />
+              Lớp học của tôi
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {initialClasses.length === 0 ? (
+                <div className="text-slate-500 col-span-full">Bạn chưa được phân công lớp nào.</div>
+              ) : initialClasses.map(cls => (
+                <div key={cls.id} className="border rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full bg-slate-50/50">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-bold text-xl text-indigo-700">{cls.classCode}</h3>
+                      <p className="text-slate-500 text-sm mt-1">{cls.courseId}</p>
+                    </div>
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${cls.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                      {cls.status}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3 mt-auto pt-4 border-t border-slate-100">
+                    <div className="flex justify-between items-center text-sm">
+                      <div className="flex items-center text-slate-600">
+                        <Users className="w-4 h-4 mr-2" /> Học viên
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {cls.studentCount}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <div className="flex items-center text-slate-600">
+                        <PenTool className="w-4 h-4 mr-2" /> Giáo viên
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {cls.teacherName}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* SCHEDULE TAB */}
         {activeTab === 'schedule' && (
           <div className="bg-white border rounded-2xl p-6 shadow-sm">
             <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6">📅 Lịch dạy hôm nay</h2>
             <div className="space-y-4">
-              {mockSessions.map(session => (
+              {sessions.length === 0 ? (
+                <div className="text-slate-500 font-medium">Bạn không có ca dạy nào trong hôm nay.</div>
+              ) : sessions.map(session => (
                 <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-xl hover:bg-slate-50 transition-colors">
                   <div className="w-full sm:w-24 flex sm:block justify-between items-center sm:text-center shrink-0">
                     <div className="text-lg font-black text-slate-900">{session.startTime}</div>
@@ -229,8 +335,11 @@ export function TeacherWorkspaceClient() {
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <button className="w-full sm:w-auto px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-sm rounded-lg border border-indigo-200 transition-colors shadow-sm">
-                      Điểm danh demo
+                    <button 
+                      onClick={() => setActiveTab('attendance')}
+                      className="w-full sm:w-auto px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-sm rounded-lg border border-indigo-200 transition-colors shadow-sm"
+                    >
+                      Điểm danh
                     </button>
                   </div>
                 </div>
@@ -267,7 +376,7 @@ export function TeacherWorkspaceClient() {
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col gap-2">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Các ca liên quan</div>
-                  {conflict.involvedSessions.map(session => (
+                  {conflict.involvedSessions.map((session: any) => (
                     <div key={session.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm text-sm">
                       <span className="font-bold text-slate-900">{session.className} <span className="text-slate-500 font-medium ml-2">({session.startTime} - {session.endTime})</span></span>
                       <span className="text-slate-600 font-medium">Giáo viên: {session.teacherName} | Phòng: {session.roomName}</span>
@@ -283,26 +392,20 @@ export function TeacherWorkspaceClient() {
         {activeTab === 'attendance' && (
           <div className="bg-white border rounded-2xl p-6 shadow-sm">
             <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6">📋 Quản lý Điểm danh & Báo bài</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-sm font-bold text-slate-500">
-                    <th className="pb-3 pr-4">Lớp / Ca học</th>
-                    <th className="pb-3 px-4">Giáo viên</th>
-                    <th className="pb-3 px-4">Tình trạng điểm danh</th>
-                    <th className="pb-3 px-4">Bài tập về nhà</th>
-                    <th className="pb-3 pl-4">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm font-medium text-slate-800">
-                  {mockSessions.map(session => (
-                    <tr key={session.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                      <td className="py-4 pr-4">
-                        <div className="font-bold text-slate-900">{session.className}</div>
-                        <div className="text-slate-500 text-xs mt-1">{session.startTime} - {session.endTime}</div>
-                      </td>
-                      <td className="py-4 px-4">{session.teacherName}</td>
-                      <td className="py-4 px-4">
+            
+            {sessions.length === 0 ? (
+              <div className="text-slate-500 font-medium">Không có dữ liệu điểm danh.</div>
+            ) : (
+              <div className="space-y-8">
+                {sessions.map(session => (
+                  <div key={session.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-lg text-indigo-700">{session.className}</h3>
+                        <p className="text-sm text-slate-500">{session.startTime} - {session.endTime}</p>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-semibold text-slate-700">Trạng thái: </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                           session.attendanceStatus === 'Đủ' ? 'bg-emerald-100 text-emerald-800' :
                           session.attendanceStatus === 'Chưa điểm danh' ? 'bg-rose-100 text-rose-800' :
@@ -310,25 +413,81 @@ export function TeacherWorkspaceClient() {
                         }`}>
                           {session.attendanceStatus}
                         </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          session.homeworkStatus === 'Đã giao bài' || session.homeworkStatus === 'Đã duyệt demo' ? 'bg-blue-100 text-blue-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {session.homeworkStatus}
-                        </span>
-                      </td>
-                      <td className="py-4 pl-4">
-                        <button className="text-indigo-600 hover:text-indigo-800 font-bold whitespace-nowrap">
-                          {session.attendanceStatus === 'Chưa điểm danh' ? 'Điểm danh demo' : 'Cập nhật demo'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-white">
+                          <tr className="border-b border-slate-200 text-xs uppercase tracking-wider font-bold text-slate-500">
+                            <th className="py-3 px-4">Học viên</th>
+                            <th className="py-3 px-4 text-center">Có mặt</th>
+                            <th className="py-3 px-4 text-center">Đi trễ</th>
+                            <th className="py-3 px-4 text-center">Vắng (Có phép)</th>
+                            <th className="py-3 px-4 text-center">Vắng (Không phép)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm font-medium text-slate-800">
+                          {session.attendances.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-4 text-center text-slate-500 italic">Không có học viên trong ca này</td>
+                            </tr>
+                          ) : session.attendances.map(a => (
+                            <tr key={a.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                              <td className="py-3 px-4 font-bold text-slate-900">{a.studentName}</td>
+                              <td className="py-3 px-4 text-center">
+                                <button 
+                                  disabled={isUpdating}
+                                  onClick={() => handleMarkAttendance(a.id, 'PRESENT')}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                                    a.status === 'PRESENT' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-500 text-transparent'
+                                  }`}
+                                >
+                                  {a.status === 'PRESENT' && <CheckCircle2 className="w-4 h-4" />}
+                                </button>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button 
+                                  disabled={isUpdating}
+                                  onClick={() => handleMarkAttendance(a.id, 'LATE')}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                                    a.status === 'LATE' ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-300 hover:border-orange-500 text-transparent'
+                                  }`}
+                                >
+                                  {a.status === 'LATE' && <CheckCircle2 className="w-4 h-4" />}
+                                </button>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button 
+                                  disabled={isUpdating}
+                                  onClick={() => handleMarkAttendance(a.id, 'EXCUSED')}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                                    a.status === 'EXCUSED' ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 hover:border-blue-500 text-transparent'
+                                  }`}
+                                >
+                                  {a.status === 'EXCUSED' && <CheckCircle2 className="w-4 h-4" />}
+                                </button>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button 
+                                  disabled={isUpdating}
+                                  onClick={() => handleMarkAttendance(a.id, 'ABSENT')}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                                    a.status === 'ABSENT' ? 'bg-rose-500 border-rose-500 text-white' : 'border-slate-300 hover:border-rose-500 text-transparent'
+                                  }`}
+                                >
+                                  {a.status === 'ABSENT' && <CheckCircle2 className="w-4 h-4" />}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
