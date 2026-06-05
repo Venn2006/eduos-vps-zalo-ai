@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Play, XCircle, CheckCircle, Clock, Server, Database } from 'lucide-react';
+import { toast } from 'sonner';
 import { 
   getVietnameseMockStatusLabel,
   getSafeMockSummary
@@ -91,7 +92,7 @@ export default function MockOutboxClient() {
       if (res.success && 'item' in res && res.item) {
         setItems(current => current.map(item => item.id === id ? res.item : item));
       } else if ('error' in res) {
-        alert(`Lỗi: ${res.error}`);
+        toast.error(`Lỗi: ${res.error}`);
       }
     } catch (err) {
       console.error(err);

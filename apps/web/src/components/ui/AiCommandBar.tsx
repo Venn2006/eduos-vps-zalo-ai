@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight, Loader2, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 export function AiCommandBar({ initialPrompt = '' }: { initialPrompt?: string }) {
@@ -27,10 +28,10 @@ export function AiCommandBar({ initialPrompt = '' }: { initialPrompt?: string })
         setQuery('');
         router.refresh();
       } else {
-        alert('Lỗi xử lý yêu cầu AI. Vui lòng thử lại.');
+        toast.error('Lỗi xử lý yêu cầu AI. Vui lòng thử lại.');
       }
     } catch (err) {
-      alert('Không thể kết nối API AI.');
+      toast.error('Không thể kết nối API AI.');
     } finally {
       setIsSubmitting(false);
     }

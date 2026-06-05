@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { logCallOutcome, bookTrial } from '../actions/sales';
 
 import { PhoneCall, Calendar, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function SalesCallingClient({ initialLeads, saleId }: { initialLeads: any[], saleId: string }) {
   const [leads, setLeads] = useState(initialLeads);
@@ -44,10 +45,10 @@ export default function SalesCallingClient({ initialLeads, saleId }: { initialLe
     try {
       setIsSubmitting(true);
       await logCallOutcome(currentLead.id, saleId, outcome);
-      alert(`Đã lưu trạng thái: ${outcome}`);
+      toast.success(`Đã lưu trạng thái: ${outcome}`);
       nextLead();
     } catch (err) {
-      alert('Lỗi khi lưu trạng thái');
+      toast.error('Lỗi khi lưu trạng thái');
     } finally {
       setIsSubmitting(false);
     }
@@ -55,7 +56,7 @@ export default function SalesCallingClient({ initialLeads, saleId }: { initialLe
 
   const handleBookTrial = async () => {
     if (!trialDate || !trialTime) {
-      alert('Vui lòng chọn ngày và giờ');
+      toast.warning('Vui lòng chọn ngày và giờ');
       return;
     }
     
@@ -64,11 +65,11 @@ export default function SalesCallingClient({ initialLeads, saleId }: { initialLe
       const dateStr = `${trialDate}T${trialTime}:00`;
       await bookTrial(currentLead.id, new Date(dateStr), trialCourse || currentLead.interestedCourseId);
       await logCallOutcome(currentLead.id, saleId, 'BOOKED_TRIAL');
-      alert('Đã đặt lịch học thử thành công!');
+      toast.success('Đã đặt lịch học thử thành công!');
       setShowTrialForm(false);
       nextLead();
     } catch (err) {
-      alert('Lỗi khi đặt lịch');
+      toast.error('Lỗi khi đặt lịch');
     } finally {
       setIsSubmitting(false);
     }

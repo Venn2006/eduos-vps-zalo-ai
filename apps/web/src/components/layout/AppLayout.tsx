@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { Toaster } from 'sonner';
 
 export function AppLayout({ children, session }: { children: React.ReactNode, session?: any }) {
   const pathname = usePathname();
@@ -73,6 +74,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
+      <Toaster position="top-center" richColors />
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 

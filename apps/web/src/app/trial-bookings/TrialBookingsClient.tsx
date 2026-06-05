@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { PageShell } from '@/components/layout/PageShell';
 import { updateTrialStatus } from '../actions/sales';
 import { TrialBookingStatus } from '@eduos/db';
@@ -14,7 +15,7 @@ export default function TrialBookingsClient({ initialBookings }: { initialBookin
     try {
       await updateTrialStatus(id, status);
     } catch (err) {
-      alert("Lỗi cập nhật trạng thái");
+      toast.error("Lỗi cập nhật trạng thái");
     } finally {
       setIsUpdating(false);
     }
