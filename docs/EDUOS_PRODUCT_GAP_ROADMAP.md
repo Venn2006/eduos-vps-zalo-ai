@@ -124,4 +124,9 @@ Must include:
 - [x] **Phase 77: Demo Seed Reset & Screenshot QA Pack**
 - [x] **Phase 78: Official Connector Readiness Technical Spec**
 - [x] **Phase 79: Production Deployment Readiness Checklist**
-- [ ] **Phase 80: Paid Pilot Implementation Plan**
+- [x] **Phase 80: Paid Pilot Implementation Plan**
+
+### Bundle P: Pilot Execution & Deployment
+- [ ] **Phase 81: Pilot Tenant Data Model Proposal**
+- [ ] **Phase 82: Staging Environment Setup Plan**
+- [ ] **Phase 83: Customer Onboarding Forms and Consent Pack**
