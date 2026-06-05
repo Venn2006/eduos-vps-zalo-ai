@@ -67,10 +67,10 @@ Must include:
 * Fully automated salary/payroll without admin approval.
 
 ## Pilot Readiness Checklist
-- [ ] Safe Data Pipeline architecture defined.
-- [ ] P0 and P1 features implemented and tested.
-- [ ] All AI automations respect the defined `AutomationModePolicy`.
-- [ ] Sandbox mode thoroughly verified.
+- [x] Safe Data Pipeline architecture defined.
+- [x] P0 and P1 features implemented and tested.
+- [x] All AI automations respect the defined `AutomationModePolicy`.
+- [x] Sandbox mode thoroughly verified.
 
 ## Demo Storyline
 1. Thể hiện EduOS là phần mềm quản trị toàn diện (Overview Dashboard).
