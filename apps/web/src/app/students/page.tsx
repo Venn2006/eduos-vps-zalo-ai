@@ -2,7 +2,8 @@ import { getSession } from '@/lib/auth';
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
-import { PageShell } from '@/components/layout/PageShell';
+import StudentListClient from './StudentListClient';
+import { getStudentsList } from '../actions/students';
 
 export default async function StudentsPage() {
   const authSession = await getSession();
@@ -10,11 +11,9 @@ export default async function StudentsPage() {
     return <ForbiddenRoleMessage role={authSession?.role} />;
   }
 
+  const initialStudents = await getStudentsList();
+
   return (
-    <PageShell 
-      title="Học viên" 
-      description="Hồ sơ học viên và lịch sử học tập"
-      primaryAction="Thêm học viên"
-    />
+    <StudentListClient initialStudents={initialStudents} />
   );
 }
