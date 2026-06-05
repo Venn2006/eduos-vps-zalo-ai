@@ -122,6 +122,6 @@ Must include:
 - [x] **Phase 75: Demo Script & Sales Deck Copy**
 - [x] **Phase 76: Role & Permission UX Polish**
 - [x] **Phase 77: Demo Seed Reset & Screenshot QA Pack**
-- [ ] **Phase 78: Official Connector Readiness Technical Spec**
+- [x] **Phase 78: Official Connector Readiness Technical Spec**
 - [ ] **Phase 79: Production Deployment Readiness Checklist**
 - [ ] **Phase 80: Paid Pilot Implementation Plan**
