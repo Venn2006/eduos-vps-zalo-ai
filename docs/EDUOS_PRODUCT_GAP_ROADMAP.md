@@ -128,5 +128,5 @@ Must include:
 
 ### Bundle P: Pilot Execution & Deployment
 - [x] **Phase 81: Pilot Tenant Data Model Proposal**
-- [ ] **Phase 82: Staging Environment Setup Plan**
+- [x] **Phase 82: Staging Environment Setup Plan**
 - [ ] **Phase 83: Customer Onboarding Forms and Consent Pack**
