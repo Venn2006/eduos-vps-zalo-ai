@@ -117,3 +117,11 @@ Must include:
 - [x] **Phase 71: Task Management / Giao Việc Workspace**
 - [x] **Phase 72: Team Inbox / Zalo Hotline Governance Demo**
 - [x] **Phase 73: Mobile Responsive Product Polish**
+- [x] **Phase 74: Product Completion Audit**
+
+### Bundle G: Go-To-Market & Pilot Preparation
+- [ ] **Phase 75: Demo Script & Sales Deck Copy**
+- [ ] **Phase 76: Role & Permission UX Polish**
+- [ ] **Phase 77: Official Connector Readiness Implementation Plan**
+- [ ] **Phase 78: Persistent Task & Inbox Data Model Proposal**
+- [ ] **Phase 79: Production Deployment Readiness Checklist**
