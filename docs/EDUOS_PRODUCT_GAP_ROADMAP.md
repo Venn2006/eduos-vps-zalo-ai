@@ -118,10 +118,10 @@ Must include:
 - [x] **Phase 72: Team Inbox / Zalo Hotline Governance Demo**
 - [x] **Phase 73: Mobile Responsive Product Polish**
 - [x] **Phase 74: Product Completion Audit**
-
 ### Bundle G: Go-To-Market & Pilot Preparation
-- [ ] **Phase 75: Demo Script & Sales Deck Copy**
+- [x] **Phase 75: Demo Script & Sales Deck Copy**
 - [ ] **Phase 76: Role & Permission UX Polish**
-- [ ] **Phase 77: Official Connector Readiness Implementation Plan**
-- [ ] **Phase 78: Persistent Task & Inbox Data Model Proposal**
+- [ ] **Phase 77: Demo Seed Reset & Screenshot QA Pack**
+- [ ] **Phase 78: Official Connector Readiness Technical Spec**
 - [ ] **Phase 79: Production Deployment Readiness Checklist**
+- [ ] **Phase 80: Paid Pilot Implementation Plan**
