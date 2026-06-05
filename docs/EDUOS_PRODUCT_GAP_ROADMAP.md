@@ -114,4 +114,5 @@ Must include:
 - [x] **Phase 68: Product Direction Reset & UI Research**
 - [x] **Phase 69: SaaS UI Visual Redesign Foundation**
 - [x] **Phase 70: CEO Command Center Polish**
-- [ ] **Phase 71: Task Management / Giao Việc Workspace**
+- [x] **Phase 71: Task Management / Giao Việc Workspace**
+- [ ] **Phase 72: Team Inbox / Zalo Hotline Governance Demo**
