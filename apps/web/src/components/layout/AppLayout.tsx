@@ -50,7 +50,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
   sidebarItems.push({ href: '/workspaces', label: 'Danh mục công việc', icon: CheckSquare });
   
   if (isOwner || isSale) {
-    sidebarItems.push({ href: '/fanpage-inbox', label: 'Tin nhắn & Zalo', icon: MessageCircle });
+    sidebarItems.push({ href: '/team-inbox', label: 'Tin nhắn & Zalo', icon: MessageSquare });
     sidebarItems.push({ href: '/approval-queue', label: 'Việc cần duyệt', icon: CheckSquare });
   }
 
