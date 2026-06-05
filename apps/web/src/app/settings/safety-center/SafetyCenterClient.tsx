@@ -42,7 +42,7 @@ export function SafetyCenterClient() {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg">
+      <div className="flex overflow-x-auto gap-1 bg-slate-100 p-1 rounded-lg scrollbar-hide max-w-full">
         <TabButton active={activeTab === 'readiness'} onClick={() => setActiveTab('readiness')} icon={ListChecks} label="Readiness" />
         <TabButton active={activeTab === 'import'} onClick={() => setActiveTab('import')} icon={FileUp} label="Import Wizard" />
         <TabButton active={activeTab === 'simulator'} onClick={() => setActiveTab('simulator')} icon={PlayCircle} label="Simulator" />
@@ -72,7 +72,7 @@ function TabButton({ active, onClick, icon: Icon, label }: { active: boolean, on
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${active ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+      className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${active ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
     >
       <Icon className="w-4 h-4" /> {label}
     </button>
@@ -157,7 +157,7 @@ function ImportTab() {
         <h2 className="text-lg font-bold mb-4">Manual Import Wizard (Preview Only)</h2>
         <p className="text-sm text-slate-600 mb-6">Trình mô phỏng tính năng tải lên CSV. Không lưu dữ liệu thật vào DB trong bản demo.</p>
 
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6">
           <button onClick={() => setImportType('lead')} className={`p-3 text-sm font-medium border rounded-lg ${importType === 'lead' ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200'}`}>Leads</button>
           <button onClick={() => setImportType('student')} className={`p-3 text-sm font-medium border rounded-lg ${importType === 'student' ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200'}`}>Học viên/Phụ huynh</button>
           <button onClick={() => setImportType('finance')} className={`p-3 text-sm font-medium border rounded-lg ${importType === 'finance' ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200'}`}>Tài chính/Học phí</button>

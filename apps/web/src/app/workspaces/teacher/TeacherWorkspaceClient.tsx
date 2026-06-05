@@ -214,22 +214,22 @@ export function TeacherWorkspaceClient() {
             <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6">📅 Lịch dạy hôm nay</h2>
             <div className="space-y-4">
               {mockSessions.map(session => (
-                <div key={session.id} className="flex items-center gap-4 p-4 border rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="w-24 text-center">
+                <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="w-full sm:w-24 flex sm:block justify-between items-center sm:text-center shrink-0">
                     <div className="text-lg font-black text-slate-900">{session.startTime}</div>
                     <div className="text-sm text-slate-500 font-medium">{session.endTime}</div>
                   </div>
-                  <div className="w-px h-12 bg-slate-200"></div>
-                  <div className="flex-1">
+                  <div className="hidden sm:block w-px h-12 bg-slate-200 shrink-0"></div>
+                  <div className="flex-1 w-full">
                     <h3 className="font-bold text-lg text-slate-900">{session.className}</h3>
-                    <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 mt-1">
                       <span className="flex items-center gap-1 font-medium"><Users className="w-4 h-4" /> {session.studentCount} hv</span>
                       <span className="flex items-center gap-1 font-medium"><PenTool className="w-4 h-4" /> {session.teacherName}</span>
                       <span className="flex items-center gap-1 font-medium"><CheckCircle2 className="w-4 h-4" /> {session.roomName}</span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-sm rounded-lg border border-indigo-200 transition-colors shadow-sm">
+                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                    <button className="w-full sm:w-auto px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-sm rounded-lg border border-indigo-200 transition-colors shadow-sm">
                       Điểm danh demo
                     </button>
                   </div>
