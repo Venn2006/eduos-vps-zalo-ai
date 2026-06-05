@@ -193,6 +193,21 @@ export default async function DashboardPage() {
             </div>
           </section>
 
+          {/* 5.5 CEO ROLE RESPONSIBILITY CARD */}
+          <section className="bg-gradient-to-br from-indigo-950/40 to-slate-900/50 border border-indigo-500/20 rounded-xl p-6 backdrop-blur-xl relative overflow-hidden">
+            <h2 className="text-lg font-semibold text-white mb-3">Quyền & trách nhiệm hôm nay</h2>
+            <div className="space-y-2 text-sm text-slate-300">
+              <div className="flex items-center gap-2"><UserPlus className="w-4 h-4 text-indigo-400" /> Phân công 12 leads mới</div>
+              <div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-rose-400" /> Xử lý 3 việc quá hạn của team</div>
+              <div className="flex items-center gap-2"><Bot className="w-4 h-4 text-fuchsia-400" /> Duyệt 8 nháp AI quan trọng</div>
+              <div className="flex items-center gap-2"><BadgeDollarSign className="w-4 h-4 text-emerald-400" /> Cảnh báo tài chính: 3 ca nợ</div>
+              <div className="flex items-center gap-2"><ListTodo className="w-4 h-4 text-blue-400" /> Giám sát khối lượng công việc</div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-700/50 text-xs text-slate-400 italic">
+              CEO/Admin có đặc quyền xem toàn bộ dữ liệu tổ chức và phê duyệt các quyết định lớn.
+            </div>
+          </section>
+
           {/* 6. STAFF WORKLOAD PANEL */}
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-xl">
             <div className="px-6 py-5 border-b border-slate-800">

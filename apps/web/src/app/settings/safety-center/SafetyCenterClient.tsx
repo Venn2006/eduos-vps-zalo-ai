@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks, Lock, FileText, Rocket, Presentation, Settings, Filter, Eye, ToggleLeft } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, ServerOff, PlayCircle, FileUp, ListChecks, Lock, FileText, Rocket, Presentation, Settings, Filter, Eye, ToggleLeft, Users, XCircle } from 'lucide-react';
 import { connectorMatrix, checklistItems, importTemplates } from '@/lib/safetyCenterDemoData';
 import { runSandboxSimulation, SimulatorScenarioId } from '@/lib/sandboxConnectorSimulator';
 import { consentScopes, privacyChecklist } from '@/lib/consentPrivacyDemoData';
@@ -9,8 +9,9 @@ import { mockAuditLogs, governanceCounters } from '@/lib/auditGovernanceDemoData
 import { readinessScorecard, blockedCapabilities, pilotScope } from '@/lib/pilotReadinessDemoData';
 import { demoStoryline, demoMessaging, doNotPromise, pilotNextSteps } from '@/lib/demoHandoffData';
 import { pilotConsentChecklist, featureFlags, importSimulatorWarnings } from '@/lib/phase68-71-demoData';
+import { rolePermissionDemoData } from '@/lib/rolePermissionDemoData';
 
-type TabType = 'readiness' | 'import' | 'simulator' | 'consent' | 'audit' | 'pilot' | 'demo' | 'flags';
+type TabType = 'readiness' | 'import' | 'simulator' | 'consent' | 'audit' | 'pilot' | 'demo' | 'flags' | 'permissions';
 
 export function SafetyCenterClient() {
   const [activeTab, setActiveTab] = useState<TabType>('readiness');
@@ -48,7 +49,7 @@ export function SafetyCenterClient() {
         <TabButton active={activeTab === 'simulator'} onClick={() => setActiveTab('simulator')} icon={PlayCircle} label="Simulator" />
         <TabButton active={activeTab === 'consent'} onClick={() => setActiveTab('consent')} icon={Lock} label="Consent & Privacy" />
         <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} icon={FileText} label="Audit Log" />
-        <TabButton active={activeTab === 'pilot'} onClick={() => setActiveTab('pilot')} icon={Rocket} label="Pilot Readiness" />
+        <TabButton active={activeTab === 'permissions'} onClick={() => setActiveTab('permissions')} icon={Users} label="Permissions" />
         <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon={Settings} label="Feature Flags" />
         <TabButton active={activeTab === 'demo'} onClick={() => setActiveTab('demo')} icon={Presentation} label="Demo Handoff" />
       </div>
@@ -61,6 +62,7 @@ export function SafetyCenterClient() {
         {activeTab === 'consent' && <ConsentPrivacyTab />}
         {activeTab === 'audit' && <AuditGovernanceTab />}
         {activeTab === 'pilot' && <PilotReadinessTab />}
+        {activeTab === 'permissions' && <PermissionsTab />}
         {activeTab === 'flags' && <FeatureFlagsTab />}
         {activeTab === 'demo' && <DemoHandoffTab />}
       </div>
@@ -598,6 +600,69 @@ function FeatureFlagsTab() {
               </div>
               <div className={`w-12 h-6 rounded-full flex items-center p-1 cursor-not-allowed ${flag.value ? 'bg-primary' : 'bg-slate-200'}`}>
                 <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform ${flag.value ? 'translate-x-6' : 'translate-x-0'}`} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 76: Permissions Tab
+function PermissionsTab() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-bold mb-2 flex items-center gap-2"><Users className="w-6 h-6 text-primary" /> Ma trận quyền truy cập (Role Matrix)</h2>
+        <p className="text-sm text-slate-600 mb-4">Mô tả cấu hình phân quyền mô phỏng trong bản demo. Thực tế sẽ áp dụng Role-Based Access Control (RBAC) khắt khe.</p>
+        
+        <div className="bg-danger/10 border border-danger/20 p-4 rounded-lg mb-6 flex items-start gap-3 text-danger-800 text-sm">
+          <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">Những việc demo KHÔNG cho phép đối với mọi Role:</p>
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li>Real send: OFF (Không gửi bất kỳ tin nhắn thật nào ra ngoài)</li>
+              <li>Live connector: OFF (Không dùng API thật kết nối ngân hàng/Zalo cá nhân)</li>
+              <li>AI chỉ tạo nháp/gợi ý, không bao giờ tự ý hành động bỏ qua sự phê duyệt của con người</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {rolePermissionDemoData.map(role => (
+            <div key={role.roleName} className="bg-white border rounded-lg p-5 shadow-sm">
+              <div className="flex justify-between items-start mb-4 pb-4 border-b">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">{role.roleName}</h3>
+                  <p className="text-sm text-slate-600 mt-1">{role.shortDescription}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-800">{role.demoUserName}</p>
+                  <p className="text-xs text-slate-500">{role.demoEmail}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div>
+                  <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1"><Eye className="w-4 h-4 text-primary" /> Ai được xem gì?</h4>
+                  <ul className="space-y-1">
+                    {role.canView.map(v => <li key={v} className="flex items-center gap-2 text-slate-600"><div className="w-1.5 h-1.5 rounded-full bg-slate-400" />{v}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-700 mb-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-success" /> Ai được duyệt gì?</h4>
+                  <ul className="space-y-1">
+                    {role.approvalResponsibilities.length > 0 ? role.approvalResponsibilities.map(a => <li key={a} className="flex items-center gap-2 text-slate-600"><div className="w-1.5 h-1.5 rounded-full bg-success/60" />{a}</li>) : <li className="text-slate-500 italic">Không có quyền duyệt</li>}
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t bg-slate-50 -mx-5 px-5 -mb-5 pb-5 rounded-b-lg">
+                <div className="flex gap-2 items-start text-xs text-slate-500">
+                  <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span><strong>Safety Note:</strong> {role.safetyNotes}</span>
+                </div>
               </div>
             </div>
           ))}

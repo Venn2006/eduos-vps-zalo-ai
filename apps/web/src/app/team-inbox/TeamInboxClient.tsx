@@ -117,8 +117,13 @@ export function TeamInboxClient() {
             </h3>
             <p className="text-xs text-slate-500 mb-3 bg-slate-50 p-2 rounded">Không giám sát cá nhân. Chỉ mô phỏng phân quyền.</p>
             <div className="space-y-3">
-              {mockStaffProfiles.map(s => (
-                <div key={s.id} className="flex flex-col gap-1 p-2 border border-slate-100 rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
+              {mockStaffProfiles.map(s => {
+                let roleColor = "bg-slate-100 text-slate-600";
+                if (s.staffName.includes("Teacher") || s.staffName.includes("Giáo")) roleColor = "bg-blue-100 text-blue-700";
+                if (s.staffName.includes("Sale") || s.staffName.includes("CSKH")) roleColor = "bg-amber-100 text-amber-700";
+                
+                return (
+                <div key={s.id} className="flex flex-col gap-1 p-2 border border-slate-100 rounded-lg hover:border-primary/30 transition-colors cursor-pointer relative">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${s.status === 'online' ? 'bg-emerald-500' : s.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
@@ -130,12 +135,17 @@ export function TeamInboxClient() {
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500">
-                    <span>{s.workChannelName}</span>
-                    <span>{s.assignedConversations} hội thoại</span>
+                  <div className="flex justify-between items-center text-xs text-slate-500 mt-1">
+                    <span className="truncate w-32">{s.workChannelName}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${roleColor}`}>
+                      {s.staffName.includes("Teacher") ? "Học vụ" : s.staffName.includes("Sale") ? "Sale" : "Admin"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Phụ trách: {s.assignedConversations} hội thoại
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
@@ -227,7 +237,7 @@ export function TeamInboxClient() {
                   <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-medium border border-indigo-100 flex items-center gap-1">
                     <MessageSquare className="w-3 h-3" /> Nguồn: {selectedConv.channel}
                   </span>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium flex items-center gap-1">
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium flex items-center gap-1" title="Demo phân quyền: Chỉ người được giao mới có thể xử lý">
                     <User className="w-3 h-3" /> Phụ trách: {selectedConv.assignedStaff}
                   </span>
                   <StatusBadge status={getStatusType(selectedConv.status)} label={selectedConv.status} />
@@ -235,6 +245,12 @@ export function TeamInboxClient() {
                     <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">#{tag}</span>
                   ))}
                 </div>
+                
+                {selectedConv.status === 'Cần chuyển người' && (
+                  <div className="mt-1 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded flex items-center gap-1 w-fit">
+                    <AlertTriangle className="w-3 h-3" /> Lead này yêu cầu chuyên môn khác. Sale hiện tại không có quyền xem thông tin điểm số. CEO/Quản lý cần reassign.
+                  </div>
+                )}
               </div>
 
               {/* Chat Thread */}

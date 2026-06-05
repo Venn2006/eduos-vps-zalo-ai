@@ -120,7 +120,7 @@ Must include:
 - [x] **Phase 74: Product Completion Audit**
 ### Bundle G: Go-To-Market & Pilot Preparation
 - [x] **Phase 75: Demo Script & Sales Deck Copy**
-- [ ] **Phase 76: Role & Permission UX Polish**
+- [x] **Phase 76: Role & Permission UX Polish**
 - [ ] **Phase 77: Demo Seed Reset & Screenshot QA Pack**
 - [ ] **Phase 78: Official Connector Readiness Technical Spec**
 - [ ] **Phase 79: Production Deployment Readiness Checklist**
