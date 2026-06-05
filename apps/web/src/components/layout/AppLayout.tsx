@@ -22,7 +22,8 @@ import {
   Monitor,
   ShieldCheck,
   Menu,
-  X
+  X,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +46,7 @@ export function AppLayout({ children, session }: { children: React.ReactNode, se
     sidebarItems.push({ href: '/crm-command-center', label: 'CRM & Zalo/Fanpage', icon: Monitor });
   }
   
+  sidebarItems.push({ href: '/tasks', label: 'Giao việc', icon: ClipboardList });
   sidebarItems.push({ href: '/workspaces', label: 'Danh mục công việc', icon: CheckSquare });
   
   if (isOwner || isSale) {
