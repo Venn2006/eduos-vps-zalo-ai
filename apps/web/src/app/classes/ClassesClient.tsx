@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Users, Clock, CheckSquare, Plus, X, Phone, UserRound, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { formatVietnamDateTime } from '@/lib/date-format';
 
 type DateLike = string | Date;
 
@@ -179,7 +180,7 @@ export default function ClassesClient({ initialClasses, courses }: { initialClas
                     <Clock className="w-4 h-4 mr-2" /> Ca học tiếp theo
                   </div>
                   <div className="font-semibold text-slate-900">
-                    {nextSession ? new Date(nextSession.startTime).toLocaleString('vi-VN') : 'Trống'}
+                    {nextSession ? formatVietnamDateTime(nextSession.startTime) : 'Trống'}
                   </div>
                 </div>
                 <div className="flex justify-between items-center text-sm">

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatVietnamDateTime } from '@/lib/date-format';
 import { cn } from '@/lib/utils';
 import { createManualFollowUpTask, setFollowUpTaskCompleted } from '../actions/tasks';
 
@@ -467,7 +468,7 @@ function TaskDrawer({ task, isPending, onClose, onComplete, onReopen }: { task: 
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
           <div className="grid grid-cols-2 gap-4">
             <Info label="Phụ trách" value={task.assignedName} />
-            <Info label="Deadline" value={dueDate.toLocaleString('vi-VN')} danger={overdue} />
+            <Info label="Deadline" value={formatVietnamDateTime(dueDate)} danger={overdue} />
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -532,7 +533,7 @@ function toDatetimeLocalValue(date: Date) {
 }
 
 function formatDeadline(date: Date) {
-  return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return formatVietnamDateTime(date, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function stageLabel(stage: string) {

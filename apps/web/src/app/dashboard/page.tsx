@@ -23,17 +23,18 @@ import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { canAccessRoute } from '@/lib/rbac';
 import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
+import { formatVietnamDateTime } from '@/lib/date-format';
 
 const formatMoneyShort = (value: number) => {
   if (value === 0) return '0đ';
   return `${(value / 1000000).toFixed(1)}tr`;
 };
-const formatDateTime = (value: Date) => new Intl.DateTimeFormat('vi-VN', {
+const formatDateTime = (value: Date) => formatVietnamDateTime(value, {
   hour: '2-digit',
   minute: '2-digit',
   day: '2-digit',
   month: '2-digit',
-}).format(value);
+});
 
 const stageLabel = (stage: string) => {
   const labels: Record<string, string> = {
