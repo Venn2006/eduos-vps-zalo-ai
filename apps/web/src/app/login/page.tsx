@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('owner@omlis.test');
-  const [password, setPassword] = useState('ChangeMe123!');
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,20 +24,21 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push('/dashboard');
+        router.replace('/dashboard');
         router.refresh();
       } else {
         let errorMsg = 'Login failed';
         try {
           const data = await res.json();
           errorMsg = data.error || errorMsg;
-        } catch (e) {
+        } catch {
           errorMsg = `Server returned ${res.status}: ${res.statusText}`;
         }
         setError(errorMsg);
       }
-    } catch (err: any) {
-      setError(`Network error: ${err.message || err.toString()}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Network error: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -71,6 +72,7 @@ export default function LoginPage() {
                   type="email"
                   required
                   value={email}
+                  autoComplete="email"
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
@@ -86,6 +88,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   value={password}
+                  autoComplete="current-password"
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />

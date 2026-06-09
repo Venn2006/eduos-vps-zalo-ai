@@ -1,0 +1,33 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: '17 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    name: Ping app DB health endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate required secrets
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SUPABASE_KEEPALIVE_SECRET: ${{ secrets.SUPABASE_KEEPALIVE_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL" || { echo "Missing GitHub secret APP_URL"; exit 1; }
+          test -n "$SUPABASE_KEEPALIVE_SECRET" || { echo "Missing GitHub secret SUPABASE_KEEPALIVE_SECRET"; exit 1; }
+
+      - name: Keep Supabase active
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SUPABASE_KEEPALIVE_SECRET: ${{ secrets.SUPABASE_KEEPALIVE_SECRET }}
+        run: |
+          set -euo pipefail
+          BASE_URL="${APP_URL%/}"
+          curl --fail --show-error --silent --max-time 20 --retry 3 --retry-delay 5 \
+            -H "x-keepalive-secret: $SUPABASE_KEEPALIVE_SECRET" \
+            "$BASE_URL/api/health/supabase-keepalive"

@@ -1,4 +1,7 @@
-import { prisma } from "@eduos/db";
+import { Prisma, prisma } from "@eduos/db";
+
+type InvoiceStatusValue = "UNPAID" | "PAID" | "PARTIALLY_PAID" | "OVERDUE";
+type PaymentMethodValue = "CASH" | "BANK_TRANSFER" | "MOMO" | "OTHER";
 
 export async function getFinanceSummaryForTenant(tenantId: string) {
   const today = new Date();
@@ -38,7 +41,7 @@ export async function getFinanceSummaryForTenant(tenantId: string) {
   };
 }
 
-export async function getInvoicesForTenant(tenantId: string, filters?: any) {
+export async function getInvoicesForTenant(tenantId: string, filters?: Prisma.InvoiceWhereInput) {
   return prisma.invoice.findMany({
     where: { tenantId, ...filters },
     include: {
@@ -54,7 +57,7 @@ export async function recordPayment(params: {
   tenantId: string;
   invoiceId: string;
   amount: number;
-  method: any;
+  method: PaymentMethodValue;
   paidAt?: Date;
   receivedById?: string;
   referenceCode?: string;
@@ -89,10 +92,10 @@ export async function recalculateInvoiceStatus(invoiceId: string) {
   });
   if (!invoice) return;
 
-  const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = invoice.payments.reduce((sum: number, payment: { amount: number }) => sum + payment.amount, 0);
   const remaining = Math.max(0, invoice.totalAmount - totalPaid);
 
-  let newStatus: any = "UNPAID";
+  let newStatus: InvoiceStatusValue = "UNPAID";
   if (remaining === 0) {
     newStatus = "PAID";
   } else if (totalPaid > 0 && remaining > 0) {
@@ -157,7 +160,7 @@ export async function approveFinancialReminder(messageId: string, userId: string
   if (!message) throw new Error("Message not found");
 
   // Only allow OWNER, ADMIN, ACCOUNTANT
-  const tenantMember = user.tenantMembers.find((tu: any) => tu.tenantId === message.tenantId);
+  const tenantMember = user.tenantMembers.find((tenantMember) => tenantMember.tenantId === message.tenantId);
   if (!tenantMember) throw new Error("Not a tenant user");
 
   const allowedRoles = ["OWNER", "ADMIN", "ACCOUNTANT"];
