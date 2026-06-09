@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
@@ -5,7 +6,6 @@ import { PageShell } from '@/components/layout/PageShell';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { CheckSquare, AlertCircle, Clock, Users } from 'lucide-react';
 import { prisma } from '@eduos/db';
 import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
@@ -22,7 +22,6 @@ export default async function AttendancePage() {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-  // Fetch today's sessions
   const todaySessions = await prisma.classSession.findMany({
     where: {
       tenantId,
@@ -37,15 +36,12 @@ export default async function AttendancePage() {
     orderBy: { startTime: 'asc' }
   });
 
-  // Calculate stats
-  let totalExpected = 0;
   let totalPresent = 0;
   let totalAbsent = 0;
   let totalLate = 0;
   let totalNeedsReview = 0;
 
-  todaySessions.forEach(session => {
-    totalExpected += session.attendances.length; // Actually we should count enrollments for expected, but attendances are created for all matched so far.
+  todaySessions.forEach(session => { // Actually we should count enrollments for expected, but attendances are created for all matched so far.
     // For a real app, totalExpected = enrollments.
     session.attendances.forEach(a => {
       if (a.status === 'PRESENT') totalPresent++;
@@ -59,7 +55,6 @@ export default async function AttendancePage() {
     <PageShell 
       title="Điểm danh" 
       description="Quản lý điểm danh Zalo tự động"
-      primaryAction="Xuất báo cáo"
     >
       <div className="space-y-8">
         {/* KPI Cards */}
@@ -133,7 +128,9 @@ export default async function AttendancePage() {
                                 {record.sourceMessageId ? "Zalo" : "Manual"}
                               </td>
                               <td className="px-6 py-3 text-right">
-                                <Button variant="ghost" size="sm" className="text-indigo-600 h-8">Chỉnh sửa</Button>
+                                <Link href="/workspaces/teacher" className="inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50">
+                                  Mở workspace GV
+                                </Link>
                               </td>
                             </tr>
                           ))

@@ -89,7 +89,7 @@ async function main() {
   }
 
   // 4. Seed Courses
-  const courseNames = ["English Communication", "Chinese HSK Starter", "Korean TOPIK Starter", "IELTS Foundation", "Kids English"];
+  const courseNames = ["Tiếng Anh giao tiếp", "Tiếng Trung HSK nhập môn", "Tiếng Hàn TOPIK nhập môn", "IELTS nền tảng", "Tiếng Anh trẻ em"];
   const courses = [];
   for (const name of courseNames) {
     const c = await prisma.course.create({
@@ -102,7 +102,7 @@ async function main() {
   const teachers = [];
   for (let i=1; i<=3; i++) {
     const t = await prisma.teacher.create({
-      data: { tenantId: tId, name: `Teacher ${i}`, phone: `090000000${i}` }
+      data: { tenantId: tId, name: `Giáo viên ${i}`, phone: `090000000${i}` }
     });
     teachers.push(t);
   }
@@ -142,7 +142,7 @@ async function main() {
       data: {
         tenantId: tId, classId: c.id, sessionDate: generateDates(Math.floor(i / classes.length) + 1),
         startTime: generateDates(Math.floor(i / classes.length) + 1), endTime: generateDates(Math.floor(i / classes.length) + 1),
-        topic: `Lesson ${Math.floor(i/8) + 1}`
+        topic: `Buổi học ${Math.floor(i/8) + 1}`
       }
     });
   }
@@ -158,7 +158,7 @@ async function main() {
       sessionDate: testStartTime,
       startTime: testStartTime,
       endTime: testEndTime,
-      topic: "Test Reminder Session"
+      topic: "Buổi kiểm tra nhắc lịch"
     }
   });
 
@@ -172,7 +172,7 @@ async function main() {
       sessionDate: pastStartTime,
       startTime: pastStartTime,
       endTime: pastEndTime,
-      topic: "Past Session For Homework Reminder"
+      topic: "Buổi học cần nhắc bài tập"
     }
   });
 
@@ -182,12 +182,13 @@ async function main() {
   const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
   const firstNames = ['Anh', 'Tuấn', 'Dũng', 'Minh', 'Thành', 'Hoa', 'Lan', 'Trang', 'Hương', 'Quỳnh', 'Thảo', 'Phương', 'Linh', 'Nhung', 'Nam', 'Phong', 'Sơn', 'Hùng', 'Tâm', 'Bình'];
   for (let i=0; i<80; i++) {
+    const studentName = `${lastNames[i % lastNames.length]} ${firstNames[i % firstNames.length]} ${i + 1}`;
     const guardian = await prisma.guardian.create({
-      data: { tenantId: tId, name: `Parent of Student ${i}`, phone: `09222222${i.toString().padStart(2, '0')}` }
+      data: { tenantId: tId, name: `Phụ huynh ${studentName}`, phone: `09222222${i.toString().padStart(2, '0')}` }
     });
     guardians.push(guardian);
     const student = await prisma.student.create({
-      data: { tenantId: tId, name: `Student ${i}`, guardianId: guardian.id }
+      data: { tenantId: tId, name: studentName, guardianId: guardian.id }
     });
     students.push(student);
     
@@ -197,7 +198,7 @@ async function main() {
     
     if (i < 20) {
       await prisma.studentProgressNote.create({
-        data: { tenantId: tId, studentId: student.id, note: "Good progress" }
+        data: { tenantId: tId, studentId: student.id, note: "Tiến bộ tốt, cần duy trì chuyên cần." }
       });
     }
   }
@@ -216,17 +217,17 @@ async function main() {
   const teacherIdentities = [];
   for (let i = 0; i < 80; i++) {
     const sIdentity = await prisma.zaloIdentity.create({
-      data: { tenantId: tId, externalUserId: `zalo-student-${i}`, displayName: `Student ${i} Zalo`, phone: `090000${i.toString().padStart(4, '0')}`, studentId: students[i].id, confidenceScore: 1.0 }
+      data: { tenantId: tId, externalUserId: `zalo-student-${i}`, displayName: `${students[i].name} Zalo`, phone: `090000${i.toString().padStart(4, '0')}`, studentId: students[i].id, confidenceScore: 1.0 }
     });
     studentIdentities.push(sIdentity);
     const gIdentity = await prisma.zaloIdentity.create({
-      data: { tenantId: tId, externalUserId: `zalo-guardian-${i}`, displayName: `Guardian ${i} Zalo`, phone: `091000${i.toString().padStart(4, '0')}`, guardianId: guardians[i].id, confidenceScore: 1.0 }
+      data: { tenantId: tId, externalUserId: `zalo-guardian-${i}`, displayName: `${guardians[i].name} Zalo`, phone: `091000${i.toString().padStart(4, '0')}`, guardianId: guardians[i].id, confidenceScore: 1.0 }
     });
     guardianIdentities.push(gIdentity);
   }
   for (let i = 0; i < 3; i++) {
     const tIdentity = await prisma.zaloIdentity.create({
-      data: { tenantId: tId, externalUserId: `zalo-teacher-${i}`, displayName: `Teacher ${i} Zalo`, phone: `092000${i.toString().padStart(4, '0')}`, teacherId: teachers[i].id, confidenceScore: 1.0 }
+      data: { tenantId: tId, externalUserId: `zalo-teacher-${i}`, displayName: `${teachers[i].name} Zalo`, phone: `092000${i.toString().padStart(4, '0')}`, teacherId: teachers[i].id, confidenceScore: 1.0 }
     });
     teacherIdentities.push(tIdentity);
   }
@@ -297,7 +298,7 @@ async function main() {
     {
       psid: "psid-002",
       leadName: "Trần Minh",
-      stage: "QUALIFIED",
+      stage: "POTENTIAL",
       messages: [
         { text: "Trung tâm có lớp HSK 2 không?", dir: "INBOUND" },
         { text: "Dạ có ạ, lớp HSK 2 cơ bản sắp khai giảng vào đầu tháng tới. Anh/chị đã từng học tiếng Trung ở đâu chưa ạ?", dir: "OUTBOUND" },
@@ -308,7 +309,7 @@ async function main() {
     {
       psid: "psid-003",
       leadName: "Phạm Thảo",
-      stage: "BOOKED_TRIAL",
+      stage: "WAITING_TRIAL",
       messages: [
         { text: "Chị muốn hỏi lớp tiếng Anh cho bé 6 tuổi.", dir: "INBOUND" },
         { text: "Dạ khóa Kids English dành cho bé 6 tuổi đang có chương trình học thử 2 buổi miễn phí. Chị muốn đăng ký cho bé học thử không ạ?", dir: "OUTBOUND" },
@@ -381,7 +382,7 @@ async function main() {
   }
 
   const leads = [];
-  const stages = ['NEW', 'CONTACTED', 'QUALIFIED', 'BOOKED_TRIAL', 'ATTENDED_TRIAL', 'WON', 'LOST'];
+  const stages = ['NEW', 'NO_ANSWER', 'CALLBACK', 'INTERESTED', 'POTENTIAL', 'WAITING_TRIAL', 'TRIALING', 'TRIALED', 'REGISTERED', 'NOT_POTENTIAL', 'NO_NEED'];
   for (let i = 0; i < 150; i++) {
     const saleId = saleMembers[i % saleMembers.length].userId;
     const stage = stages[Math.floor(Math.random() * stages.length)];
@@ -421,7 +422,7 @@ async function main() {
   }
 
   // 30 Trial bookings
-  const bookedLeads = leads.filter(l => ['BOOKED_TRIAL', 'ATTENDED_TRIAL', 'WON'].includes(l.stage)).slice(0, 30);
+  const bookedLeads = leads.filter(l => ['WAITING_TRIAL', 'TRIALING', 'TRIALED', 'REGISTERED'].includes(l.stage)).slice(0, 30);
   for (let i = 0; i < bookedLeads.length; i++) {
     const l = bookedLeads[i];
     const status = i < 5 ? 'CONVERTED' : (i < 15 ? 'ATTENDED' : 'BOOKED');

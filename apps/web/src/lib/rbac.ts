@@ -11,7 +11,9 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
     "/workspaces/sales/calling",
     "/ai-center",
     "/fanpage-inbox",
+    "/team-inbox",
     "/leads",
+    "/tasks",
     "/trial-bookings",
     "/zalo-inbox", // Implicit for sales/care
     "/zalo-groups", // Implicit for sales/care
@@ -23,6 +25,8 @@ export const ROLE_MATRIX: Record<Role, string[]> = {
     "/classes",
     "/attendance",
     "/homework",
+    "/parent-reports",
+    "/guardians",
     "/students"
   ],
   ACCOUNTANT: [

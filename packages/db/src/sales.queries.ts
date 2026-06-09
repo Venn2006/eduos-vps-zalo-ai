@@ -7,7 +7,7 @@ export class SalesQueries {
     const where: any = {
       tenantId,
       stage: {
-        notIn: ['WON', 'LOST']
+        notIn: ['REGISTERED', 'NOT_POTENTIAL', 'NO_NEED']
       }
     };
 
@@ -68,7 +68,7 @@ export class SalesQueries {
       where: { tenantId, status: { in: ['ATTENDED', 'CONVERTED'] } }
     });
     const wonLeads = await this.prisma.lead.count({
-      where: { tenantId, stage: 'WON' }
+      where: { tenantId, stage: 'REGISTERED' }
     });
 
     const contactRate = totalLeads > 0 ? Math.round((contactedLeads / totalLeads) * 100) : 0;
@@ -86,12 +86,12 @@ export class SalesQueries {
       if (!staffStats[staffId]) staffStats[staffId] = { id: staffId, total: 0, contacted: 0, won: 0 };
       staffStats[staffId].total++;
       if (lead.stage !== 'NEW') staffStats[staffId].contacted++;
-      if (lead.stage === 'WON') staffStats[staffId].won++;
+      if (lead.stage === 'REGISTERED') staffStats[staffId].won++;
 
       const sourceId = lead.batchId || 'organic';
       if (!sourceStats[sourceId]) sourceStats[sourceId] = { id: sourceId, total: 0, won: 0 };
       sourceStats[sourceId].total++;
-      if (lead.stage === 'WON') sourceStats[sourceId].won++;
+      if (lead.stage === 'REGISTERED') sourceStats[sourceId].won++;
     });
 
     const staffPerformance = Object.values(staffStats).sort((a, b) => b.total - a.total).map(s => ({

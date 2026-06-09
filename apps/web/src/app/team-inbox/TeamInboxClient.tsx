@@ -1,378 +1,269 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  MessageSquare, Users, AlertTriangle, ShieldCheck, 
-  Send, Bot, Filter, Search, Phone, User, Clock, 
-  CheckCircle2, Info, Lock, Play
+import Link from 'next/link';
+import React, { useMemo, useState } from 'react';
+import {
+  Bot,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Inbox,
+  MessageSquare,
+  ShieldCheck,
+  User,
 } from 'lucide-react';
-import { MetricCard } from '@/components/ui/MetricCard';
-import { StatusType, StatusBadge } from '@/components/ui/StatusBadge';
-import { 
-  teamInboxSummaryMetrics, 
-  mockChannelsAndAccounts, 
-  mockStaffProfiles, 
-  mockConversations, 
-  mockMessageThreads, 
-  mockAiSuggestions 
-} from '@/lib/teamInboxDemoData';
 
-const getStatusType = (status: string): StatusType => {
-  if (status === 'Chưa nhận') return 'danger';
-  if (status === 'Cần chuyển người') return 'warning';
-  if (status === 'Đang xử lý') return 'primary';
-  if (status === 'Chờ duyệt nháp') return 'info';
-  if (status === 'Đã xử lý demo') return 'success';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { StatusBadge, StatusType } from '@/components/ui/StatusBadge';
+
+type ConversationRow = {
+  id: string;
+  psid: string;
+  pageName: string;
+  lastMessageAt: string;
+  lastText: string;
+  messageCount: number;
+  lead: {
+    id: string;
+    name: string;
+    stage: string;
+    temperature: string;
+  } | null;
+};
+
+type OutboxRow = {
+  id: string;
+  channel: string;
+  status: string;
+  readinessStatus: string;
+  approvalStatus: string | null;
+  recipientSafeLabel: string | null;
+  messageSafeSummary: string;
+  createdAt: string;
+};
+
+type TeamInboxClientProps = {
+  conversations: ConversationRow[];
+  outboxItems: OutboxRow[];
+  openTaskCount: number;
+};
+
+const stageLabel = (stage?: string) => {
+  if (stage === 'WON') return 'Đã chốt';
+  if (stage === 'BOOKED_TRIAL') return 'Đã đặt học thử';
+  if (stage === 'ATTENDED_TRIAL') return 'Đã học thử';
+  if (stage === 'QUALIFIED') return 'Tiềm năng';
+  if (stage === 'CONTACTED') return 'Đã liên hệ';
+  if (stage === 'LOST') return 'Mất cơ hội';
+  if (stage === 'NEW') return 'Mới';
+  return stage || 'Chưa có khách';
+};
+
+const stageStatus = (stage?: string): StatusType => {
+  if (stage === 'WON') return 'success';
+  if (stage === 'LOST') return 'danger';
+  if (stage === 'BOOKED_TRIAL' || stage === 'ATTENDED_TRIAL') return 'primary';
+  if (stage === 'QUALIFIED' || stage === 'CONTACTED') return 'info';
   return 'neutral';
 };
 
-export function TeamInboxClient() {
-  const [selectedConvId, setSelectedConvId] = useState<string | null>(mockConversations[0]?.id || null);
-  const [filter, setFilter] = useState('ALL');
-  
-  const selectedConv = mockConversations.find(c => c.id === selectedConvId);
-  const messages = selectedConvId ? mockMessageThreads[selectedConvId] || [] : [];
-  const aiSuggestion = selectedConvId ? mockAiSuggestions[selectedConvId] : null;
+const formatTime = (value: string) => new Intl.DateTimeFormat('vi-VN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  day: '2-digit',
+  month: '2-digit',
+}).format(new Date(value));
 
-  const filteredConversations = mockConversations.filter(c => {
-    if (filter === 'UNREAD') return c.status === 'Chưa nhận';
-    if (filter === 'OVERDUE') return c.slaStatus === 'Quá SLA';
-    if (filter === 'DRAFT') return c.status === 'Chờ duyệt nháp';
-    if (filter === 'HOTLINE') return c.channel === 'Zalo Hotline trung tâm';
-    if (filter === 'FANPAGE') return c.sourceAccount === 'Fanpage';
-    if (filter === 'HANDOFF') return c.status === 'Cần chuyển người';
+const draftStatusLabel = (status: string) => {
+  if (status === 'MOCK_READY') return 'Chờ duyệt';
+  if (status === 'MOCK_QUEUED') return 'Đã xếp hàng';
+  if (status === 'MOCK_SENDING') return 'Đang xử lý';
+  if (status === 'MOCK_SENT') return 'Đã hoàn tất';
+  if (status === 'MOCK_FAILED') return 'Có lỗi';
+  if (status === 'MOCK_CANCELLED') return 'Đã hủy';
+  return 'Cần kiểm tra';
+};
+
+export function TeamInboxClient({ conversations, outboxItems, openTaskCount }: TeamInboxClientProps) {
+  const [filter, setFilter] = useState<'ALL' | 'LEAD' | 'HOT' | 'NO_LEAD'>('ALL');
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(conversations[0]?.id || null);
+
+  const filteredConversations = useMemo(() => conversations.filter((conversation) => {
+    if (filter === 'LEAD') return !!conversation.lead;
+    if (filter === 'HOT') return conversation.lead?.temperature === 'HOT';
+    if (filter === 'NO_LEAD') return !conversation.lead;
     return true;
-  });
+  }), [conversations, filter]);
+
+  const selectedConversation = conversations.find((conversation) => conversation.id === selectedConvId) || filteredConversations[0] || null;
+  const linkedKháchCount = conversations.filter((conversation) => conversation.lead).length;
+  const hotKháchCount = conversations.filter((conversation) => conversation.lead?.temperature === 'HOT').length;
+  const readyOutboxCount = outboxItems.filter((item) => item.status === 'MOCK_READY').length;
 
   return (
-    <div className="space-y-6 flex flex-col min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-8rem)]">
-      {/* Header & Badges */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 shrink-0">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <MessageSquare className="w-7 h-7 text-primary" />
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+            <MessageSquare className="h-7 w-7 text-primary" />
             Tin nhắn & Zalo
           </h1>
-          <p className="text-slate-500 mt-1">
-            Quản lý hội thoại hotline, fanpage và tài khoản công việc của nhân viên trong một khung điều hành.
+          <p className="mt-1 max-w-3xl text-sm text-slate-500">
+            Trung tâm điều phối dữ liệu thật từ Fanpage Inbox, Hàng chờ duyệt và việc chăm sóc. Kết nối Zalo thật chưa được bật nên không hiển thị tin giả.
           </p>
         </div>
-        
         <div className="flex flex-wrap gap-2">
-          <div className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-full text-xs font-semibold border border-rose-200 flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5" /> Demo: chưa gửi thật
-          </div>
-          <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-semibold border border-emerald-200 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5" /> Không scrape Zalo cá nhân
-          </div>
-          <div className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold border border-blue-200 flex items-center gap-1">
-            <Users className="w-3.5 h-3.5" /> Hotline/work-channel
-          </div>
-          <div className="px-3 py-1.5 bg-fuchsia-50 text-fuchsia-600 rounded-full text-xs font-semibold border border-fuchsia-200 flex items-center gap-1">
-            <Lock className="w-3.5 h-3.5" /> Có phân quyền
-          </div>
+          <Link href="/fanpage-inbox" className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+            Mở Fanpage Inbox <ExternalLink className="h-4 w-4" />
+          </Link>
+          <Link href="/approval-queue" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Hàng chờ duyệt <ExternalLink className="h-4 w-4" />
+          </Link>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 shrink-0">
-        <MetricCard title="Tin chưa đọc" value={teamInboxSummaryMetrics.totalUnread.toString()} trend="up" icon={<MessageSquare className="w-5 h-5" />} color="danger" />
-        <MetricCard title="Chưa ai nhận" value={teamInboxSummaryMetrics.unassignedConversations.toString()} icon={<User className="w-5 h-5" />} color="warning" />
-        <MetricCard title="Quá SLA" value={teamInboxSummaryMetrics.overdueSla.toString()} icon={<Clock className="w-5 h-5" />} color="danger" />
-        <MetricCard title="Nhân viên online demo" value={teamInboxSummaryMetrics.activeStaff.toString()} icon={<Users className="w-5 h-5" />} color="success" />
-        <MetricCard title="Hotline đang xử lý" value={teamInboxSummaryMetrics.hotlineThreads.toString()} icon={<Phone className="w-5 h-5" />} color="primary" />
-        <MetricCard title="Nháp chờ duyệt" value={teamInboxSummaryMetrics.waitingApprovalDrafts.toString()} icon={<CheckCircle2 className="w-5 h-5" />} color="primary" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <MetricCard title="Hội thoại Fanpage" value={conversations.length} icon={<Inbox className="h-5 w-5" />} color="primary" />
+        <MetricCard title="Khách đã liên kết" value={linkedKháchCount} icon={<User className="h-5 w-5" />} color="success" />
+        <MetricCard title="Khách nóng" value={hotKháchCount} icon={<Bot className="h-5 w-5" />} color="warning" />
+        <MetricCard title="Tin chờ duyệt" value={readyOutboxCount} icon={<ShieldCheck className="h-5 w-5" />} color="info" />
+        <MetricCard title="Việc đang mở" value={openTaskCount} icon={<CheckCircle2 className="h-5 w-5" />} color="default" />
       </div>
 
-      {/* 3-Pane Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
-        
-        {/* Left Pane: Channels & Staff */}
-        <div className="w-full lg:w-72 flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="font-bold text-slate-800 mb-3 text-sm">Kênh liên hệ</h3>
-            <div className="space-y-2">
-              {mockChannelsAndAccounts.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${c.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                    <span className="text-sm font-medium text-slate-700">{c.name}</span>
-                  </div>
-                  {c.unreadCount > 0 && (
-                    <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                      {c.unreadCount}
-                    </span>
-                  )}
-                </div>
+      <div className="grid min-h-[620px] gap-6 lg:grid-cols-[280px_minmax(320px,420px)_1fr]">
+        <aside className="space-y-4">
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-bold text-slate-800">Kênh dữ liệu</h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-emerald-800">
+                <span>Facebook Fanpage</span>
+                <span className="font-bold">{conversations.length}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-slate-600">
+                <span>Zalo OA/Hotline</span>
+                <span className="text-xs font-semibold">Chưa nối thật</span>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-blue-50 px-3 py-2 text-blue-800">
+                <span>Hàng chờ duyệt</span>
+                <span className="font-bold">{outboxItems.length}</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-900">
+            <h2 className="mb-2 flex items-center gap-2 font-bold"><ShieldCheck className="h-4 w-4" /> Trạng thái an toàn</h2>
+            <p>Trang này chỉ điều phối dữ liệu đã lưu thật. Tin nhắn ra ngoài được đưa qua Hàng chờ duyệt, không gọi kết nối thật.</p>
+          </section>
+        </aside>
+
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50 p-4">
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['ALL', 'Tất cả'],
+                ['LEAD', 'Có khách'],
+                ['HOT', 'Nóng'],
+                ['NO_LEAD', 'Chưa có khách'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFilter(value as typeof filter)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === value ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                >
+                  {label}
+                </button>
               ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="font-bold text-slate-800 mb-3 text-sm flex justify-between items-center">
-              Tài khoản công việc demo
-              <span title="Chỉ hiển thị các tài khoản Zalo công việc hoặc Hotline dùng chung. Không hiển thị Zalo cá nhân.">
-                <Info className="w-4 h-4 text-slate-400" />
-              </span>
-            </h3>
-            <p className="text-xs text-slate-500 mb-3 bg-slate-50 p-2 rounded">Không giám sát cá nhân. Chỉ mô phỏng phân quyền.</p>
-            <div className="space-y-3">
-              {mockStaffProfiles.map(s => {
-                let roleColor = "bg-slate-100 text-slate-600";
-                if (s.staffName.includes("Teacher") || s.staffName.includes("Giáo")) roleColor = "bg-blue-100 text-blue-700";
-                if (s.staffName.includes("Sale") || s.staffName.includes("CSKH")) roleColor = "bg-amber-100 text-amber-700";
-                
-                return (
-                <div key={s.id} className="flex flex-col gap-1 p-2 border border-slate-100 rounded-lg hover:border-primary/30 transition-colors cursor-pointer relative">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${s.status === 'online' ? 'bg-emerald-500' : s.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`}></div>
-                      <span className="text-sm font-semibold text-slate-800">{s.staffName}</span>
-                    </div>
-                    {s.unreadCount > 0 && (
-                      <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {s.unreadCount} tin
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500 mt-1">
-                    <span className="truncate w-32">{s.workChannelName}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${roleColor}`}>
-                      {s.staffName.includes("Teacher") ? "Học vụ" : s.staffName.includes("Sale") ? "Sale" : "Admin"}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    Phụ trách: {s.assignedConversations} hội thoại
-                  </div>
-                </div>
-              )})}
-            </div>
-          </div>
-
-          <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-            <h3 className="font-bold text-indigo-900 mb-2 text-sm flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4" /> Phân quyền xử lý hội thoại
-            </h3>
-            <ul className="text-xs text-indigo-800 space-y-1 list-disc pl-4">
-              <li><strong>CEO/Admin:</strong> xem toàn bộ, phân quyền, chuyển hội thoại</li>
-              <li><strong>Quản lý:</strong> xem team, phân việc, duyệt nháp</li>
-              <li><strong>Sale:</strong> xử lý lead/hotline được giao</li>
-              <li><strong>Giáo viên:</strong> xem học viên liên quan lớp</li>
-              <li><strong>Kế toán:</strong> xem hội thoại học phí</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Middle Pane: Conversation List */}
-        <div className="w-full lg:w-96 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shrink-0">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-3 shrink-0">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Tìm tên, SĐT, tin nhắn..." className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-            </div>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-              <button onClick={() => setFilter('ALL')} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Tất cả</button>
-              <button onClick={() => setFilter('UNREAD')} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'UNREAD' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Chưa nhận</button>
-              <button onClick={() => setFilter('OVERDUE')} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'OVERDUE' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Quá SLA</button>
-              <button onClick={() => setFilter('DRAFT')} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'DRAFT' ? 'bg-fuchsia-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Chờ duyệt nháp</button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {filteredConversations.map(conv => (
-              <div 
-                key={conv.id} 
-                onClick={() => setSelectedConvId(conv.id)}
-                className={`p-4 border-b border-slate-100 cursor-pointer transition-all hover:bg-slate-50 ${selectedConvId === conv.id ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}
+          <div className="max-h-[560px] overflow-y-auto">
+            {filteredConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                type="button"
+                onClick={() => setSelectedConvId(conversation.id)}
+                className={`block w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 ${selectedConversation?.id === conversation.id ? 'bg-primary/5' : 'bg-white'}`}
               >
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="font-semibold text-slate-900 text-sm">{conv.customerName}</h4>
-                  <span className="text-[10px] text-slate-400">{conv.lastActivityLabel}</span>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-slate-500">{conv.maskedPhone}</span>
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{conv.channel}</span>
-                </div>
-                <p className="text-xs text-slate-600 line-clamp-2 mb-2">{conv.lastMessagePreview}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <StatusBadge status={getStatusType(conv.status)} label={conv.status} />
-                  <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
-                    <User className="w-3 h-3" /> {conv.assignedStaff}
-                  </span>
-                </div>
-                {conv.slaStatus === 'Quá SLA' && (
-                  <div className="mt-2 text-[10px] text-rose-600 flex items-center gap-1 font-medium bg-rose-50 px-2 py-1 rounded w-fit">
-                    <Clock className="w-3 h-3" /> Cảnh báo: Quá SLA phản hồi
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-900">{conversation.lead?.name || `Khách FB ${conversation.psid.slice(0, 8)}`}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{conversation.pageName}</p>
                   </div>
-                )}
-              </div>
+                  <span className="shrink-0 text-xs text-slate-400">{formatTime(conversation.lastMessageAt)}</span>
+                </div>
+                <p className="mt-3 line-clamp-2 text-sm text-slate-600">{conversation.lastText || 'Chưa có nội dung tin nhắn'}</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <StatusBadge status={stageStatus(conversation.lead?.stage)} label={stageLabel(conversation.lead?.stage)} />
+                  <span className="text-xs text-slate-500">{conversation.messageCount} tin</span>
+                </div>
+              </button>
             ))}
             {filteredConversations.length === 0 && (
-              <div className="p-8 text-center text-slate-500 text-sm">Không tìm thấy hội thoại nào.</div>
+              <div className="p-8 text-center text-sm text-slate-500">Không có hội thoại phù hợp bộ lọc.</div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Right Pane: Detail & Chat */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[500px] overflow-hidden">
-          {selectedConv ? (
-            <>
-              {/* Detail Header */}
-              <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col gap-3 shrink-0">
-                <div className="flex justify-between items-start">
+        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          {selectedConversation ? (
+            <div className="flex h-full flex-col">
+              <div className="border-b border-slate-100 bg-slate-50 p-5">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="font-bold text-lg text-slate-900">{selectedConv.customerName}</h3>
-                    <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                      <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {selectedConv.maskedPhone}</span>
-                      {selectedConv.studentName && <span>Học viên: <span className="font-medium text-slate-700">{selectedConv.studentName}</span></span>}
-                    </div>
+                    <h2 className="text-lg font-bold text-slate-900">{selectedConversation.lead?.name || `Khách FB ${selectedConversation.psid}`}</h2>
+                    <p className="mt-1 text-sm text-slate-500">{selectedConversation.pageName} · {formatTime(selectedConversation.lastMessageAt)}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50">Nhận xử lý (Demo)</button>
-                    <button className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50">Chuyển nhân viên (Demo)</button>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-medium border border-indigo-100 flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" /> Nguồn: {selectedConv.channel}
-                  </span>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium flex items-center gap-1" title="Demo phân quyền: Chỉ người được giao mới có thể xử lý">
-                    <User className="w-3 h-3" /> Phụ trách: {selectedConv.assignedStaff}
-                  </span>
-                  <StatusBadge status={getStatusType(selectedConv.status)} label={selectedConv.status} />
-                  {selectedConv.tags.map(tag => (
-                    <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">#{tag}</span>
-                  ))}
-                </div>
-                
-                {selectedConv.status === 'Cần chuyển người' && (
-                  <div className="mt-1 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded flex items-center gap-1 w-fit">
-                    <AlertTriangle className="w-3 h-3" /> Lead này yêu cầu chuyên môn khác. Sale hiện tại không có quyền xem thông tin điểm số. CEO/Quản lý cần reassign.
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Thread */}
-              <div className="flex-1 p-4 overflow-y-auto bg-slate-50/30 space-y-4">
-                <div className="text-center text-xs text-slate-400 my-4">Bắt đầu hội thoại - {selectedConv.createdAtLabel}</div>
-                
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`flex flex-col max-w-[80%] ${msg.senderType === 'parent' ? 'self-start' : msg.senderType === 'internal_note' ? 'self-center w-full max-w-full' : 'self-end items-end'}`}>
-                    {msg.senderType === 'internal_note' ? (
-                      <div className="bg-amber-50 border border-amber-100 text-amber-800 text-xs px-4 py-2 rounded-lg text-center mx-auto my-2 shadow-sm flex items-center gap-2">
-                        <Lock className="w-3 h-3" /> Ghi chú nội bộ: {msg.message}
-                      </div>
-                    ) : (
-                      <>
-                        <div className={`px-4 py-2 rounded-2xl ${
-                          msg.senderType === 'parent' 
-                            ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-none' 
-                            : msg.draftOnly
-                              ? 'bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-900 rounded-tr-none border-dashed'
-                              : 'bg-primary text-white rounded-tr-none'
-                        }`}>
-                          {msg.draftOnly && <div className="text-[10px] font-bold text-fuchsia-600 mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> NHÁP AI CHỜ DUYỆT</div>}
-                          <p className="text-sm">{msg.message}</p>
-                        </div>
-                        <span className="text-[10px] text-slate-400 mt-1">{msg.time}</span>
-                      </>
-                    )}
-                  </div>
-                ))}
-
-                {/* AI Suggestion Box */}
-                {aiSuggestion && (
-                  <div className="mt-6 bg-white border border-fuchsia-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-fuchsia-500"></div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-fuchsia-100 flex items-center justify-center shrink-0">
-                        <Bot className="w-4 h-4 text-fuchsia-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-xs font-bold text-fuchsia-700 uppercase tracking-wider mb-1">AI Gợi Ý Phản Hồi</h4>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm text-slate-700 mb-2">
-                          "{aiSuggestion.draftText}"
-                        </div>
-                        <div className="text-xs text-slate-500 mb-3">
-                          <span className="font-semibold">Lý do:</span> {aiSuggestion.reason}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button className="px-3 py-1.5 bg-fuchsia-600 text-white rounded-lg text-xs font-semibold hover:bg-fuchsia-700 flex items-center gap-1">
-                            <Send className="w-3 h-3" /> Gửi & Hoàn tất (Demo)
-                          </button>
-                          <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50">
-                            Sửa nháp
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Input Area */}
-              <div className="p-4 border-t border-slate-100 bg-white shrink-0">
-                <div className="flex gap-2">
-                  <button className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 flex items-center justify-center" title="Soạn nháp AI (Demo)">
-                    <Bot className="w-5 h-5" />
-                  </button>
-                  <input 
-                    type="text" 
-                    placeholder="Nhập tin nhắn trả lời..." 
-                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    readOnly
-                  />
-                  <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium text-sm flex items-center gap-2">
-                    <Send className="w-4 h-4" /> Gửi (Demo)
-                  </button>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button className="text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Lưu ghi chú nội bộ (Demo)
-                  </button>
-                  <button className="text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 ml-4">
-                    <CheckCircle2 className="w-3 h-3" /> Đánh dấu đã xử lý demo
-                  </button>
+                  <StatusBadge status={stageStatus(selectedConversation.lead?.stage)} label={stageLabel(selectedConversation.lead?.stage)} />
                 </div>
               </div>
-            </>
+
+              <div className="flex-1 space-y-5 p-5">
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Tin mới nhất</h3>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{selectedConversation.lastText || 'Chưa có nội dung'}</div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Link href="/fanpage-inbox" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Mở hội thoại trong Fanpage Inbox
+                  </Link>
+                  <Link href="/tasks" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Xem việc chăm sóc
+                  </Link>
+                  <Link href="/leads" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Mở danh sách khách
+                  </Link>
+                  <Link href="/approval-queue" className="rounded-lg border border-slate-200 p-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    Kiểm tra Hàng chờ duyệt
+                  </Link>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-slate-500"><Clock className="h-4 w-4" /> Tin nháp gần đây</h3>
+                  <div className="space-y-2">
+                    {outboxItems.slice(0, 5).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                          <span>{item.channel} · {draftStatusLabel(item.status)}</span>
+                          <span>{formatTime(item.createdAt)}</span>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-sm text-slate-700">{item.messageSafeSummary}</p>
+                      </div>
+                    ))}
+                    {outboxItems.length === 0 && <p className="text-sm text-slate-500">Chưa có tin nào trong Hàng chờ duyệt.</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center flex-col text-slate-400">
-              <MessageSquare className="w-12 h-12 mb-2 text-slate-200" />
-              <p>Chọn một hội thoại để xem chi tiết</p>
+            <div className="flex h-full min-h-[520px] flex-col items-center justify-center text-center text-slate-400">
+              <MessageSquare className="mb-3 h-12 w-12 text-slate-200" />
+              <p>Chưa có hội thoại thật để hiển thị.</p>
+              <Link href="/fanpage-inbox" className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Mở Fanpage Inbox</Link>
             </div>
           )}
-        </div>
-      </div>
-      
-      {/* CEO Oversight Panel */}
-      <div className="bg-slate-900 rounded-xl p-5 text-white shadow-lg shrink-0 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Play className="w-32 h-32" />
-        </div>
-        <div className="relative z-10">
-          <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-            <User className="w-5 h-5 text-fuchsia-400" /> CEO nhìn thấy gì?
-          </h3>
-          <p className="text-slate-300 text-sm mb-4 max-w-3xl">
-            Trong module Tin nhắn & Zalo, CEO không cần truy cập từng tài khoản cá nhân. Hệ thống tự động thu thập và phân tích dữ liệu từ các "Tài khoản công việc / Hotline" đã được cấp phép, cung cấp bức tranh toàn cảnh về hiệu suất chăm sóc khách hàng.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white/10 rounded-lg p-3 border border-white/5">
-              <div className="text-fuchsia-400 text-xs font-bold uppercase mb-1">Workload Summary</div>
-              <div className="text-white text-sm">Sale 1 đang quá tải ({mockStaffProfiles.find(s => s.id === 's3')?.assignedConversations} hội thoại), trong khi CSKH 2 đang rảnh. Gợi ý điều phối lại.</div>
-            </div>
-            <div className="bg-white/10 rounded-lg p-3 border border-white/5">
-              <div className="text-rose-400 text-xs font-bold uppercase mb-1">Cảnh báo SLA</div>
-              <div className="text-white text-sm">Có {teamInboxSummaryMetrics.overdueSla} hội thoại chưa được phản hồi quá 30 phút. Trưởng phòng Sale cần can thiệp.</div>
-            </div>
-            <div className="bg-white/10 rounded-lg p-3 border border-white/5">
-              <div className="text-emerald-400 text-xs font-bold uppercase mb-1">Governance Audit</div>
-              <div className="text-white text-sm">Không scrape tin nhắn riêng tư. Toàn bộ {teamInboxSummaryMetrics.hotlineThreads} luồng hotline trung tâm đều được lưu trữ audit-ready.</div>
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -1,19 +1,25 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { 
-  Sparkles, ArrowRight, AlertTriangle, CheckCircle2, Clock, 
-  Users, BookOpen, GraduationCap, LayoutDashboard, Calendar,
-  CalendarX2, ClipboardList, PenTool, ExternalLink
-} from 'lucide-react';
-import { 
-  mockAcademicTasks, 
-  mockRooms,
-} from '@/lib/academicDemoData';
-import { detectScheduleConflicts, ScheduleConflict } from '@/lib/scheduleConflictDetection';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { markAttendance } from '../../actions/teacher';
+import type { AttendanceStatus } from '@eduos/db';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BookOpen,
+  Calendar,
+  CalendarX2,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  GraduationCap,
+  LayoutDashboard,
+  PenTool,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { markAttendance } from '../../actions/teacher';
 
 export type RealSession = {
   id: string;
@@ -22,116 +28,187 @@ export type RealSession = {
   roomName: string;
   startTime: string;
   endTime: string;
+  startMs: number;
+  endMs: number;
   studentCount: number;
   attendances: { id: string; studentId: string; studentName: string; status: string }[];
   attendanceStatus: string;
   homeworkStatus: string;
+  assignedHomeworkCount: number;
+  missingSubmissionCount: number;
 };
 
 export type RealClass = {
   id: string;
   classCode: string;
-  courseId: string;
+  courseName: string;
   teacherName: string;
   studentCount: number;
   status: string;
 };
 
-function ActionCard({ 
-  title, 
-  metric, 
-  reason, 
-  severity = "info", 
-  onClick 
-}: { 
-  title: string, 
-  metric: number | string, 
-  reason: string, 
-  severity?: "success" | "warning" | "critical" | "info",
-  onClick: () => void
+export type ApprovalDraft = {
+  id: string;
+  title: string;
+  studentName: string;
+  className: string;
+  teacherName: string;
+  score: number;
+  createdAt: string;
+  comment: string;
+};
+
+type Tab = 'overview' | 'classes' | 'schedule' | 'conflicts' | 'attendance' | 'approval';
+
+type ScheduleConflict = {
+  id: string;
+  title: string;
+  description: string;
+  involvedSessions: RealSession[];
+};
+
+const DONE_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
+
+function getAttendanceStatusLabel(attendances: RealSession['attendances']) {
+  if (attendances.length === 0) return 'Chưa điểm danh';
+  return attendances.every((attendance) => DONE_ATTENDANCE_STATUSES.includes(attendance.status)) ? 'Đủ' : 'Thiếu';
+}
+
+function ActionCard({
+  title,
+  metric,
+  reason,
+  severity = 'info',
+  onClick,
+}: {
+  title: string;
+  metric: number | string;
+  reason: string;
+  severity?: 'success' | 'warning' | 'critical' | 'info';
+  onClick: () => void;
 }) {
   const colorMap = {
-    success: "bg-emerald-50 border-emerald-200 text-emerald-800",
-    warning: "bg-amber-50 border-amber-200 text-amber-800",
-    critical: "bg-rose-50 border-rose-200 text-rose-800",
-    info: "bg-blue-50 border-blue-200 text-blue-800"
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    warning: 'bg-amber-50 border-amber-200 text-amber-800',
+    critical: 'bg-rose-50 border-rose-200 text-rose-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
   };
-
   const iconMap = {
-    success: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
-    warning: <Clock className="w-5 h-5 text-amber-500" />,
-    critical: <AlertTriangle className="w-5 h-5 text-rose-500" />,
-    info: <Sparkles className="w-5 h-5 text-blue-500" />
+    success: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
+    warning: <Clock className="h-5 w-5 text-amber-500" />,
+    critical: <AlertTriangle className="h-5 w-5 text-rose-500" />,
+    info: <Sparkles className="h-5 w-5 text-blue-500" />,
   };
 
   return (
-    <div 
-      className={`flex flex-col p-5 rounded-xl border cursor-pointer hover:shadow-md transition-all ${colorMap[severity]} shadow-sm`}
+    <button
+      type="button"
+      className={`flex min-h-40 flex-col rounded-xl border p-5 text-left shadow-sm transition-all hover:shadow-md ${colorMap[severity]}`}
       onClick={onClick}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-bold text-sm tracking-tight opacity-80">{title}</h3>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <h3 className="text-sm font-bold tracking-tight opacity-80">{title}</h3>
         {iconMap[severity]}
       </div>
-      <div className="text-3xl font-black mb-3">
-        {metric}
+      <div className="mb-3 text-3xl font-black">{metric}</div>
+      <p className="flex-1 text-sm leading-snug opacity-75">{reason}</p>
+      <div className="mt-3 flex items-center justify-end gap-1 border-t border-black/5 pt-2 text-xs font-semibold opacity-60">
+        Xem chi tiết <ArrowRight className="h-3 w-3" />
       </div>
-      <p className="text-sm opacity-75 flex-1 mb-2 leading-snug">
-        {reason}
-      </p>
-      <div className="mt-auto pt-2 border-t border-black/5 opacity-60 text-xs font-semibold flex items-center justify-end gap-1">
-        Xem chi tiết <ArrowRight className="w-3 h-3" />
+    </button>
+  );
+}
+
+function SafetyBanner() {
+  return (
+    <div className="mb-6 flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-100 p-3 text-sm font-medium text-amber-800">
+      <AlertTriangle className="h-5 w-5 text-amber-600" />
+      <div>
+        <strong>Dữ liệu lớp học là dữ liệu thật trong tenant.</strong> Các tin nhắn phát sinh từ điểm danh vắng/trễ chỉ vào
+        hàng chờ duyệt, chưa gửi Zalo thật.
       </div>
     </div>
   );
 }
 
-function DemoBanner() {
+function TabButton({
+  activeTab,
+  count,
+  icon,
+  label,
+  tab,
+  tone = 'default',
+  onClick,
+}: {
+  activeTab: Tab;
+  count?: number;
+  icon: React.ReactNode;
+  label: string;
+  tab: Tab;
+  tone?: 'default' | 'danger' | 'ai';
+  onClick: (tab: Tab) => void;
+}) {
+  const activeClass =
+    tone === 'danger'
+      ? 'bg-rose-600 text-white border-rose-600 shadow-md'
+      : tone === 'ai'
+        ? 'bg-indigo-700 text-white border-indigo-700 shadow-md'
+        : 'bg-slate-900 text-white border-slate-900 shadow-md';
+
   return (
-    <div className="bg-amber-100 border border-amber-300 text-amber-800 p-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 mb-6">
-      <AlertTriangle className="w-5 h-5 text-amber-600" />
-      <div>
-        <strong>Chế độ Sandbox:</strong> Không có tin nhắn Zalo, điểm số, hoặc báo cáo thật nào được gửi đi trong môi trường này.
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={() => onClick(tab)}
+      className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-all ${
+        activeTab === tab ? activeClass : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+      }`}
+    >
+      {icon} {label}
+      {typeof count === 'number' && count > 0 && (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-900">{count}</span>
+      )}
+    </button>
   );
 }
 
 export function TeacherWorkspaceClient({
   initialClasses,
-  initialSessions
+  initialSessions,
+  initialApprovalDrafts,
 }: {
   initialClasses: RealClass[];
   initialSessions: RealSession[];
+  initialApprovalDrafts: ApprovalDraft[];
 }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'schedule' | 'conflicts' | 'attendance' | 'approval'>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sessions, setSessions] = useState<RealSession[]>(initialSessions);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // For the demo we won't detect complex real conflicts right now, just show a placeholder
-  const conflicts: any[] = []; // useMemo(() => detectScheduleConflicts(sessions as any), [sessions]);
+  const conflicts = useMemo(() => detectTeacherConflicts(sessions), [sessions]);
+  const missingAttendance = sessions.filter((session) => session.attendanceStatus !== 'Đủ').length;
+  const missingHomework = sessions.reduce((total, session) => total + session.missingSubmissionCount, 0);
+  const pendingApprovals = initialApprovalDrafts.length;
 
-  const totalClasses = sessions.length;
-  const missingAttendance = sessions.filter(s => s.attendanceStatus !== 'Đủ').length;
-  const missingHomework = sessions.filter(s => s.homeworkStatus === 'Thiếu bài').length;
-  const pendingApprovals = mockAcademicTasks.filter(t => t.status === 'Chờ giáo viên duyệt').length;
-  const criticalConflicts = 0;
-
-  const handleMarkAttendance = async (attendanceId: string, status: any) => {
+  const handleMarkAttendance = async (attendanceId: string, status: AttendanceStatus) => {
     try {
       setIsUpdating(true);
       await markAttendance(attendanceId, status);
-      toast.success("Đã cập nhật điểm danh!");
-      
-      // Optimistic update
-      setSessions(prev => prev.map(session => ({
-        ...session,
-        attendances: session.attendances.map(a => 
-          a.id === attendanceId ? { ...a, status } : a
-        )
-      })));
-    } catch (error) {
-      toast.error("Có lỗi xảy ra khi điểm danh");
+      toast.success('Đã cập nhật điểm danh. Nếu vắng/trễ, hệ thống đã tạo nháp hàng chờ duyệt.');
+      setSessions((previous) =>
+        previous.map((session) => {
+          const attendances = session.attendances.map((attendance) =>
+            attendance.id === attendanceId ? { ...attendance, status } : attendance,
+          );
+
+          return {
+            ...session,
+            attendances,
+            attendanceStatus: getAttendanceStatusLabel(attendances),
+          };
+        }),
+      );
+    } catch {
+      toast.error('Có lỗi xảy ra khi điểm danh.');
     } finally {
       setIsUpdating(false);
     }
@@ -139,395 +216,321 @@ export function TeacherWorkspaceClient({
 
   return (
     <div className="space-y-6 pb-12">
-      <DemoBanner />
+      <SafetyBanner />
 
-      {/* Tabs */}
-      <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
-        <button 
-          onClick={() => setActiveTab('overview')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'overview' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <LayoutDashboard className="w-4 h-4" /> Tổng quan
-        </button>
-        <button 
-          onClick={() => setActiveTab('classes')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'classes' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <BookOpen className="w-4 h-4" /> Lớp học <span className="bg-slate-100 text-slate-900 px-2 py-0.5 rounded-full text-xs">{initialClasses.length}</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('schedule')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'schedule' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <Calendar className="w-4 h-4" /> Lịch hôm nay <span className="bg-slate-100 text-slate-900 px-2 py-0.5 rounded-full text-xs">{totalClasses}</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('conflicts')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'conflicts' 
-              ? 'bg-rose-600 text-white border-rose-600 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-rose-50 hover:text-rose-700'}`}
-        >
-          <CalendarX2 className="w-4 h-4" /> Trùng lịch 
-          {criticalConflicts > 0 && (
-            <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full text-xs font-bold">{criticalConflicts}</span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('attendance')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'attendance' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <ClipboardList className="w-4 h-4" /> Điểm danh & Báo bài
-        </button>
-        <button 
-          onClick={() => setActiveTab('approval')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'approval' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <PenTool className="w-4 h-4" /> Giáo viên cần duyệt
-        </button>
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <TabButton activeTab={activeTab} icon={<LayoutDashboard className="h-4 w-4" />} label="Tổng quan" tab="overview" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={initialClasses.length} icon={<BookOpen className="h-4 w-4" />} label="Lớp học" tab="classes" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={sessions.length} icon={<Calendar className="h-4 w-4" />} label="Lịch hôm nay" tab="schedule" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={conflicts.length} icon={<CalendarX2 className="h-4 w-4" />} label="Trùng lịch" tab="conflicts" tone="danger" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} icon={<ClipboardList className="h-4 w-4" />} label="Điểm danh & Bài tập" tab="attendance" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={pendingApprovals} icon={<PenTool className="h-4 w-4" />} label="Cần duyệt" tab="approval" tone="ai" onClick={setActiveTab} />
       </div>
 
-      {/* Tab Content */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            <div className="bg-gradient-to-r from-blue-900 to-indigo-800 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
-              <div className="relative z-10">
-                <h1 className="text-3xl font-black tracking-tight mb-2 flex items-center gap-3">
-                  <GraduationCap className="w-8 h-8 opacity-80" />
-                  Học vụ & Giảng dạy hôm nay
-                </h1>
-                <p className="text-indigo-100 max-w-2xl text-lg mb-6 leading-relaxed">
-                  Tập trung vào lớp cần điểm danh, bài tập cần chấm và học viên vắng.
-                </p>
-                <div className="flex flex-wrap gap-2 mt-6">
-                  <Link href="/homework" className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 transition-colors text-indigo-100 text-sm font-medium rounded-full border border-white/10">
-                    <BookOpen className="w-4 h-4" /> Xem Module Bài tập
-                  </Link>
-                  <Link href="/approval-queue" className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 transition-colors text-indigo-100 text-sm font-medium rounded-full border border-white/10">
-                    <CheckCircle2 className="w-4 h-4" /> Hàng đợi duyệt
-                  </Link>
-                </div>
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-800 p-8 text-white shadow-lg">
+              <h1 className="mb-2 flex items-center gap-3 text-3xl font-black tracking-tight">
+                <GraduationCap className="h-8 w-8 opacity-80" /> Học vụ & Giảng dạy hôm nay
+              </h1>
+              <p className="mb-6 max-w-2xl text-lg leading-relaxed text-indigo-100">
+                Tập trung vào lớp cần điểm danh, bài tập còn thiếu và bản chấm nháp AI cần giáo viên duyệt.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/homework" className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-indigo-100 transition-colors hover:bg-white/20">
+                  <BookOpen className="h-4 w-4" /> Xem bài tập
+                </Link>
+                <Link href="/approval-queue" className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-indigo-100 transition-colors hover:bg-white/20">
+                  <CheckCircle2 className="h-4 w-4" /> Hàng đợi duyệt
+                </Link>
               </div>
             </div>
 
             <section>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">
-                🔥 Việc cần xử lý hôm nay
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <ActionCard 
-                  title="Cần điểm danh"
-                  metric={missingAttendance}
-                  severity={missingAttendance > 0 ? "warning" : "success"}
-                  reason="Có lớp chưa hoàn thành điểm danh."
-                  onClick={() => setActiveTab('attendance')}
-                />
-                <ActionCard 
-                  title="Giáo viên cần duyệt"
-                  metric={pendingApprovals}
-                  severity={pendingApprovals > 0 ? "warning" : "success"}
-                  reason="Nhận xét AI tạo nháp đang chờ duyệt."
-                  onClick={() => setActiveTab('approval')}
-                />
-                <ActionCard 
-                  title="Trùng lịch"
-                  metric={conflicts.length}
-                  severity={conflicts.length > 0 ? "critical" : "success"}
-                  reason="Trùng giáo viên hoặc phòng học."
-                  onClick={() => setActiveTab('conflicts')}
-                />
-                <ActionCard 
-                  title="Thiếu bài tập"
-                  metric={missingHomework}
-                  severity="info"
-                  reason="Học viên chưa nộp bài."
-                  onClick={() => setActiveTab('attendance')}
-                />
+              <h2 className="mb-4 flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">Việc cần xử lý hôm nay</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <ActionCard title="Cần điểm danh" metric={missingAttendance} severity={missingAttendance > 0 ? 'warning' : 'success'} reason="Số ca học hôm nay chưa hoàn tất điểm danh." onClick={() => setActiveTab('attendance')} />
+                <ActionCard title="Giáo viên cần duyệt" metric={pendingApprovals} severity={pendingApprovals > 0 ? 'warning' : 'success'} reason="Bản chấm nháp AI đang chờ giáo viên xác nhận." onClick={() => setActiveTab('approval')} />
+                <ActionCard title="Trùng lịch" metric={conflicts.length} severity={conflicts.length > 0 ? 'critical' : 'success'} reason="Trùng giáo viên trong lịch học thật hôm nay." onClick={() => setActiveTab('conflicts')} />
+                <ActionCard title="Bài thiếu" metric={missingHomework} severity={missingHomework > 0 ? 'info' : 'success'} reason="Số lượt học viên chưa nộp đủ bài đã giao." onClick={() => setActiveTab('attendance')} />
               </div>
             </section>
           </div>
         )}
 
-        {/* CLASSES TAB */}
         {activeTab === 'classes' && (
-          <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-indigo-600" />
-              Lớp học của tôi
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h2 className="mb-6 flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
+              <BookOpen className="h-6 w-6 text-indigo-600" /> Lớp học của tôi
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
               {initialClasses.length === 0 ? (
-                <div className="text-slate-500 col-span-full">Bạn chưa được phân công lớp nào.</div>
-              ) : initialClasses.map(cls => (
-                <div key={cls.id} className="border rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full bg-slate-50/50">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-bold text-xl text-indigo-700">{cls.classCode}</h3>
-                      <p className="text-slate-500 text-sm mt-1">{cls.courseId}</p>
-                    </div>
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${cls.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                      {cls.status}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3 mt-auto pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center text-slate-600">
-                        <Users className="w-4 h-4 mr-2" /> Học viên
-                      </div>
-                      <div className="font-semibold text-slate-900">
-                        {cls.studentCount}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center text-slate-600">
-                        <PenTool className="w-4 h-4 mr-2" /> Giáo viên
-                      </div>
-                      <div className="font-semibold text-slate-900">
-                        {cls.teacherName}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* SCHEDULE TAB */}
-        {activeTab === 'schedule' && (
-          <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6">📅 Lịch dạy hôm nay</h2>
-            <div className="space-y-4">
-              {sessions.length === 0 ? (
-                <div className="text-slate-500 font-medium">Bạn không có ca dạy nào trong hôm nay.</div>
-              ) : sessions.map(session => (
-                <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="w-full sm:w-24 flex sm:block justify-between items-center sm:text-center shrink-0">
-                    <div className="text-lg font-black text-slate-900">{session.startTime}</div>
-                    <div className="text-sm text-slate-500 font-medium">{session.endTime}</div>
-                  </div>
-                  <div className="hidden sm:block w-px h-12 bg-slate-200 shrink-0"></div>
-                  <div className="flex-1 w-full">
-                    <h3 className="font-bold text-lg text-slate-900">{session.className}</h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 mt-1">
-                      <span className="flex items-center gap-1 font-medium"><Users className="w-4 h-4" /> {session.studentCount} hv</span>
-                      <span className="flex items-center gap-1 font-medium"><PenTool className="w-4 h-4" /> {session.teacherName}</span>
-                      <span className="flex items-center gap-1 font-medium"><CheckCircle2 className="w-4 h-4" /> {session.roomName}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <button 
-                      onClick={() => setActiveTab('attendance')}
-                      className="w-full sm:w-auto px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-sm rounded-lg border border-indigo-200 transition-colors shadow-sm"
-                    >
-                      Điểm danh
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* CONFLICTS TAB */}
-        {activeTab === 'conflicts' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">⚠️ Danh sách trùng lịch</h2>
-              {conflicts.length === 0 && <span className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">Tuyệt vời, không có trùng lịch!</span>}
-            </div>
-
-            {conflicts.map(conflict => (
-              <div key={conflict.id} className={`p-6 border rounded-2xl shadow-sm bg-white ${conflict.severity === 'Chặn demo' ? 'border-rose-300' : 'border-amber-300'}`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      {conflict.severity === 'Chặn demo' ? (
-                        <span className="bg-rose-100 text-rose-800 text-xs px-2 py-0.5 rounded-full font-bold">{conflict.severity}</span>
-                      ) : (
-                        <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">{conflict.severity}</span>
-                      )}
-                      <h3 className="font-black text-lg text-slate-900">{conflict.title}</h3>
-                    </div>
-                    <p className="text-slate-600 font-medium">{conflict.description}</p>
-                  </div>
-                  <button className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 font-bold text-sm rounded-lg border border-slate-300 transition-colors shadow-sm whitespace-nowrap">
-                    {conflict.suggestedAction}
-                  </button>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col gap-2">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Các ca liên quan</div>
-                  {conflict.involvedSessions.map((session: any) => (
-                    <div key={session.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm text-sm">
-                      <span className="font-bold text-slate-900">{session.className} <span className="text-slate-500 font-medium ml-2">({session.startTime} - {session.endTime})</span></span>
-                      <span className="text-slate-600 font-medium">Giáo viên: {session.teacherName} | Phòng: {session.roomName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ATTENDANCE TAB */}
-        {activeTab === 'attendance' && (
-          <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6">📋 Quản lý Điểm danh & Báo bài</h2>
-            
-            {sessions.length === 0 ? (
-              <div className="text-slate-500 font-medium">Không có dữ liệu điểm danh.</div>
-            ) : (
-              <div className="space-y-8">
-                {sessions.map(session => (
-                  <div key={session.id} className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+                <div className="col-span-full text-slate-500">Chưa có lớp học trong tenant này.</div>
+              ) : (
+                initialClasses.map((classItem) => (
+                  <div key={classItem.id} className="flex h-full flex-col rounded-xl border bg-slate-50/50 p-5 transition-shadow hover:shadow-md">
+                    <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-bold text-lg text-indigo-700">{session.className}</h3>
-                        <p className="text-sm text-slate-500">{session.startTime} - {session.endTime}</p>
+                        <h3 className="text-xl font-bold text-indigo-700">{classItem.classCode}</h3>
+                        <p className="mt-1 text-sm text-slate-500">{classItem.courseName}</p>
                       </div>
-                      <div className="text-sm">
-                        <span className="font-semibold text-slate-700">Trạng thái: </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          session.attendanceStatus === 'Đủ' ? 'bg-emerald-100 text-emerald-800' :
-                          session.attendanceStatus === 'Chưa điểm danh' ? 'bg-rose-100 text-rose-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {session.attendanceStatus}
-                        </span>
-                      </div>
+                      <span className="inline-block rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{classItem.status}</span>
                     </div>
-                    
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead className="bg-white">
-                          <tr className="border-b border-slate-200 text-xs uppercase tracking-wider font-bold text-slate-500">
-                            <th className="py-3 px-4">Học viên</th>
-                            <th className="py-3 px-4 text-center">Có mặt</th>
-                            <th className="py-3 px-4 text-center">Đi trễ</th>
-                            <th className="py-3 px-4 text-center">Vắng (Có phép)</th>
-                            <th className="py-3 px-4 text-center">Vắng (Không phép)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-sm font-medium text-slate-800">
-                          {session.attendances.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="py-4 text-center text-slate-500 italic">Không có học viên trong ca này</td>
-                            </tr>
-                          ) : session.attendances.map(a => (
-                            <tr key={a.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                              <td className="py-3 px-4 font-bold text-slate-900">{a.studentName}</td>
-                              <td className="py-3 px-4 text-center">
-                                <button 
-                                  disabled={isUpdating}
-                                  onClick={() => handleMarkAttendance(a.id, 'PRESENT')}
-                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                                    a.status === 'PRESENT' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-500 text-transparent'
-                                  }`}
-                                >
-                                  {a.status === 'PRESENT' && <CheckCircle2 className="w-4 h-4" />}
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <button 
-                                  disabled={isUpdating}
-                                  onClick={() => handleMarkAttendance(a.id, 'LATE')}
-                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                                    a.status === 'LATE' ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-300 hover:border-orange-500 text-transparent'
-                                  }`}
-                                >
-                                  {a.status === 'LATE' && <CheckCircle2 className="w-4 h-4" />}
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <button 
-                                  disabled={isUpdating}
-                                  onClick={() => handleMarkAttendance(a.id, 'EXCUSED')}
-                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                                    a.status === 'EXCUSED' ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 hover:border-blue-500 text-transparent'
-                                  }`}
-                                >
-                                  {a.status === 'EXCUSED' && <CheckCircle2 className="w-4 h-4" />}
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <button 
-                                  disabled={isUpdating}
-                                  onClick={() => handleMarkAttendance(a.id, 'ABSENT')}
-                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                                    a.status === 'ABSENT' ? 'bg-rose-500 border-rose-500 text-white' : 'border-slate-300 hover:border-rose-500 text-transparent'
-                                  }`}
-                                >
-                                  {a.status === 'ABSENT' && <CheckCircle2 className="w-4 h-4" />}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="mt-auto space-y-3 border-t border-slate-100 pt-4 text-sm">
+                      <div className="flex items-center justify-between"><span className="flex items-center text-slate-600"><Users className="mr-2 h-4 w-4" /> Học viên</span><span className="font-semibold text-slate-900">{classItem.studentCount}</span></div>
+                      <div className="flex items-center justify-between"><span className="flex items-center text-slate-600"><PenTool className="mr-2 h-4 w-4" /> Giáo viên</span><span className="font-semibold text-slate-900">{classItem.teacherName}</span></div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* APPROVAL TAB */}
-        {activeTab === 'approval' && (
-          <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
-              <CheckCircle2 className="w-6 h-6 text-indigo-600" />
-              Công việc cần duyệt
-            </h2>
-            <div className="space-y-4">
-              {mockAcademicTasks.map(task => (
-                <div key={task.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border rounded-xl hover:shadow-md transition-shadow gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-bold border border-slate-200">
-                        {task.approvalMode}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${
-                        task.status === 'Quá hạn' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        task.status === 'Chờ giáo viên duyệt' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                        'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
-                        {task.status}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-lg text-slate-900">{task.title}</h3>
-                    <p className="text-slate-600 text-sm font-medium mt-1">Lớp: {task.className} • Phụ trách: {task.owner} • {task.dueTime}</p>
-                    <p className="text-slate-500 text-sm mt-1">{task.reason}</p>
-                  </div>
-                  <button className="px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 font-bold text-sm rounded-xl transition-colors shadow-sm w-full md:w-auto">
-                    {task.suggestedAction}
-                  </button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
 
+        {activeTab === 'schedule' && (
+          <SessionList sessions={sessions} onOpenAttendance={() => setActiveTab('attendance')} />
+        )}
+
+        {activeTab === 'conflicts' && (
+          <ConflictList conflicts={conflicts} />
+        )}
+
+        {activeTab === 'attendance' && (
+          <AttendanceList sessions={sessions} isUpdating={isUpdating} onMarkAttendance={handleMarkAttendance} />
+        )}
+
+        {activeTab === 'approval' && (
+          <ApprovalList drafts={initialApprovalDrafts} />
+        )}
       </div>
     </div>
   );
+}
+
+function SessionList({ sessions, onOpenAttendance }: { sessions: RealSession[]; onOpenAttendance: () => void }) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="mb-6 text-xl font-bold tracking-tight text-slate-900">Lịch dạy hôm nay</h2>
+      <div className="space-y-4">
+        {sessions.length === 0 ? (
+          <div className="font-medium text-slate-500">Không có ca dạy nào trong hôm nay.</div>
+        ) : (
+          sessions.map((session) => (
+            <div key={session.id} className="flex flex-col gap-4 rounded-xl border p-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center">
+              <div className="flex w-full shrink-0 items-center justify-between sm:block sm:w-24 sm:text-center">
+                <div className="text-lg font-black text-slate-900">{session.startTime}</div>
+                <div className="text-sm font-medium text-slate-500">{session.endTime}</div>
+              </div>
+              <div className="hidden h-12 w-px shrink-0 bg-slate-200 sm:block" />
+              <div className="w-full flex-1">
+                <h3 className="text-lg font-bold text-slate-900">{session.className}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+                  <span className="flex items-center gap-1 font-medium"><Users className="h-4 w-4" /> {session.studentCount} hv</span>
+                  <span className="flex items-center gap-1 font-medium"><PenTool className="h-4 w-4" /> {session.teacherName}</span>
+                  <span className="flex items-center gap-1 font-medium"><CheckCircle2 className="h-4 w-4" /> {session.roomName}</span>
+                </div>
+              </div>
+              <button type="button" onClick={onOpenAttendance} className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 sm:w-auto">
+                Điểm danh
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConflictList({ conflicts }: { conflicts: ScheduleConflict[] }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold tracking-tight text-slate-900">Danh sách trùng lịch</h2>
+        {conflicts.length === 0 && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-bold text-emerald-600">Không phát hiện trùng giáo viên hôm nay</span>}
+      </div>
+      {conflicts.map((conflict) => (
+        <div key={conflict.id} className="rounded-2xl border border-rose-300 bg-white p-6 shadow-sm">
+          <h3 className="mb-1 text-lg font-black text-slate-900">{conflict.title}</h3>
+          <p className="mb-4 font-medium text-slate-600">{conflict.description}</p>
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            {conflict.involvedSessions.map((session) => (
+              <div key={session.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-sm">
+                <span className="font-bold text-slate-900">{session.className} <span className="ml-2 font-medium text-slate-500">({session.startTime} - {session.endTime})</span></span>
+                <span className="font-medium text-slate-600">Giáo viên: {session.teacherName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AttendanceList({
+  sessions,
+  isUpdating,
+  onMarkAttendance,
+}: {
+  sessions: RealSession[];
+  isUpdating: boolean;
+  onMarkAttendance: (attendanceId: string, status: AttendanceStatus) => void;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="mb-6 text-xl font-bold tracking-tight text-slate-900">Quản lý điểm danh & bài tập</h2>
+      {sessions.length === 0 ? (
+        <div className="font-medium text-slate-500">Không có dữ liệu điểm danh hôm nay.</div>
+      ) : (
+        <div className="space-y-8">
+          {sessions.map((session) => (
+            <div key={session.id} className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-indigo-700">{session.className}</h3>
+                  <p className="text-sm text-slate-500">{session.startTime} - {session.endTime}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <StatusPill label="Điểm danh" value={session.attendanceStatus} goodValue="Đủ" />
+                  <StatusPill label="Bài tập" value={session.homeworkStatus} goodValue="Đủ bài" />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-white">
+                    <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-4 py-3">Học viên</th>
+                      <th className="px-4 py-3 text-center">Có mặt</th>
+                      <th className="px-4 py-3 text-center">Đi trễ</th>
+                      <th className="px-4 py-3 text-center">Vắng có phép</th>
+                      <th className="px-4 py-3 text-center">Vắng không phép</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm font-medium text-slate-800">
+                    {session.attendances.length === 0 ? (
+                      <tr><td colSpan={5} className="px-4 py-4 text-center italic text-slate-500">Chưa có bản ghi điểm danh cho ca này.</td></tr>
+                    ) : (
+                      session.attendances.map((attendance) => (
+                        <tr key={attendance.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <td className="px-4 py-3 font-bold text-slate-900">{attendance.studentName}</td>
+                          <AttendanceButton status="PRESENT" currentStatus={attendance.status} isUpdating={isUpdating} onClick={() => onMarkAttendance(attendance.id, 'PRESENT')} />
+                          <AttendanceButton status="LATE" currentStatus={attendance.status} isUpdating={isUpdating} onClick={() => onMarkAttendance(attendance.id, 'LATE')} />
+                          <AttendanceButton status="EXCUSED" currentStatus={attendance.status} isUpdating={isUpdating} onClick={() => onMarkAttendance(attendance.id, 'EXCUSED')} />
+                          <AttendanceButton status="ABSENT" currentStatus={attendance.status} isUpdating={isUpdating} onClick={() => onMarkAttendance(attendance.id, 'ABSENT')} />
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApprovalList({ drafts }: { drafts: ApprovalDraft[] }) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
+        <CheckCircle2 className="h-6 w-6 text-indigo-600" /> Bản chấm nháp AI cần duyệt
+      </h2>
+      <div className="space-y-4">
+        {drafts.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 font-medium text-emerald-800">Không có bản chấm nháp AI nào đang chờ duyệt.</div>
+        ) : (
+          drafts.map((draft) => (
+            <div key={draft.id} className="flex flex-col justify-between gap-4 rounded-xl border p-5 transition-shadow hover:shadow-md md:flex-row md:items-center">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">Cần giáo viên duyệt</span>
+                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">{draft.score}/10</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">{draft.studentName} - {draft.title}</h3>
+                <p className="mt-1 text-sm font-medium text-slate-600">Lớp: {draft.className} - Phụ trách: {draft.teacherName} - {draft.createdAt}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{draft.comment}</p>
+              </div>
+              <Link href="/homework" className="w-full rounded-xl bg-slate-900 px-5 py-2.5 text-center text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 md:w-auto">
+                Mở module bài tập
+              </Link>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ label, value, goodValue }: { label: string; value: string; goodValue: string }) {
+  const isGood = value === goodValue;
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-bold ${isGood ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+      {label}: {value}
+    </span>
+  );
+}
+
+function AttendanceButton({
+  currentStatus,
+  isUpdating,
+  onClick,
+  status,
+}: {
+  currentStatus: string;
+  isUpdating: boolean;
+  onClick: () => void;
+  status: AttendanceStatus;
+}) {
+  const active = currentStatus === status;
+  const colorClass =
+    status === 'PRESENT'
+      ? 'border-emerald-500 bg-emerald-500'
+      : status === 'LATE'
+        ? 'border-orange-500 bg-orange-500'
+        : status === 'EXCUSED'
+          ? 'border-blue-500 bg-blue-500'
+          : 'border-rose-500 bg-rose-500';
+
+  return (
+    <td className="px-4 py-3 text-center">
+      <button
+        type="button"
+        disabled={isUpdating || active}
+        onClick={onClick}
+        className={`mx-auto flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
+          active ? `${colorClass} text-white` : 'border-slate-300 text-transparent hover:border-slate-500'
+        }`}
+        aria-label={status}
+      >
+        {active && <CheckCircle2 className="h-4 w-4" />}
+      </button>
+    </td>
+  );
+}
+
+function detectTeacherConflicts(sessions: RealSession[]): ScheduleConflict[] {
+  const conflicts: ScheduleConflict[] = [];
+
+  for (let leftIndex = 0; leftIndex < sessions.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < sessions.length; rightIndex += 1) {
+      const left = sessions[leftIndex];
+      const right = sessions[rightIndex];
+      const hasTeacher = left.teacherName !== 'Chưa phân công' && right.teacherName !== 'Chưa phân công';
+      const sameTeacher = left.teacherName === right.teacherName;
+      const overlap = left.startMs < right.endMs && right.startMs < left.endMs;
+
+      if (hasTeacher && sameTeacher && overlap) {
+        conflicts.push({
+          id: `${left.id}-${right.id}`,
+          title: `Trùng giáo viên ${left.teacherName}`,
+          description: `${left.className} và ${right.className} bị xếp chồng thời gian trong lịch hôm nay.`,
+          involvedSessions: [left, right],
+        });
+      }
+    }
+  }
+
+  return conflicts;
 }

@@ -4,7 +4,6 @@ import React from 'react';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { prisma } from '@eduos/db';
 import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
@@ -82,7 +81,7 @@ export default async function RenewalsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">Tạo Reminder</Button>
+                      <span className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">Theo dõi trong CRM/Finance</span>
                     </div>
                   </TableCell>
                 </TableRow>

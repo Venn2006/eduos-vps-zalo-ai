@@ -1,15 +1,50 @@
 "use server";
 
-import { evaluateConnectorSendContract, ConnectorSendContractInput } from "@eduos/shared/src/lib/connectorSendContract";
+import {
+  evaluateConnectorSendContract,
+  ConnectorChannel,
+  ConnectorSendContractInput,
+} from "@eduos/shared/src/lib/connectorSendContract";
 import { createSandboxAuditPreview, SandboxAuditPreviewMetadata } from "@eduos/shared/src/lib/sandboxAuditPreview";
-import { 
-  SandboxStatus, 
-  ALLOWED_SANDBOX_STATUSES, 
-  isValidSandboxTransition, 
-  sanitizeMetadata, 
-  SandboxEventType 
+import {
+  SandboxStatus,
+  isValidSandboxTransition,
+  sanitizeMetadata,
+  SandboxEventType
 } from "@eduos/shared/src/lib/persistedSandboxOutboxPolicy";
-import { prisma } from "@eduos/db";
+import { createAuditLog, prisma } from "@eduos/db";
+import { requireRole } from "@/lib/auth";
+
+const AUTHENTICATED_ROLES = ['OWNER', 'ADMIN', 'SALE', 'TEACHER', 'ACCOUNTANT'] as const;
+
+type SandboxReadinessInput = {
+  channel?: string;
+  draftId?: string;
+  recipientId?: string;
+  idempotencyKey?: string;
+  draftCategory?: string;
+  isGroupChat?: boolean;
+  content?: string;
+  approvalStatus?: string;
+};
+
+type CreateSandboxOutboxInput = SandboxReadinessInput & {
+  messageSafeSummary?: string;
+  metadata?: unknown;
+};
+
+const toConnectorChannel = (value?: string): ConnectorChannel => {
+  if (value === 'ZALO' || value === 'FANPAGE' || value === 'SMS' || value === 'EMAIL') return value;
+  return 'ZALO';
+};
+const toDraftCategory = (value?: string): ConnectorSendContractInput['draftCategory'] => {
+  if (value === 'SALES' || value === 'TEACHER' || value === 'FINANCE' || value === 'GENERAL') return value;
+  return 'GENERAL';
+};
+const toApprovalStatus = (value?: string): ConnectorSendContractInput['approvalStatus'] => {
+  if (value === 'PENDING_REVIEW' || value === 'APPROVED_FOR_MANUAL_USE' || value === 'CANCELLED') return value;
+  return 'APPROVED_FOR_MANUAL_USE';
+};
 
 export type PreviewSandboxSendReadinessResult = {
   readinessStatus: string;
@@ -22,24 +57,25 @@ export type PreviewSandboxSendReadinessResult = {
   uiDescription: string;
 };
 
-export async function previewSandboxSendReadiness(input: any): Promise<PreviewSandboxSendReadinessResult> {
+export async function previewSandboxSendReadiness(input: SandboxReadinessInput): Promise<PreviewSandboxSendReadinessResult> {
+  const session = await requireRole([...AUTHENTICATED_ROLES]);
   const safeInput: ConnectorSendContractInput = {
-    tenantId: "server-tenant-id",
-    actorUserId: "server-actor-id",
-    actorRole: "OWNER",
-    channel: input.channel || "ZALO",
-    draftId: input.draftId || "mock-draft-id",
-    recipientId: input.recipientId || "mock-recipient-id",
-    idempotencyKey: input.idempotencyKey || "mock-idempotency",
-    draftCategory: input.draftCategory || "GENERAL",
+    tenantId: session.activeTenantId,
+    actorUserId: session.userId,
+    actorRole: session.role,
+    channel: toConnectorChannel(input.channel),
+    draftId: input.draftId || "sandbox-preview-draft",
+    recipientId: input.recipientId || "sandbox-preview-recipient",
+    idempotencyKey: input.idempotencyKey || "sandbox-preview-idempotency",
+    draftCategory: toDraftCategory(input.draftCategory),
     isGroupChat: !!input.isGroupChat,
     content: input.content || "",
-    approvalStatus: input.approvalStatus || "APPROVED_FOR_MANUAL_USE",
+    approvalStatus: toApprovalStatus(input.approvalStatus),
     connectorAccountId: "server-connector-account-id"
   };
 
   const contractResult = evaluateConnectorSendContract(safeInput);
-  
+
   const preview = createSandboxAuditPreview({
     tenantId: safeInput.tenantId,
     actorUserId: safeInput.actorUserId,
@@ -61,93 +97,93 @@ export async function previewSandboxSendReadiness(input: any): Promise<PreviewSa
   };
 }
 
-export async function createSandboxOutboxItem(input: any) {
-  const tenantId = "server-tenant-id"; 
-  const actorUserId = "server-actor-id";
-  const actorRole = "OWNER";
-  
-  const idempotencyKey = String(input.idempotencyKey || `mock_${Date.now()}`);
+export async function createSandboxOutboxItem(input: CreateSandboxOutboxInput) {
+  const session = await requireRole([...AUTHENTICATED_ROLES]);
+  const tenantId = session.activeTenantId;
+  const actorUserId = session.userId;
+  const actorRole = session.role;
+
+  const idempotencyKey = String(input.idempotencyKey || `sandbox_${Date.now()}`);
   const channel = String(input.channel || 'ZALO');
-  const safeSummary = String(input.messageSafeSummary || 'Mock Summary');
+  const safeSummary = String(input.messageSafeSummary || input.content || 'Sandbox summary');
 
-  try {
-    // Attempt DB creation
-    const existing = await prisma.sandboxOutboxItem.findUnique({
-      where: {
-        tenantId_idempotencyKey: {
-          tenantId,
-          idempotencyKey
-        }
-      }
-    });
-
-    if (existing) {
-      return { success: true, item: existing, fallback: false };
-    }
-
-    const item = await prisma.sandboxOutboxItem.create({
-      data: {
+  const existing = await prisma.sandboxOutboxItem.findUnique({
+    where: {
+      tenantId_idempotencyKey: {
         tenantId,
-        idempotencyKey,
-        channel,
-        sourceType: 'TEST',
-        recipientType: 'USER',
-        recipientId: 'mock-recipient',
-        messageSafeSummary: safeSummary,
-        status: 'MOCK_READY',
-        readinessStatus: 'TEST',
-        events: {
-          create: {
-            tenantId,
-            eventType: 'SANDBOX_OUTBOX_ITEM_CREATED',
-            safeSummary: 'Created in sandbox',
-            actorUserId,
-            actorRole,
-            metadataJson: sanitizeMetadata(input.metadata)
-          }
+        idempotencyKey
+      }
+    }
+  });
+
+  if (existing) {
+    return { success: true, item: existing };
+  }
+
+  const item = await prisma.sandboxOutboxItem.create({
+    data: {
+      tenantId,
+      idempotencyKey,
+      channel,
+      sourceType: 'TEST',
+      recipientType: 'USER',
+      recipientId: input.recipientId || 'sandbox-recipient',
+      messageSafeSummary: safeSummary,
+      status: 'MOCK_READY',
+      readinessStatus: 'TEST',
+      createdByUserId: actorUserId,
+      events: {
+        create: {
+          tenantId,
+          eventType: 'SANDBOX_OUTBOX_ITEM_CREATED',
+          safeSummary: 'Created in sandbox',
+          actorUserId,
+          actorRole,
+          metadataJson: sanitizeMetadata(input.metadata)
         }
       }
-    });
-    
-    return { success: true, item, fallback: false };
-  } catch (e: any) {
-    console.warn("DB Create failed, falling back to local mock", e.message);
-    return { 
-      success: true, 
-      item: {
-        id: `local_${Date.now()}`,
-        idempotencyKey,
-        status: 'MOCK_READY',
-        messageSafeSummary: safeSummary
-      }, 
-      fallback: true 
-    };
-  }
+    }
+  });
+
+  await createAuditLog(prisma, {
+    tenantId,
+    actorId: actorUserId,
+    action: 'SANDBOX_OUTBOX_ITEM_CREATED',
+    entityType: 'SandboxOutboxItem',
+    entityId: item.id,
+    afterJson: {
+      channel: item.channel,
+      sourceType: item.sourceType,
+      recipientType: item.recipientType,
+      status: item.status,
+      readinessStatus: item.readinessStatus,
+    },
+    metadataJson: { source: 'sandbox_outbox_action' },
+  });
+
+  return { success: true, item };
 }
 
 export async function listSandboxOutboxItems() {
-  const tenantId = "server-tenant-id";
-  
-  try {
-    const items = await prisma.sandboxOutboxItem.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-    return { success: true, items, fallback: false };
-  } catch (e: any) {
-    console.warn("DB List failed, falling back to local mock", e.message);
-    return { success: true, items: [], fallback: true };
-  }
+  const session = await requireRole(['OWNER', 'ADMIN']);
+  const tenantId = session.activeTenantId;
+
+  const items = await prisma.sandboxOutboxItem.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+    take: 50
+  });
+  return { success: true, items };
 }
 
 export async function transitionSandboxOutboxItem(id: string, action: string) {
-  const tenantId = "server-tenant-id";
-  const actorUserId = "server-actor-id";
-  const actorRole = "OWNER";
+  const session = await requireRole(['OWNER', 'ADMIN']);
+  const tenantId = session.activeTenantId;
+  const actorUserId = session.userId;
+  const actorRole = session.role;
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const item = await tx.sandboxOutboxItem.findUnique({ where: { id } });
       if (!item) return { success: false, error: 'Not found' };
       if (item.tenantId !== tenantId) return { success: false, error: 'Unauthorized' };
@@ -194,10 +230,24 @@ export async function transitionSandboxOutboxItem(id: string, action: string) {
         }
       });
 
-      return { success: true, item: updated, fallback: false };
+      return { success: true, item: updated };
     });
-  } catch (e: any) {
-    console.warn("DB transition failed, falling back to local transition error", e.message);
-    return { success: false, error: 'DB unavailable, please use local fallback in UI', fallback: true };
+
+    if (result.success && 'item' in result && result.item) {
+      await createAuditLog(prisma, {
+        tenantId,
+        actorId: actorUserId,
+        action: 'SANDBOX_OUTBOX_ITEM_TRANSITIONED',
+        entityType: 'SandboxOutboxItem',
+        entityId: result.item.id,
+        afterJson: { status: result.item.status, action },
+        metadataJson: { source: 'sandbox_outbox_action' },
+      });
+    }
+
+    return result;
+  } catch (e: unknown) {
+    console.error("Sandbox outbox transition failed", e);
+    return { success: false, error: 'DB unavailable. Sandbox transition was not saved.' };
   }
 }

@@ -1,368 +1,556 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  AlertTriangle, 
-  Calendar, 
-  CheckCircle2, 
-  Clock, 
-  Filter, 
-  MessageSquare, 
-  Phone, 
-  ShieldAlert, 
-  UserSquare2, 
-  ChevronRight, 
-  X,
-  Play,
-  UserPlus,
-  Edit3,
-  Bot,
-  AlertCircle
-} from 'lucide-react';
+import React, { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { AlertCircle, Calendar, CheckCircle2, Clock, Filter, Phone, Plus, RotateCcw, Send, UserSquare2, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/Button';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { 
-  taskManagementDemoTasks, 
-  taskManagementDemoStats, 
-  taskManagementDemoStaff,
-  TaskItem,
-  TaskStatus
-} from '@/lib/taskManagementDemoData';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { createManualFollowUpTask, setFollowUpTaskCompleted } from '../actions/tasks';
 
-export function TaskManagementClient() {
-  const [tasks, setTasks] = useState<TaskItem[]>(taskManagementDemoTasks);
-  const [filter, setFilter] = useState('ALL');
-  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+export type TaskListItem = {
+  id: string;
+  leadId: string;
+  leadName: string;
+  parentName?: string | null;
+  phone?: string | null;
+  leadStage: string;
+  leadTemperature: string;
+  assignedTo?: string | null;
+  assignedName: string;
+  dueDate: string;
+  description: string;
+  isCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
-  const getFilteredTasks = () => {
-    switch (filter) {
-      case 'TODAY': return tasks.filter(t => t.dueTime.includes('Hôm nay'));
-      case 'OVERDUE': return tasks.filter(t => t.status === 'OVERDUE');
-      case 'WAITING': return tasks.filter(t => t.status === 'WAITING_APPROVAL');
-      case 'ZALO': return tasks.filter(t => t.channel === 'Zalo');
-      case 'FINANCE': return tasks.filter(t => t.tags.includes('Học phí'));
-      case 'ACADEMIC': return tasks.filter(t => t.tags.includes('Báo cáo tháng'));
-      default: return tasks;
-    }
-  };
+export type TaskAssignee = {
+  id: string;
+  label: string;
+  role: string;
+};
 
-  const filteredTasks = getFilteredTasks();
+export type LeadPickerItem = {
+  id: string;
+  name: string;
+  parentName?: string | null;
+  phone?: string | null;
+  stage: string;
+  assignedToId?: string | null;
+};
 
-  const handleTaskAction = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    if (selectedTask?.id === taskId) {
-      setSelectedTask(prev => prev ? { ...prev, status: newStatus } : null);
-    }
-  };
+type TaskBucket = 'ALL' | 'OPEN' | 'TODAY' | 'OVERDUE' | 'DONE';
+type TaskColumn = 'OVERDUE' | 'OPEN' | 'DONE';
 
-  const columns: { id: TaskStatus, label: string, color: string }[] = [
-    { id: 'NEW', label: 'Mới', color: 'border-blue-200 bg-blue-50/50' },
-    { id: 'IN_PROGRESS', label: 'Đang xử lý', color: 'border-amber-200 bg-amber-50/50' },
-    { id: 'WAITING_APPROVAL', label: 'Chờ duyệt', color: 'border-purple-200 bg-purple-50/50' },
-    { id: 'OVERDUE', label: 'Quá hạn', color: 'border-rose-200 bg-rose-50/50' },
-    { id: 'DONE_DEMO', label: 'Hoàn tất demo', color: 'border-emerald-200 bg-emerald-50/50' },
+type CreateTaskForm = {
+  description: string;
+  assignedTo: string;
+  dueDate: string;
+  leadId: string;
+};
+
+export function TaskManagementClient({
+  initialTasks,
+  assignees,
+  leads,
+  currentUserId
+}: {
+  initialTasks: TaskListItem[];
+  assignees: TaskAssignee[];
+  leads: LeadPickerItem[];
+  currentUserId: string;
+}) {
+  const router = useRouter();
+  const [tasks, setTasks] = useState(initialTasks);
+  const [filter, setFilter] = useState<TaskBucket>('OPEN');
+  const [selectedTask, setSelectedTask] = useState<TaskListItem | null>(null);
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateTaskForm>(() => ({
+    description: '',
+    assignedTo: currentUserId || assignees[0]?.id || '',
+    dueDate: defaultDeadlineValue(),
+    leadId: leads[0]?.id || ''
+  }));
+  const [isPending, startTransition] = useTransition();
+  const isCreating = pendingTaskId === 'CREATE';
+
+  const now = useMemo(() => new Date(), []);
+  const assigneeById = useMemo(() => new Map(assignees.map((assignee) => [assignee.id, assignee.label])), [assignees]);
+  const leadById = useMemo(() => new Map(leads.map((lead) => [lead.id, lead])), [leads]);
+
+  const stats = useMemo(() => {
+    const open = tasks.filter((task) => !task.isCompleted);
+    return {
+      total: tasks.length,
+      open: open.length,
+      today: open.filter((task) => isSameDay(new Date(task.dueDate), now)).length,
+      overdue: open.filter((task) => new Date(task.dueDate) < now).length,
+      done: tasks.filter((task) => task.isCompleted).length
+    };
+  }, [tasks, now]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const dueDate = new Date(task.dueDate);
+      if (filter === 'OPEN') return !task.isCompleted;
+      if (filter === 'TODAY') return !task.isCompleted && isSameDay(dueDate, now);
+      if (filter === 'OVERDUE') return !task.isCompleted && dueDate < now;
+      if (filter === 'DONE') return task.isCompleted;
+      return true;
+    });
+  }, [filter, now, tasks]);
+
+  const columns = [
+    { id: 'OVERDUE' as const, label: 'Quá hạn', color: 'border-rose-200 bg-rose-50/70' },
+    { id: 'OPEN' as const, label: 'Đang làm', color: 'border-blue-200 bg-blue-50/70' },
+    { id: 'DONE' as const, label: 'Hoàn thành', color: 'border-emerald-200 bg-emerald-50/70' }
   ];
 
+  const getColumnTasks = (columnId: TaskColumn) => {
+    if (columnId === 'DONE') return filteredTasks.filter((task) => task.isCompleted);
+    if (columnId === 'OVERDUE') return filteredTasks.filter((task) => !task.isCompleted && new Date(task.dueDate) < now);
+    return filteredTasks.filter((task) => !task.isCompleted && new Date(task.dueDate) >= now);
+  };
+
+  const openCreateModal = () => {
+    setCreateForm((current) => ({
+      description: current.description,
+      assignedTo: current.assignedTo || currentUserId || assignees[0]?.id || '',
+      dueDate: current.dueDate || defaultDeadlineValue(),
+      leadId: current.leadId || leads[0]?.id || ''
+    }));
+    setCreateOpen(true);
+  };
+
+  const handleLeadChange = (leadId: string) => {
+    const lead = leadById.get(leadId);
+    setCreateForm((current) => ({
+      ...current,
+      leadId,
+      assignedTo: lead?.assignedToId && assigneeById.has(lead.assignedToId) ? lead.assignedToId : current.assignedTo
+    }));
+  };
+
+  const createTask = () => {
+    setPendingTaskId('CREATE');
+    startTransition(async () => {
+      try {
+        const createdTask = await createManualFollowUpTask(createForm);
+        const taskItem: TaskListItem = {
+          ...createdTask,
+          assignedName: createdTask.assignedTo ? assigneeById.get(createdTask.assignedTo) || 'Chưa rõ người phụ trách' : 'Chưa giao'
+        };
+        setTasks((current) => [taskItem, ...current]);
+        setSelectedTask(taskItem);
+        setCreateOpen(false);
+        setCreateForm({
+          description: '',
+          assignedTo: currentUserId || assignees[0]?.id || '',
+          dueDate: defaultDeadlineValue(),
+          leadId: leads[0]?.id || ''
+        });
+        toast.success('Đã giao việc mới');
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Không thể giao việc');
+      } finally {
+        setPendingTaskId(null);
+      }
+    });
+  };
+
+  const updateTaskCompletion = (task: TaskListItem, isCompleted: boolean) => {
+    setPendingTaskId(task.id);
+    startTransition(async () => {
+      try {
+        await setFollowUpTaskCompleted(task.id, isCompleted);
+        setTasks((current) => current.map((item) => item.id === task.id ? { ...item, isCompleted } : item));
+        setSelectedTask((current) => current?.id === task.id ? { ...current, isCompleted } : current);
+        toast.success(isCompleted ? 'Đã đánh dấu hoàn thành' : 'Đã mở lại việc');
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Không thể cập nhật công việc');
+      } finally {
+        setPendingTaskId(null);
+      }
+    });
+  };
+
   return (
-    <div className="space-y-6 pb-20 lg:pb-6 relative h-full flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Giao việc</h1>
-          <p className="text-slate-500 mt-1">Theo dõi công việc nhân viên, deadline, khách liên quan và trạng thái duyệt trong một nơi.</p>
+    <div className="flex min-h-full flex-col gap-6 pb-20 lg:pb-6">
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-indigo-700">Quản lý giao việc</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">Giao việc cho đội ngũ</h1>
+          <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">Sếp giao việc, chọn người phụ trách, đặt deadline và theo dõi hoàn thành trên dữ liệu thật.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status="warning" label="Demo: chưa gửi thật" />
-          <StatusBadge status="info" label="Local state only" />
-          <StatusBadge status="primary" label="AI chỉ gợi ý" showDot={false} />
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Button onClick={openCreateModal} size="lg" className="bg-slate-950 text-white hover:bg-slate-800">
+            <Plus className="mr-2 h-5 w-5" /> Giao việc mới
+          </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-        <MetricCard title="Tổng việc hôm nay" value={taskManagementDemoStats.totalToday} icon={<Calendar className="w-6 h-6" />} color="primary" />
-        <MetricCard title="Quá hạn" value={taskManagementDemoStats.overdue} icon={<AlertCircle className="w-6 h-6" />} color="danger" />
-        <MetricCard title="Đang xử lý" value={taskManagementDemoStats.inProgress} icon={<Clock className="w-6 h-6" />} color="warning" />
-        <MetricCard title="Chờ duyệt" value={taskManagementDemoStats.waitingApproval} icon={<ShieldAlert className="w-6 h-6" />} color="info" />
-        <MetricCard title="Hoàn tất demo" value={taskManagementDemoStats.doneDemo} icon={<CheckCircle2 className="w-6 h-6" />} color="success" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <MetricCard title="Tổng việc" value={stats.total} icon={<Calendar className="h-6 w-6" />} color="primary" />
+        <MetricCard title="Đang làm" value={stats.open} icon={<Clock className="h-6 w-6" />} color="warning" />
+        <MetricCard title="Hôm nay" value={stats.today} icon={<UserSquare2 className="h-6 w-6" />} color="info" />
+        <MetricCard title="Quá hạn" value={stats.overdue} icon={<AlertCircle className="h-6 w-6" />} color="danger" />
+        <MetricCard title="Hoàn thành" value={stats.done} icon={<CheckCircle2 className="h-6 w-6" />} color="success" />
       </div>
 
-      {/* Main Content Layout */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0 overflow-hidden">
-        
-        {/* Kanban & Filters */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <div className="p-4 border-b border-slate-100 flex items-center gap-2 overflow-x-auto scrollbar-hide whitespace-nowrap">
-            <Filter className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            {[
-              { id: 'ALL', label: 'Tất cả' },
-              { id: 'TODAY', label: 'Việc hôm nay' },
-              { id: 'OVERDUE', label: 'Quá hạn' },
-              { id: 'WAITING', label: 'Chờ duyệt' },
-              { id: 'ZALO', label: 'Zalo/Inbox' },
-              { id: 'FINANCE', label: 'Tài chính' },
-              { id: 'ACADEMIC', label: 'Học vụ' }
-            ].map(f => (
-              <button
-                key={f.id}
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shrink-0",
-                  filter === f.id 
-                    ? "bg-slate-900 text-white" 
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-slate-100 p-4">
+          <Filter className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
+          {[
+            { id: 'OPEN' as const, label: 'Đang làm' },
+            { id: 'TODAY' as const, label: 'Hôm nay' },
+            { id: 'OVERDUE' as const, label: 'Quá hạn' },
+            { id: 'DONE' as const, label: 'Hoàn thành' },
+            { id: 'ALL' as const, label: 'Tất cả' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setFilter(item.id)}
+              className={cn(
+                'shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                filter === item.id ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {tasks.length === 0 ? (
+          <div className="flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
+            <CheckCircle2 className="mb-3 h-12 w-12 text-slate-300" />
+            <h2 className="text-xl font-bold text-slate-950">Chưa có việc nào</h2>
+            <p className="mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">Bấm Giao việc mới để tạo việc đầu tiên cho nhân sự.</p>
+            <Button onClick={openCreateModal} className="mt-5 bg-slate-950 text-white hover:bg-slate-800">
+              <Plus className="mr-2 h-4 w-4" /> Giao việc mới
+            </Button>
           </div>
-
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
-            <div className="flex gap-4 h-full min-w-max">
-              {columns.map(col => (
-                <div key={col.id} className={cn("w-72 flex flex-col rounded-xl border", col.color)}>
-                  <div className="p-3 font-semibold text-slate-700 border-b border-slate-200/50 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl">
-                    {col.label}
-                    <span className="bg-white text-slate-500 text-xs px-2 py-0.5 rounded-full shadow-sm">
-                      {filteredTasks.filter(t => t.status === col.id).length}
-                    </span>
+        ) : (
+          <div className="grid gap-4 p-4 xl:grid-cols-3">
+            {columns.map((column) => {
+              const columnTasks = getColumnTasks(column.id);
+              return (
+                <section key={column.id} className={cn('flex min-h-[360px] flex-col rounded-xl border', column.color)}>
+                  <div className="flex items-center justify-between rounded-t-xl border-b border-slate-200/60 bg-white/70 px-4 py-3 font-semibold text-slate-800 backdrop-blur-sm">
+                    <span>{column.label}</span>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-500 shadow-sm">{columnTasks.length}</span>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {filteredTasks.filter(t => t.status === col.id).map(task => (
-                      <div 
-                        key={task.id} 
-                        onClick={() => setSelectedTask(task)}
-                        className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all group"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-xs font-semibold text-slate-500">{task.id}</span>
-                          <StatusBadge 
-                            status={task.priority === 'High' ? 'danger' : task.priority === 'Medium' ? 'warning' : 'neutral'} 
-                            label={task.priority} 
-                            showDot={false} 
-                          />
-                        </div>
-                        <h4 className="font-semibold text-slate-900 text-sm mb-1 leading-snug group-hover:text-primary transition-colors">{task.title}</h4>
-                        <p className="text-xs text-slate-500 mb-3 line-clamp-2">{task.description}</p>
-                        
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {task.tags.map(tag => (
-                            <span key={tag} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md border border-slate-200">{tag}</span>
-                          ))}
-                        </div>
-
-                        <div className="flex items-start justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 mt-2">
-                          <div className="flex flex-col gap-1 truncate pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <UserSquare2 className="w-3.5 h-3.5" />
-                              <span className="truncate font-medium">{task.ownerName}</span>
-                            </div>
-                            <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded w-fit">
-                              {task.ownerName.includes('Teacher') ? 'Giáo viên' : task.ownerName.includes('Finance') ? 'Kế toán' : task.ownerName.includes('Sale') ? 'Sale' : 'Quản lý'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{task.dueTime.split(',')[0]}</span>
-                          </div>
-                        </div>
-                      </div>
+                  <div className="flex-1 space-y-3 p-3">
+                    {columnTasks.length === 0 && <div className="rounded-lg border border-dashed border-slate-300 bg-white/70 p-4 text-center text-sm font-medium text-slate-400">Không có việc</div>}
+                    {columnTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        isPending={isPending && pendingTaskId === task.id}
+                        onOpen={() => setSelectedTask(task)}
+                        onComplete={() => updateTaskCompletion(task, true)}
+                        onReopen={() => updateTaskCompletion(task, false)}
+                      />
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                </section>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Staff Workload Panel */}
-        <div className="w-full lg:w-80 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col shrink-0">
-          <div className="p-4 border-b border-slate-100">
-            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-              <UserSquare2 className="w-5 h-5 text-primary" />
-              Tiến độ nhân viên
-            </h3>
-          </div>
-          <div className="p-4 flex-1 overflow-y-auto space-y-4">
-            {taskManagementDemoStaff.map(staff => (
-              <div key={staff.id} className="border border-slate-100 rounded-xl p-3 hover:border-slate-300 transition-colors bg-slate-50/50">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2">
-                      {staff.name}
-                      <span className={cn("w-2 h-2 rounded-full", staff.onlineStatus === 'Online' ? 'bg-emerald-500' : 'bg-slate-400')}></span>
-                    </h4>
-                    <p className="text-xs text-slate-500">{staff.role}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-slate-700 bg-white px-2 py-1 rounded-lg shadow-sm border border-slate-200">
-                      {staff.activeTasks} việc
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-1.5 mt-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Quá hạn:</span>
-                    <span className={cn("font-semibold", staff.overdueTasks > 0 ? "text-rose-600" : "text-slate-700")}>{staff.overdueTasks}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Inbox:</span>
-                    <span className="font-medium text-slate-700">{staff.inboxWorkload}</span>
-                  </div>
-                  <div className="flex justify-between text-xs border-t border-slate-200/60 pt-1.5 mt-1.5">
-                    <span className="text-slate-500">Đang làm:</span>
-                    <span className="font-medium text-slate-700 text-right truncate w-32">{staff.nextAction}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+        )}
       </div>
 
-      {/* Task Detail Drawer */}
+      {createOpen && (
+        <CreateTaskModal
+          form={createForm}
+          leads={leads}
+          assignees={assignees}
+          isPending={isPending && isCreating}
+          onChange={setCreateForm}
+          onLeadChange={handleLeadChange}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={createTask}
+        />
+      )}
+
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setSelectedTask(null)} />
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-300">
-            
-            <div className="p-4 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
-              <div>
-                <div className="flex gap-2 mb-2">
-                  <StatusBadge status="primary" label={selectedTask.id} showDot={false} />
-                  <StatusBadge status={selectedTask.status === 'DONE_DEMO' ? 'success' : 'warning'} label={selectedTask.status} />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900 leading-tight">{selectedTask.title}</h2>
-              </div>
-              <button onClick={() => setSelectedTask(null)} className="p-2 bg-white hover:bg-slate-100 rounded-full text-slate-500 transition-colors shadow-sm border border-slate-200">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Phụ trách</p>
-                  <p className="font-medium text-slate-900 text-sm flex items-center gap-1.5">
-                    <UserSquare2 className="w-4 h-4 text-slate-400" />
-                    {selectedTask.ownerName}
-                  </p>
-                  <span className="inline-block mt-1 text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                    {selectedTask.ownerName.includes('Teacher') ? 'Giáo viên' : selectedTask.ownerName.includes('Finance') ? 'Kế toán' : selectedTask.ownerName.includes('Sale') ? 'Sale' : 'Quản lý'}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Cần ai duyệt?</p>
-                  <p className="font-medium text-indigo-700 text-sm flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4" />
-                    {selectedTask.tags.includes('Học phí') ? 'Kế toán trưởng' : selectedTask.tags.includes('Báo cáo') ? 'Quản lý học vụ' : selectedTask.tags.includes('Hotline') ? 'CEO/Admin' : 'Quản lý'}
-                  </p>
-                  <span className="inline-block mt-1 text-[10px] text-slate-500">Phân quyền Demo</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-rose-50 border border-rose-100 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-rose-600" />
-                  <span className="text-xs text-slate-600 font-medium">Hạn chót xử lý:</span>
-                </div>
-                <span className="font-bold text-rose-600 text-sm">{selectedTask.dueTime}</span>
-              </div>
-
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-semibold">Khách hàng liên quan</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900">{selectedTask.relatedPerson}</p>
-                    <p className="text-xs text-slate-500">{selectedTask.relatedType}</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                    <Phone className="w-3.5 h-3.5" />
-                    {selectedTask.maskedPhone}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold text-slate-900 mb-2">Mô tả công việc</p>
-                <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">{selectedTask.description}</p>
-              </div>
-
-              {selectedTask.notes && (
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                    <Edit3 className="w-4 h-4 text-amber-500" />
-                    Ghi chú nội bộ
-                  </p>
-                  <p className="text-sm text-amber-900 bg-amber-50 p-3 rounded-xl border border-amber-100">{selectedTask.notes}</p>
-                </div>
-              )}
-
-              {selectedTask.suggestedDraft && (
-                <div className="bg-fuchsia-50 rounded-xl p-4 border border-fuchsia-100 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-2 bg-white/50 rounded-bl-xl">
-                    <Bot className="w-4 h-4 text-fuchsia-500" />
-                  </div>
-                  <p className="text-xs text-fuchsia-600 mb-2 uppercase tracking-wider font-semibold">AI Gợi ý phản hồi</p>
-                  <p className="text-sm text-fuchsia-900 italic">"{selectedTask.suggestedDraft}"</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm font-semibold text-slate-900 mb-3">Lịch sử (Timeline)</p>
-                <div className="space-y-4">
-                  {selectedTask.timeline.map((event, idx) => (
-                    <div key={idx} className="flex gap-3 relative">
-                      {idx !== selectedTask.timeline.length - 1 && (
-                        <div className="absolute top-6 bottom-[-16px] left-[7px] w-0.5 bg-slate-200"></div>
-                      )}
-                      <div className="w-4 h-4 rounded-full border-2 border-primary bg-white shrink-0 mt-0.5 relative z-10"></div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{event.text}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{event.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-white space-y-3">
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => handleTaskAction(selectedTask.id, 'IN_PROGRESS')}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Bắt đầu làm
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Chuyển người
-                </Button>
-              </div>
-              <Button 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => handleTaskAction(selectedTask.id, 'DONE_DEMO')}
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Hoàn tất (Demo)
-              </Button>
-            </div>
-          </div>
-        </div>
+        <TaskDrawer
+          task={selectedTask}
+          isPending={isPending && pendingTaskId === selectedTask.id}
+          onClose={() => setSelectedTask(null)}
+          onComplete={() => updateTaskCompletion(selectedTask, true)}
+          onReopen={() => updateTaskCompletion(selectedTask, false)}
+        />
       )}
     </div>
   );
+}
+
+function CreateTaskModal({
+  form,
+  leads,
+  assignees,
+  isPending,
+  onChange,
+  onLeadChange,
+  onClose,
+  onSubmit
+}: {
+  form: CreateTaskForm;
+  leads: LeadPickerItem[];
+  assignees: TaskAssignee[];
+  isPending: boolean;
+  onChange: (form: CreateTaskForm) => void;
+  onLeadChange: (leadId: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const canSubmit = Boolean(form.description.trim() && form.leadId && form.assignedTo && form.dueDate && !isPending);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button aria-label="Đóng" className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-950">Giao việc mới</h2>
+            <p className="mt-1 text-sm text-slate-500">Chọn người phụ trách, deadline và khách liên quan.</p>
+          </div>
+          <button onClick={onClose} className="rounded-md border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-800">Nội dung công việc</span>
+            <textarea
+              value={form.description}
+              onChange={(event) => onChange({ ...form, description: event.target.value })}
+              placeholder="Ví dụ: Gọi lại phụ huynh để chốt lịch học thử"
+              rows={4}
+              className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-800">Người phụ trách</span>
+              <select
+                value={form.assignedTo}
+                onChange={(event) => onChange({ ...form, assignedTo: event.target.value })}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              >
+                {assignees.map((assignee) => (
+                  <option key={assignee.id} value={assignee.id}>{assignee.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-800">Deadline</span>
+              <input
+                type="datetime-local"
+                value={form.dueDate}
+                onChange={(event) => onChange({ ...form, dueDate: event.target.value })}
+                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              />
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-800">Khách liên quan</span>
+            <select
+              value={form.leadId}
+              onChange={(event) => onLeadChange(event.target.value)}
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            >
+              {leads.length === 0 ? <option value="">Chưa có khách trong CRM</option> : null}
+              {leads.map((lead) => (
+                <option key={lead.id} value={lead.id}>{lead.name}{lead.phone ? ` - ${lead.phone}` : ''}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+            Việc được lưu vào hệ thống và người phụ trách có thể bấm Hoàn thành ngay trên bảng này.
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>
+          <Button onClick={onSubmit} disabled={!canSubmit} className="bg-slate-950 text-white hover:bg-slate-800">
+            <Send className="mr-2 h-4 w-4" /> {isPending ? 'Đang giao...' : 'Giao việc'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({
+  task,
+  isPending,
+  onOpen,
+  onComplete,
+  onReopen
+}: {
+  task: TaskListItem;
+  isPending: boolean;
+  onOpen: () => void;
+  onComplete: () => void;
+  onReopen: () => void;
+}) {
+  const dueDate = new Date(task.dueDate);
+  const overdue = !task.isCompleted && dueDate < new Date();
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <StatusBadge status={task.isCompleted ? 'success' : overdue ? 'danger' : 'warning'} label={task.isCompleted ? 'Hoàn thành' : overdue ? 'Quá hạn' : 'Đang làm'} showDot={false} />
+        <button onClick={onOpen} className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:bg-slate-200">Chi tiết</button>
+      </div>
+      <h4 className="line-clamp-2 text-base font-bold leading-snug text-slate-950">{task.description}</h4>
+      <p className="mt-2 truncate text-sm font-medium text-slate-600">Khách: {task.leadName}</p>
+      <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
+        <div className="flex min-w-0 items-center gap-2">
+          <UserSquare2 className="h-4 w-4 shrink-0 text-slate-400" />
+          <span className="truncate font-semibold">{task.assignedName}</span>
+        </div>
+        <div className={cn('flex items-center gap-2 font-semibold', overdue ? 'text-rose-600' : 'text-slate-700')}>
+          <Clock className="h-4 w-4 shrink-0" />
+          <span>{formatDeadline(dueDate)}</span>
+        </div>
+      </div>
+      <div className="mt-3">
+        {task.isCompleted ? (
+          <Button onClick={onReopen} disabled={isPending} variant="outline" size="sm" className="w-full">
+            <RotateCcw className="mr-2 h-4 w-4" /> {isPending ? 'Đang mở lại...' : 'Mở lại'}
+          </Button>
+        ) : (
+          <Button onClick={onComplete} disabled={isPending} size="sm" className="w-full bg-emerald-600 text-white hover:bg-emerald-700">
+            <CheckCircle2 className="mr-2 h-4 w-4" /> {isPending ? 'Đang lưu...' : 'Hoàn thành'}
+          </Button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function TaskDrawer({ task, isPending, onClose, onComplete, onReopen }: { task: TaskListItem; isPending: boolean; onClose: () => void; onComplete: () => void; onReopen: () => void }) {
+  const dueDate = new Date(task.dueDate);
+  const overdue = !task.isCompleted && dueDate < new Date();
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <button aria-label="Đóng" className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50/80 p-4">
+          <div>
+            <div className="mb-2 flex gap-2">
+              <StatusBadge status={task.isCompleted ? 'success' : overdue ? 'danger' : 'warning'} label={task.isCompleted ? 'Hoàn thành' : overdue ? 'Quá hạn' : 'Đang làm'} />
+            </div>
+            <h2 className="text-lg font-bold leading-tight text-slate-950">{task.description}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-md border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition-colors hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-6 overflow-y-auto p-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Info label="Phụ trách" value={task.assignedName} />
+            <Info label="Deadline" value={dueDate.toLocaleString('vi-VN')} danger={overdue} />
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Khách liên quan</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-slate-950">{task.leadName}</p>
+                <p className="text-xs text-slate-500">{task.parentName || 'Chưa có phụ huynh'} - {stageLabel(task.leadStage)}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-600 shadow-sm">
+                <Phone className="h-3.5 w-3.5" />
+                {task.phone || 'Chưa có SĐT'}
+              </div>
+            </div>
+            <Link href="/leads" className="mt-3 inline-block text-xs font-bold text-indigo-700 hover:text-indigo-800">Mở danh sách khách</Link>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-semibold text-slate-950">Nội dung công việc</p>
+            <p className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm leading-6 text-slate-600">{task.description}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-slate-100 bg-white p-4">
+          {task.isCompleted ? (
+            <Button onClick={onReopen} disabled={isPending} variant="outline" className="w-full">
+              <RotateCcw className="mr-2 h-4 w-4" /> {isPending ? 'Đang mở lại...' : 'Mở lại việc'}
+            </Button>
+          ) : (
+            <Button onClick={onComplete} disabled={isPending} className="w-full bg-emerald-600 text-white hover:bg-emerald-700">
+              <CheckCircle2 className="mr-2 h-4 w-4" /> {isPending ? 'Đang lưu...' : 'Đánh dấu hoàn thành'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Info({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs text-slate-500">{label}</p>
+      <p className={cn('text-sm font-semibold', danger ? 'text-rose-600' : 'text-slate-950')}>{value}</p>
+    </div>
+  );
+}
+
+function isSameDay(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+}
+
+function defaultDeadlineValue() {
+  const date = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  return toDatetimeLocalValue(date);
+}
+
+function toDatetimeLocalValue(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatDeadline(date: Date) {
+  return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function stageLabel(stage: string) {
+  const labels: Record<string, string> = {
+    NEW: 'Mới',
+    NO_ANSWER: 'Chưa nghe máy',
+    CALLBACK: 'Hẹn gọi lại',
+    INTERESTED: 'Quan tâm',
+    POTENTIAL: 'Tiềm năng',
+    WAITING_TRIAL: 'Chờ học thử',
+    TRIALING: 'Đang học thử',
+    TRIALED: 'Đã học thử',
+    WAITING_TEST: 'Chờ kiểm tra',
+    TESTED: 'Đã kiểm tra',
+    REGISTERED: 'Đã đăng ký',
+    NOT_POTENTIAL: 'Không tiềm năng',
+    NO_NEED: 'Chưa có nhu cầu'
+  };
+
+  return labels[stage] || stage;
 }

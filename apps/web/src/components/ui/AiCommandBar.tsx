@@ -1,99 +1,95 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { Sparkles, ArrowRight, Loader2, Info } from 'lucide-react';
+﻿'use client';
+
+import React, { useState } from 'react';
+import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 
-export function AiCommandBar({ initialPrompt = '' }: { initialPrompt?: string }) {
+type AiCommandBarProps = {
+  initialPrompt?: string;
+  suggestions?: string[];
+};
+
+export function AiCommandBar({ initialPrompt = '', suggestions = [] }: AiCommandBarProps) {
   const [query, setQuery] = useState(initialPrompt ?? '');
+  const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
 
-  useEffect(() => {
-    setQuery(initialPrompt ?? '');
-  }, [initialPrompt]);
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const message = query.trim();
+    if (!message) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    
     setIsSubmitting(true);
+    setAnswer('');
     try {
       const res = await fetch('/api/ai/ceo-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query })
+        body: JSON.stringify({ message }),
       });
-      if (res.ok) {
-        setQuery('');
-        router.refresh();
-      } else {
-        toast.error('Lỗi xử lý yêu cầu AI. Vui lòng thử lại.');
+      const body = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(body?.error || 'Không thể hỏi trợ lý lúc này.');
       }
-    } catch (err) {
-      toast.error('Không thể kết nối API AI.');
+
+      setAnswer(body.answer || 'Chưa có kết quả phù hợp.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể hỏi trợ lý lúc này.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const askSuggestion = (suggestion: string) => {
+    setQuery(suggestion);
+    setAnswer('');
+  };
+
   return (
-    <div className="w-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-xl p-4 shadow-sm relative overflow-hidden">
-      <div className="absolute right-0 top-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-      
-      <div className="flex flex-col md:flex-row items-center gap-4 relative z-10">
-        <div className="flex items-center gap-2 text-primary font-extrabold shrink-0">
-          <div className="bg-primary/20 p-2 rounded-lg text-primary">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <span className="text-lg tracking-tight">CEO Chat</span>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="flex-1 w-full flex relative">
-          <input 
-            type="text" 
-            placeholder="Ví dụ: Hôm nay có vấn đề gì nghiêm trọng không?" 
-            className="w-full bg-white text-slate-900 border border-primary/20 rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-inner"
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex min-h-12 flex-1 items-center gap-3 rounded-lg border border-white/40 bg-white px-4 shadow-sm ring-1 ring-slate-100">
+          <Sparkles className="h-5 w-5 shrink-0 text-violet-600" />
+          <input
+            type="text"
+            placeholder="Hỏi nhanh: Hôm nay trung tâm cần chú ý gì?"
+            className="h-12 min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             disabled={isSubmitting}
           />
-          <button 
-            type="submit" 
-            disabled={isSubmitting || !query.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-white p-1.5 rounded-md hover:bg-primary-hover disabled:opacity-50 transition-colors"
-          >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-          </button>
-        </form>
-      </div>
+        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting || !query.trim()}
+          className="inline-flex h-12 min-w-32 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-slate-950 px-5 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+          Hỏi trợ lý
+        </button>
+      </form>
 
-      {initialPrompt && query === initialPrompt && (
-        <div className="mt-3 flex items-start gap-2 bg-indigo-50/80 text-indigo-700 text-sm p-3 rounded-lg border border-indigo-100/50 relative z-10 mx-1">
-          <Info className="w-4 h-4 shrink-0 mt-0.5" />
-          <p>Câu hỏi đã được điền sẵn. Bấm <span className="font-semibold">Gửi</span> để hỏi AI.</p>
+      {suggestions.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => askSuggestion(suggestion)}
+              className="rounded-lg border border-white/50 bg-white/80 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-white hover:text-violet-700"
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       )}
-      
-      {/* Suggested Prompts */}
-      <div className="mt-4 flex flex-wrap gap-2 relative z-10 pl-1 md:pl-[140px]">
-        {[
-          "Hôm nay có vấn đề gì nghiêm trọng không?",
-          "Hôm nay có tin nhắn nào cần xử lý gấp không?",
-          "Phụ huynh nào đang không hài lòng?",
-          "Lead nào chưa được phản hồi?",
-          "Học viên nào có nguy cơ nghỉ?",
-          "Zalo/Facebook có lỗi gì không?"
-        ].map((prompt, i) => (
-          <button
-            key={i}
-            onClick={() => setQuery(prompt)}
-            className="text-xs bg-white/60 hover:bg-white text-primary-hover border border-primary/20 px-3 py-1.5 rounded-full transition-colors whitespace-nowrap shadow-sm"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
+
+      {answer && (
+        <div data-testid="ceo-ai-answer" className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium leading-6 text-emerald-950">
+          {answer}
+        </div>
+      )}
     </div>
   );
 }

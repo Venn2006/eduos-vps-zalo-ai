@@ -16,7 +16,7 @@ export function ConversationIntelligenceCard({ result }: Props) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center text-primary">
             <Bot className="w-4 h-4 mr-2" />
-            Gợi ý AI (Read Only)
+            Gợi ý trợ lý
           </CardTitle>
           <div className="flex gap-2">
             <Badge variant="outline" className="bg-white">

@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma } from '@eduos/db';
+import { prisma, CallOutcome } from '@eduos/db';
 import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { validateAndLogCallOutcome } from '@eduos/shared/src/lib/salesCallingHelper';
@@ -13,7 +13,11 @@ export async function logCallOutcome(formData: FormData) {
     const userId = authSession?.userId;
 
     const leadId = formData.get('leadId') as string;
-    const outcome = formData.get('outcome') as any;
+    const outcomeRaw = formData.get('outcome');
+    if (typeof outcomeRaw !== 'string' || !Object.values(CallOutcome).includes(outcomeRaw as CallOutcome)) {
+      throw new Error('Kết quả cuộc gọi không hợp lệ');
+    }
+    const outcome = outcomeRaw as CallOutcome;
     const notes = formData.get('notes') as string;
     const trialDate = formData.get('trialDate') as string;
     const studentName = formData.get('studentName') as string;
@@ -52,7 +56,7 @@ export async function logCallOutcome(formData: FormData) {
 
     revalidatePath('/workspaces/sales/calling');
     return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Lỗi hệ thống' };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Lỗi hệ thống' };
   }
 }

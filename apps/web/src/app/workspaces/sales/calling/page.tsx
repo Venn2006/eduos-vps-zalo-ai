@@ -1,12 +1,10 @@
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
-import { ActionCard } from '@/components/ui/ActionCard';
-import { prisma } from '@eduos/db';
+import { prisma, CallOutcome, LeadStage } from '@eduos/db';
 import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
-import { PhoneCall, Calendar, Clock, AlertCircle, Phone, ArrowLeft, ArrowRight, UserCircle, Tag, MessageSquare, History } from 'lucide-react';
+import { PhoneCall, Calendar, Clock, Phone, ArrowLeft, UserCircle, Tag, MessageSquare, History } from 'lucide-react';
 import { startOfDay, endOfDay, format } from "date-fns";
-import { vi } from 'date-fns/locale';
 import Link from 'next/link';
 import { CallOutcomeForm } from './CallOutcomeForm';
 import { getSuggestionForOutcome } from '@eduos/shared/src/lib/salesCallingSuggestions';
@@ -14,6 +12,20 @@ import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreview
 import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
 import { ParentStudentTimeline } from '@/components/timeline/ParentStudentTimeline';
 import { buildTimelineEvent, SafeTimelineEvent } from '@eduos/shared/src/lib/timelineBuilder';
+
+const CLOSED_LEAD_STAGES: LeadStage[] = ["REGISTERED", "NO_NEED", "NOT_POTENTIAL"];
+const DEFAULT_NEXT_CALL_SUGGESTION = "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử.";
+const NEW_LEAD_CALL_SUGGESTION = "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp.";
+
+type ConsultantPerformance = {
+  userId: string;
+  email: string;
+  callsToday: number;
+  bookedToday: number;
+  followUpsToday: number;
+};
+
+type TimelineUserRole = "OWNER" | "ADMIN" | "SALE" | "TEACHER" | "ACCOUNTANT" | "UNKNOWN";
 
 export default async function SalesCallingPage() {
   const authSession = await getSession();
@@ -40,14 +52,14 @@ export default async function SalesCallingPage() {
   const end = endOfDay(today);
 
   // --- KPI Metrics ---
-  const callsTodayQuery = { 
-    where: { 
-      tenantId, 
+  const callsTodayQuery = {
+    where: {
+      tenantId,
       calledAt: { gte: start, lte: end },
-      ...(isOwnerOrAdmin ? {} : { saleId: userId }) 
-    } 
+      ...(isOwnerOrAdmin ? {} : { saleId: userId })
+    }
   };
-  
+
   const bookedTrialCallsQuery = {
     where: {
       tenantId,
@@ -77,7 +89,7 @@ export default async function SalesCallingPage() {
     where: {
       tenantId,
       callCount: 0,
-      stage: { notIn: ["WON", "LOST"] as any },
+      stage: { notIn: CLOSED_LEAD_STAGES },
       ...(isOwnerOrAdmin ? {} : { assignedToId: userId })
     }
   };
@@ -106,17 +118,18 @@ export default async function SalesCallingPage() {
     prisma.lead.count(hotLeadsQuery)
   ]);
 
-  const callsRemaining = Math.max(100 - callsToday, 0);
+  const dailyCallTarget = 100;
+  const callsRemaining = Math.max(dailyCallTarget - callsToday, 0);
   const conversionRate = callsToday > 0 ? ((bookedTrialCallsToday / callsToday) * 100).toFixed(1) + '%' : 'Chưa đủ dữ liệu';
 
   // --- Caller Performance ---
-  let consultantPerformances: any[] = [];
+  let consultantPerformances: ConsultantPerformance[] = [];
   if (isOwnerOrAdmin) {
     const salesMembers = await prisma.tenantMember.findMany({
       where: { tenantId, role: 'SALE', status: 'ACTIVE' },
       include: { user: { select: { email: true } } }
     });
-    
+
     if (salesMembers.length > 0) {
       const saleIds = salesMembers.map(m => m.userId);
       const [callsBySale, bookedBySale, followUpsBySale] = await Promise.all([
@@ -157,7 +170,7 @@ export default async function SalesCallingPage() {
     where: {
       tenantId,
       ...(isOwnerOrAdmin ? {} : { assignedToId: userId }),
-      stage: { notIn: ["WON", "LOST"] }
+      stage: { notIn: CLOSED_LEAD_STAGES }
     },
     orderBy: [
       { nextFollowUpAt: 'asc' }, // Overdue first
@@ -175,6 +188,35 @@ export default async function SalesCallingPage() {
   });
 
   const activeLead = leadQueue.length > 0 ? leadQueue[0] : null;
+
+  const activeLeadOutboxItems = activeLead ? await prisma.sandboxOutboxItem.findMany({
+    where: {
+      tenantId,
+      OR: [
+        { sourceId: activeLead.id },
+        { recipientId: activeLead.id },
+        ...(activeLead.phone ? [{ recipientId: activeLead.phone }] : []),
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 3,
+  }) : [];
+
+  const activeLeadTags = activeLead ? [
+    `Giai đoạn: ${activeLead.stage}`,
+    `Độ nóng: ${activeLead.temperature}`,
+    activeLead.source?.name ? `Nguồn: ${activeLead.source.name}` : null,
+    activeLead.course?.name ? `Khóa: ${activeLead.course.name}` : null,
+    activeLead.lastCallOutcome ? `Kết quả gần nhất: ${activeLead.lastCallOutcome}` : null,
+    activeLead.nextFollowUpAt ? `Hẹn lại: ${format(activeLead.nextFollowUpAt, 'dd/MM HH:mm')}` : null,
+  ].filter((tag): tag is string => Boolean(tag)) : [];
+
+  const nextCallSuggestion = activeLead
+    ? activeLead.callCount === 0
+      ? NEW_LEAD_CALL_SUGGESTION
+      : getSuggestionForOutcome(activeLead.lastCallOutcome as CallOutcome | null)?.copy || DEFAULT_NEXT_CALL_SUGGESTION
+    : DEFAULT_NEXT_CALL_SUGGESTION;
+  const timelineUserRole = (authSession?.role ?? 'UNKNOWN') as TimelineUserRole;
 
   // --- Derive Timeline for Preview ---
   const timelineEvents: SafeTimelineEvent[] = [];
@@ -204,24 +246,22 @@ export default async function SalesCallingPage() {
         tags: [lastCall.outcome],
       }));
     }
-    
-    // Add a mock event to demonstrate timeline diversity if callCount > 0
-    if (activeLead.callCount > 0) {
-      const mockPast = new Date(activeLead.createdAt.getTime() + 1000 * 60 * 60 * 24); // +1 day
-      if (mockPast < new Date()) {
-        timelineEvents.push(buildTimelineEvent({
-          id: `mock_draft_${activeLead.id}`,
-          occurredAt: mockPast,
-          type: 'AI_DRAFT_CREATED',
-          title: 'AI tạo nháp tin nhắn',
-          rawSummary: `AI đã tạo 1 bản nháp Zalo gửi đến SĐT ${activeLead.phone} dựa trên kịch bản.`,
-          actorLabel: 'EduOS AI',
-          actorType: 'AI',
-          source: 'Zalo Inbox',
-          tags: ['Tự động hóa'],
-        }));
-      }
-    }
+
+    activeLeadOutboxItems.forEach((item) => {
+      timelineEvents.push(buildTimelineEvent({
+        id: `sandbox_outbox_${item.id}`,
+        occurredAt: item.createdAt,
+        type: 'AI_DRAFT_CREATED',
+        title: 'Nháp gửi duyệt trước',
+        rawSummary: `${item.messageSafeSummary} Trạng thái: ${item.status}.`,
+        actorLabel: item.createdByUserId ? 'Nhân viên' : 'Hệ thống',
+        actorType: item.createdByUserId ? 'STAFF' : 'SYSTEM',
+        source: `${item.channel} Hàng chờ duyệt`,
+        tags: [item.status, item.readinessStatus].filter(Boolean),
+        relatedEntityType: 'SandboxOutboxItem',
+        relatedEntityId: item.id,
+      }));
+    });
   }
 
   return (
@@ -242,8 +282,8 @@ export default async function SalesCallingPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
           <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><PhoneCall className="w-4 h-4 text-blue-500"/> Cuộc gọi hôm nay</span>
-          <span className="text-2xl font-bold text-slate-900">{callsToday} <span className="text-sm font-normal text-slate-400">/ 100</span></span>
-          <span className="text-xs text-slate-500 mt-1">Mục tiêu: 100</span>
+          <span className="text-2xl font-bold text-slate-900">{callsToday} <span className="text-sm font-normal text-slate-400">/ {dailyCallTarget}</span></span>
+          <span className="text-xs text-slate-500 mt-1">Mục tiêu nội bộ: {dailyCallTarget}</span>
         </div>
         <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
           <span className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Clock className="w-4 h-4 text-amber-500"/> Còn lại hôm nay</span>
@@ -292,7 +332,7 @@ export default async function SalesCallingPage() {
           )}
         </div>
       )}
-      
+
       {!isOwnerOrAdmin && (
         <div className="bg-white border shadow-sm rounded-xl p-4 flex items-center justify-between">
            <div className="flex items-center gap-2">
@@ -376,7 +416,7 @@ export default async function SalesCallingPage() {
                       </span>
                     </div>
                   </div>
-                  
+
                   {activeLead.phone && (
                     <a href={`tel:${activeLead.phone}`} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-sm">
                       <PhoneCall className="w-5 h-5" />
@@ -384,7 +424,7 @@ export default async function SalesCallingPage() {
                     </a>
                   )}
                 </div>
-                
+
                 <div className="p-6 bg-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><History className="w-4 h-4"/> Lịch sử gọi</h4>
@@ -394,7 +434,7 @@ export default async function SalesCallingPage() {
                       <p><span className="text-slate-500">Kết quả cuối:</span> {activeLead.lastCallOutcome || 'N/A'}</p>
                       {activeLead.callAttempts && activeLead.callAttempts.length > 0 && activeLead.callAttempts[0].notes && (
                         <div className="mt-2 p-3 bg-white border rounded-md italic text-slate-600 shadow-sm">
-                          "{activeLead.callAttempts[0].notes}"
+                          &quot;{activeLead.callAttempts[0].notes}&quot;
                         </div>
                       )}
                     </div>
@@ -403,27 +443,21 @@ export default async function SalesCallingPage() {
                     <div>
                       <h4 className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-3 flex items-center gap-1.5"><MessageSquare className="w-4 h-4"/> Gợi ý kịch bản cuộc gọi tiếp theo</h4>
                       <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-indigo-900 leading-relaxed mb-3">
-                        {(() => {
-                          const suggestionText = activeLead.callCount === 0 
-                            ? "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp." 
-                            : (activeLead.lastCallOutcome ? getSuggestionForOutcome(activeLead.lastCallOutcome as any)?.copy || "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử." : "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử.");
-                          return suggestionText;
-                        })()}
+                        {nextCallSuggestion}
                       </div>
                       <GuardrailPreviewCard result={checkMessageQuality({
-                        message: activeLead.callCount === 0 ? "Lead mới. Hãy chào mừng và hỏi thăm nhu cầu học tập của bé để tư vấn khóa học phù hợp." : (activeLead.lastCallOutcome ? getSuggestionForOutcome(activeLead.lastCallOutcome as any)?.copy || "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử." : "Hãy nhắc lại ưu đãi hoặc giải quyết thắc mắc từ lần gọi trước để chốt lịch học thử."),
+                        message: nextCallSuggestion,
                         channel: "INTERNAL",
                         audience: "LEAD",
                         staffRole: "SALE"
                       })} />
                     </div>
-                    {/* Mock AI Suggested Tags from last chat context */}
                     <div>
                       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Tag className="w-4 h-4 text-primary" /> AI Gợi Ý Nhãn Từ Trò Chuyện (Preview)
+                        <Tag className="w-4 h-4 text-primary" /> Nhãn từ dữ liệu lead
                       </h4>
                       <div className="flex gap-2 flex-wrap">
-                        {['Muốn học thử', 'Hỏi học phí', 'Lead nóng'].map(tag => (
+                        {activeLeadTags.map(tag => (
                           <span key={tag} className="px-2 py-1 bg-slate-200 text-slate-700 text-xs font-medium rounded-full border border-slate-300">
                             {tag}
                           </span>
@@ -444,10 +478,10 @@ export default async function SalesCallingPage() {
               </div>
 
               {/* TIMELINE (PREVIEW) */}
-              <ParentStudentTimeline 
-                events={timelineEvents} 
-                userRole={authSession?.role as any} 
-                isPreview={true} 
+              <ParentStudentTimeline
+                events={timelineEvents}
+                userRole={timelineUserRole}
+                isPreview={true}
               />
             </>
           ) : (

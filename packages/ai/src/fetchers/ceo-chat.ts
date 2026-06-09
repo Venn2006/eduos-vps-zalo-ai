@@ -27,7 +27,7 @@ export async function getSalesPerformanceToday(tenantId: string) {
   const end = endOfDay(today);
 
   const wonLeads = await prisma.lead.count({
-    where: { tenantId, stage: "WON", updatedAt: { gte: start, lte: end } }
+    where: { tenantId, stage: "REGISTERED", updatedAt: { gte: start, lte: end } }
   });
 
   const paymentsToday = await prisma.payment.aggregate({

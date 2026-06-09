@@ -1,78 +1,143 @@
 import React from 'react';
-import { getSession, getCurrentTenantOrThrow } from '@/lib/auth';
+import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
 import { canAccessRoute } from '@/lib/rbac';
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { TeacherWorkspaceClient } from './TeacherWorkspaceClient';
 import { prisma } from '@eduos/db';
 
+const DONE_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
+
 export default async function TeacherWorkspacePage() {
   const authSession = await getSession();
 
-  // strict RBAC check
-  if (!canAccessRoute(authSession?.role, "/workspaces/teacher")) {
+  if (!canAccessRoute(authSession?.role, '/workspaces/teacher')) {
     return <ForbiddenRoleMessage role={authSession?.role} />;
   }
 
   const tenantId = await getCurrentTenantOrThrow();
 
-  // For Pilot Demo, we fetch all classes/sessions for the tenant.
-  // In a real multi-user scenario, we would filter by the linked teacherId.
-  const classes = await prisma.class.findMany({
-    where: { tenantId },
-    include: {
-      teacher: true,
-      enrollments: { include: { student: true } }
-    }
+  const [classes, todaySessions, pendingGradeDrafts] = await Promise.all([
+    prisma.class.findMany({
+      where: { tenantId },
+      include: {
+        course: true,
+        teacher: true,
+        enrollments: { include: { student: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.classSession.findMany({
+      where: {
+        tenantId,
+        startTime: {
+          gte: startOfToday(),
+          lte: endOfToday(),
+        },
+      },
+      include: {
+        class: {
+          include: {
+            teacher: true,
+            enrollments: true,
+          },
+        },
+        attendances: { include: { student: true } },
+        homeworks: { include: { submissions: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    }),
+    prisma.aiGradeDraft.findMany({
+      where: { tenantId, isApproved: false },
+      include: {
+        submission: {
+          include: {
+            student: true,
+            homework: {
+              include: {
+                class: { include: { teacher: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }),
+  ]);
+
+  const mappedClasses = classes.map((classItem) => ({
+    id: classItem.id,
+    classCode: classItem.classCode,
+    courseName: classItem.course?.name || 'Chưa cấu hình khóa học',
+    teacherName: classItem.teacher?.name || 'Chưa phân công',
+    studentCount: classItem.enrollments.length,
+    status: classItem.status,
+  }));
+
+  const mappedSessions = todaySessions.map((session) => {
+    const expectedStudentCount = session.class.enrollments.length;
+    const assignedHomeworkCount = session.homeworks.length;
+    const missingSubmissionCount = session.homeworks.reduce((total, homework) => {
+      return total + Math.max(expectedStudentCount - homework.submissions.length, 0);
+    }, 0);
+    const attendanceComplete =
+      session.attendances.length > 0 &&
+      session.attendances.every((attendance) => DONE_ATTENDANCE_STATUSES.includes(attendance.status));
+
+    return {
+      id: session.id,
+      className: session.class.classCode,
+      teacherName: session.class.teacher?.name || 'Chưa phân công',
+      roomName: 'Chưa cấu hình phòng',
+      startTime: session.startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      endTime: session.endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      startMs: session.startTime.getTime(),
+      endMs: session.endTime.getTime(),
+      studentCount: expectedStudentCount,
+      attendances: session.attendances.map((attendance) => ({
+        id: attendance.id,
+        studentId: attendance.student.id,
+        studentName: attendance.student.name,
+        status: attendance.status,
+      })),
+      attendanceStatus: attendanceComplete
+        ? 'Đủ'
+        : session.attendances.length === 0
+          ? 'Chưa điểm danh'
+          : 'Thiếu',
+      homeworkStatus:
+        assignedHomeworkCount === 0 ? 'Chưa giao bài' : missingSubmissionCount > 0 ? 'Thiếu bài' : 'Đủ bài',
+      assignedHomeworkCount,
+      missingSubmissionCount,
+    };
   });
 
+  const mappedApprovalDrafts = pendingGradeDrafts.map((draft) => ({
+    id: draft.id,
+    title: draft.submission.homework.title,
+    studentName: draft.submission.student.name,
+    className: draft.submission.homework.class.classCode,
+    teacherName: draft.submission.homework.class.teacher?.name || 'Chưa phân công',
+    score: draft.score,
+    createdAt: draft.createdAt.toLocaleString('vi-VN'),
+    comment: draft.comment,
+  }));
+
+  return (
+    <TeacherWorkspaceClient
+      initialClasses={mappedClasses}
+      initialSessions={mappedSessions}
+      initialApprovalDrafts={mappedApprovalDrafts}
+    />
+  );
+}
+
+function startOfToday() {
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+}
 
-  const todaySessions = await prisma.classSession.findMany({
-    where: {
-      tenantId,
-      startTime: { gte: startOfDay, lte: endOfDay }
-    },
-    include: {
-      class: { include: { teacher: true } },
-      attendances: { include: { student: true } }
-    },
-    orderBy: { startTime: 'asc' }
-  });
-
-  // Map to the shape the Client expects
-  const mappedClasses = classes.map(c => ({
-    id: c.id,
-    classCode: c.classCode,
-    courseId: c.courseId,
-    teacherName: c.teacher?.name || 'N/A',
-    studentCount: c.enrollments.length,
-    status: c.status
-  }));
-
-  const mappedSessions = todaySessions.map(s => ({
-    id: s.id,
-    className: s.class.classCode,
-    teacherName: s.class.teacher?.name || 'N/A',
-    roomName: 'P.101', // Mock room
-    startTime: s.startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    endTime: s.endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    studentCount: s.attendances.length,
-    attendances: s.attendances.map(a => ({
-      id: a.id,
-      studentId: a.student.id,
-      studentName: a.student.name,
-      status: a.status
-    })),
-    attendanceStatus: s.attendances.every(a => a.status === 'PRESENT' || a.status === 'ABSENT' || a.status === 'LATE' || a.status === 'EXCUSED') && s.attendances.length > 0
-      ? 'Đủ' 
-      : s.attendances.length === 0 ? 'Chưa điểm danh' : 'Thiếu',
-    homeworkStatus: 'Chưa giao bài'
-  }));
-
-  return <TeacherWorkspaceClient 
-    initialClasses={mappedClasses} 
-    initialSessions={mappedSessions} 
-  />;
+function endOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 }

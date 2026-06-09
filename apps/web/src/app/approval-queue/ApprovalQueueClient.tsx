@@ -1,269 +1,193 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState } from 'react';
-import { User, MessageCircle, Bot, CheckCircle, XCircle, Clock, Edit2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bot, CheckCircle, Clock, MessageCircle, ShieldCheck, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+
 import { GuardrailPreviewCard } from '@/components/conversation/GuardrailPreviewCard';
 import { checkMessageQuality } from '@eduos/shared/src/lib/messageQualityGuardrails';
+import { transitionSandboxOutboxItem } from '../settings/mock-outbox/actions';
 
-// Mock data representing ZaloOutboxMessage / AiActionDraft for Phase 41
-type DraftMessage = {
+type ApprovalQueueItem = {
   id: string;
-  targetName: string;
-  targetChannel: string;
-  contextSummary: string;
-  draftContent: string;
+  channel: string;
+  sourceType: string;
+  status: string;
+  readinessStatus: string;
+  approvalStatus: string | null;
+  recipientSafeLabel: string | null;
+  messageSafeSummary: string;
   createdAt: string;
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'CANCELLED';
-  aiConfidence: number;
 };
 
-const MOCK_DRAFTS: DraftMessage[] = [
-  {
-    id: 'draft-1',
-    targetName: 'Phụ huynh bé Tuấn Anh',
-    targetChannel: 'Zalo Cá Nhân',
-    contextSummary: 'Phụ huynh hỏi về lịch học bù ngày mai.',
-    draftContent: 'Dạ chào anh/chị, lịch học bù của bé Tuấn Anh là 18:00 tối mai (Thứ 6). Anh/chị nhớ nhắc bé đi học đúng giờ nhé. Trung tâm cảm ơn ạ!',
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
-    status: 'PENDING_APPROVAL',
-    aiConfidence: 0.95,
-  },
-  {
-    id: 'draft-2',
-    targetName: 'Khách hàng Mai Hương',
-    targetChannel: 'Fanpage Facebook',
-    contextSummary: 'Hỏi học phí khoá Tiếng Anh Giao Tiếp.',
-    draftContent: 'Dạ em chào chị Hương, học phí khoá Tiếng Anh Giao Tiếp hiện tại đang có ưu đãi giảm 20% chỉ còn 4.500.000đ/khóa 3 tháng. Chị có muốn đăng ký học thử 1 buổi miễn phí để trải nghiệm không ạ?',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    status: 'PENDING_APPROVAL',
-    aiConfidence: 0.88,
-  },
-  {
-    id: 'draft-3',
-    targetName: 'Group Lớp K12-A1',
-    targetChannel: 'Zalo Group',
-    contextSummary: 'Thông báo đổi phòng học.',
-    draftContent: 'Kính gửi quý phụ huynh, do sự cố kỹ thuật phòng học, buổi học hôm nay lớp K12-A1 sẽ chuyển sang phòng 204. Mong quý phụ huynh thông cảm!',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    status: 'PENDING_APPROVAL',
-    aiConfidence: 0.98,
-  }
-];
+type ApprovalQueueClientProps = {
+  items: ApprovalQueueItem[];
+};
 
-export function ApprovalQueueClient() {
-  const [drafts, setDrafts] = useState<DraftMessage[]>(MOCK_DRAFTS);
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(drafts[0]?.id || null);
-  const [editMode, setEditMode] = useState(false);
-  const [editedContent, setEditedContent] = useState('');
+const formatTime = (value: string) => new Intl.DateTimeFormat('vi-VN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  day: '2-digit',
+  month: '2-digit',
+}).format(new Date(value));
 
-  const activeDraft = drafts.find(d => d.id === activeDraftId);
+const readinessLabel = (status: string) => {
+  if (status === 'SANDBOX_READY' || status === 'READY_FOR_SANDBOX') return 'Đủ điều kiện chờ duyệt';
+  if (status === 'BLOCKED') return 'Đang bị chặn';
+  if (status === 'NEEDS_REVIEW') return 'Cần kiểm tra';
+  return 'Cần kiểm tra';
+};
 
-  const pendingDrafts = drafts.filter(d => d.status === 'PENDING_APPROVAL');
-  const processedDrafts = drafts.filter(d => d.status !== 'PENDING_APPROVAL');
+const approvalLabel = (status?: string | null) => {
+  if (status === 'APPROVED_FOR_MANUAL_USE') return 'Đã duyệt nội bộ';
+  if (status === 'PENDING') return 'Chờ duyệt';
+  if (status === 'REJECTED') return 'Từ chối';
+  return 'Chưa duyệt';
+};
 
-  const handleSelect = (draft: DraftMessage) => {
-    setActiveDraftId(draft.id);
-    setEditMode(false);
-  };
+const sourceLabel = (source: string) => {
+  if (source === 'FANPAGE_CONVERSATION') return 'Hội thoại Fanpage';
+  if (source === 'PAYMENT_REMINDER') return 'Nhắc học phí';
+  if (source === 'ATTENDANCE_ALERT') return 'Điểm danh';
+  return 'Hệ thống';
+};
 
-  const handleApprove = (id: string, content: string) => {
-    setDrafts(prev => prev.map(d => d.id === id ? { ...d, status: 'APPROVED', draftContent: content } : d));
-    setEditMode(false);
-    // Auto-select next pending draft
-    const nextPending = drafts.find(d => d.id !== id && d.status === 'PENDING_APPROVAL');
-    if (nextPending) setActiveDraftId(nextPending.id);
-  };
+const draftStatusLabel = (status: string) => {
+  if (status === 'MOCK_READY') return 'Chờ duyệt';
+  if (status === 'MOCK_QUEUED') return 'Đã xếp hàng';
+  if (status === 'MOCK_SENDING') return 'Đang xử lý';
+  if (status === 'MOCK_SENT') return 'Đã hoàn tất';
+  if (status === 'MOCK_FAILED') return 'Có lỗi';
+  if (status === 'MOCK_CANCELLED') return 'Đã hủy';
+  return 'Cần kiểm tra';
+};
 
-  const handleReject = (id: string) => {
-    setDrafts(prev => prev.map(d => d.id === id ? { ...d, status: 'CANCELLED' } : d));
-    setEditMode(false);
-    // Auto-select next pending draft
-    const nextPending = drafts.find(d => d.id !== id && d.status === 'PENDING_APPROVAL');
-    if (nextPending) setActiveDraftId(nextPending.id);
-  };
+export function ApprovalQueueClient({ items }: ApprovalQueueClientProps) {
+  const router = useRouter();
+  const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id || null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const selectedItem = items.find((item) => item.id === selectedId) || items[0] || null;
 
-  const startEdit = () => {
-    if (activeDraft) {
-      setEditedContent(activeDraft.draftContent);
-      setEditMode(true);
+  const handleQueue = async () => {
+    if (!selectedItem) return;
+    setIsSubmitting(true);
+    try {
+      const result = await transitionSandboxOutboxItem(selectedItem.id, 'QUEUE');
+      if (!result.success) throw new Error(result.error || 'Không thể chuyển vào hàng đợi chờ duyệt');
+      toast.success('Đã chuyển vào hàng đợi chờ duyệt');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể duyệt nháp');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="flex h-[calc(100vh-180px)]">
-      {/* Left Column: Queue List */}
-      <div className="w-1/3 border-r border-slate-200 flex flex-col bg-slate-50 h-full">
-        <div className="p-4 border-b border-slate-200 bg-white">
-          <h3 className="font-semibold text-slate-800">Nháp cần duyệt ({pendingDrafts.length})</h3>
+      <div className="flex h-full w-1/3 flex-col border-r border-slate-200 bg-slate-50">
+        <div className="border-b border-slate-200 bg-white p-4">
+          <h3 className="font-semibold text-slate-800">Nháp chờ duyệt sẵn sàng ({items.length})</h3>
+          <p className="mt-1 text-xs text-slate-500">Chỉ hiển thị tin nháp đã lưu thật, không dùng dữ liệu mẫu.</p>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {pendingDrafts.length === 0 && (
+          {items.length === 0 && (
             <div className="p-8 text-center text-slate-500">
-              <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-              <p>Không có tin nháp nào cần duyệt.</p>
+              <CheckCircle className="mx-auto mb-2 h-10 w-10 text-emerald-400" />
+              <p>Không có nháp chờ duyệt nào cần duyệt.</p>
+              <Link href="/team-inbox" className="mt-3 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                Mở hộp thư khách hàng
+              </Link>
             </div>
           )}
-          {pendingDrafts.map(draft => (
-            <div 
-              key={draft.id}
-              onClick={() => handleSelect(draft)}
-              className={`p-4 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors ${activeDraftId === draft.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : 'bg-white'}`}
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setSelectedId(item.id)}
+              className={`block w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-100 ${selectedItem?.id === item.id ? 'border-l-4 border-l-indigo-600 bg-indigo-50' : 'border-l-4 border-l-transparent bg-white'}`}
             >
-              <div className="flex justify-between items-start mb-1">
-                <h4 className="font-semibold text-slate-800 text-sm">{draft.targetName}</h4>
-                <span className="text-xs text-slate-500">
-                  {new Date(draft.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </span>
+              <div className="mb-1 flex items-start justify-between gap-3">
+                <h4 className="truncate text-sm font-semibold text-slate-800">{item.recipientSafeLabel || item.sourceType}</h4>
+                <span className="shrink-0 text-xs text-slate-500">{formatTime(item.createdAt)}</span>
               </div>
-              <p className="text-xs font-medium text-indigo-600 mb-1">{draft.targetChannel}</p>
-              <p className="text-sm text-slate-600 line-clamp-2">{draft.draftContent}</p>
-            </div>
+              <p className="mb-2 text-xs font-medium text-indigo-600">{item.channel} · {draftStatusLabel(item.status)}</p>
+              <p className="line-clamp-2 text-sm text-slate-600">{item.messageSafeSummary}</p>
+            </button>
           ))}
-
-          {processedDrafts.length > 0 && (
-            <>
-              <div className="p-4 border-y border-slate-200 bg-slate-100 mt-4">
-                <h3 className="font-semibold text-slate-700 text-sm">Đã xử lý ({processedDrafts.length})</h3>
-              </div>
-              {processedDrafts.map(draft => (
-                <div 
-                  key={draft.id}
-                  onClick={() => handleSelect(draft)}
-                  className={`p-4 border-b border-slate-100 cursor-pointer opacity-70 hover:opacity-100 transition-colors ${activeDraftId === draft.id ? 'bg-slate-100 border-l-4 border-l-slate-400' : 'bg-white'}`}
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <h4 className="font-semibold text-slate-800 text-sm line-through">{draft.targetName}</h4>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${draft.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {draft.status === 'APPROVED' ? 'Duyệt nháp để sử dụng thủ công' : 'Từ chối'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 line-clamp-1">{draft.draftContent}</p>
-                </div>
-              ))}
-            </>
-          )}
         </div>
       </div>
 
-      {/* Right Column: Detail & Actions */}
-      <div className="w-2/3 flex flex-col bg-white h-full relative">
-        {activeDraft ? (
+      <div className="relative flex h-full w-2/3 flex-col bg-white">
+        {selectedItem ? (
           <>
-            <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-start">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-slate-50 p-6">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 mb-1">{activeDraft.targetName}</h2>
+                <h2 className="mb-1 text-lg font-bold text-slate-800">{selectedItem.recipientSafeLabel || selectedItem.sourceType}</h2>
                 <div className="flex items-center gap-3 text-sm text-slate-600">
-                  <span className="flex items-center"><MessageCircle className="w-4 h-4 mr-1 text-slate-400" /> {activeDraft.targetChannel}</span>
-                  <span className="flex items-center"><Clock className="w-4 h-4 mr-1 text-slate-400" /> Tạo lúc: {new Date(activeDraft.createdAt).toLocaleString('vi-VN')}</span>
+                  <span className="flex items-center"><MessageCircle className="mr-1 h-4 w-4 text-slate-400" /> {selectedItem.channel}</span>
+                  <span className="flex items-center"><Clock className="mr-1 h-4 w-4 text-slate-400" /> Tạo lúc: {formatTime(selectedItem.createdAt)}</span>
                 </div>
               </div>
-              <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded text-sm font-semibold flex items-center">
-                <Bot className="w-4 h-4 mr-2" /> AI Draft
+              <div className="flex items-center rounded bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-800">
+                <Bot className="mr-2 h-4 w-4" /> Nháp chờ duyệt
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Context */}
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
               <div>
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Ngữ cảnh (Context)</h3>
-                <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg text-slate-700 text-sm">
-                  {activeDraft.contextSummary}
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-slate-500">Nội dung an toàn</h3>
+                <div className="rounded-lg border border-slate-300 bg-white p-4 text-sm text-slate-800">
+                  {selectedItem.messageSafeSummary}
                 </div>
               </div>
 
-              {/* Draft Content */}
-              <div>
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                  <span>Nội dung dự thảo (Draft)</span>
-                  {activeDraft.status === 'PENDING_APPROVAL' && !editMode && (
-                    <button onClick={startEdit} className="text-indigo-600 hover:text-indigo-800 flex items-center text-xs normal-case">
-                      <Edit2 className="w-3 h-3 mr-1" /> Chỉnh sửa
-                    </button>
-                  )}
-                </h3>
-                
-                {editMode ? (
-                  <textarea
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    className="w-full h-32 p-4 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-800 bg-indigo-50/30"
-                  />
-                ) : (
-                  <div className={`p-4 border rounded-lg text-sm text-slate-800 ${activeDraft.status === 'APPROVED' ? 'bg-emerald-50 border-emerald-200' : activeDraft.status === 'CANCELLED' ? 'bg-red-50 border-red-200' : 'bg-white border-slate-300'}`}>
-                    {activeDraft.draftContent}
-                  </div>
-                )}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-500">Điều kiện gửi</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{readinessLabel(selectedItem.readinessStatus)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-500">Duyệt nội bộ</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{approvalLabel(selectedItem.approvalStatus)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-500">Nguồn</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{sourceLabel(selectedItem.sourceType)}</p>
+                </div>
               </div>
 
-              {/* Guardrails (only if pending) */}
-              {activeDraft.status === 'PENDING_APPROVAL' && (
-                <div>
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Kiểm duyệt An toàn (Guardrails)</h3>
-                  <GuardrailPreviewCard result={checkMessageQuality({
-                    message: editMode ? editedContent : activeDraft.draftContent,
-                    channel: activeDraft.targetChannel.includes('Zalo') ? 'ZALO' : 'FANPAGE',
-                    audience: 'PARENT',
-                    staffRole: 'SALE',
-                  })} />
-                </div>
-              )}
+              <div>
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-slate-500">Kiểm duyệt an toàn</h3>
+                <GuardrailPreviewCard result={checkMessageQuality({
+                  message: selectedItem.messageSafeSummary,
+                  channel: selectedItem.channel === 'ZALO' ? 'ZALO' : 'FANPAGE',
+                  audience: 'PARENT',
+                  staffRole: 'SALE',
+                })} />
+              </div>
             </div>
 
-            {/* Actions Footer */}
-            {activeDraft.status === 'PENDING_APPROVAL' && (
-              <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                {editMode ? (
-                  <>
-                    <button 
-                      onClick={() => setEditMode(false)}
-                      className="px-6 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors"
-                    >
-                      Hủy sửa
-                    </button>
-                    <button 
-                      onClick={() => handleApprove(activeDraft.id, editedContent)}
-                      className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" /> Lưu & Chấp nhận
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => handleReject(activeDraft.id)}
-                      className="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors flex items-center"
-                    >
-                      <XCircle className="w-5 h-5 mr-2" /> Từ chối
-                    </button>
-                    <button 
-                      onClick={() => handleApprove(activeDraft.id, activeDraft.draftContent)}
-                      className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center shadow-sm"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" /> Duyệt nháp để sử dụng thủ công
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            {activeDraft.status !== 'PENDING_APPROVAL' && (
-              <div className={`p-4 border-t border-slate-200 text-center font-medium ${activeDraft.status === 'APPROVED' ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
-                {activeDraft.status === 'APPROVED' ? (
-                  <div>
-                    Tin nhắn đã được duyệt (Chưa xếp hàng gửi, Chưa có outbox gửi thật, Không tự động gửi)
-                    <div className="mt-2">
-                      <a href="/settings/mock-outbox" className="inline-flex items-center text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline">
-                        Xem mô phỏng hàng đợi gửi →
-                      </a>
-                    </div>
-                  </div>
-                ) : 'Tin nhắn nháp đã bị hủy'}
-              </div>
-            )}
+            <div className="flex justify-end gap-3 border-t border-slate-200 bg-white p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <Link href="/team-inbox" className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-6 py-2.5 font-medium text-slate-700 transition-colors hover:bg-slate-50">
+                Mở hộp thư khách hàng
+              </Link>
+              <button
+                type="button"
+                onClick={handleQueue}
+                disabled={isSubmitting || selectedItem.status !== 'MOCK_READY'}
+                className="inline-flex items-center rounded-lg bg-emerald-600 px-6 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ShieldCheck className="mr-2 h-5 w-5" /> {isSubmitting ? 'Đang duyệt...' : 'Duyệt vào hàng đợi chờ duyệt'}
+              </button>
+            </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 h-full">
-            <CheckCircle className="w-16 h-16 text-slate-200 mb-4" />
-            <p className="text-lg">Tuyệt vời! Không còn tin nhắn nào cần duyệt.</p>
+          <div className="flex h-full flex-1 flex-col items-center justify-center text-slate-400">
+            <XCircle className="mb-4 h-16 w-16 text-slate-200" />
+            <p className="text-lg">Không có nháp chờ duyệt nào cần duyệt.</p>
           </div>
         )}
       </div>

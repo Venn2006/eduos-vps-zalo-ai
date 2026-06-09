@@ -1,7 +1,7 @@
 "use server";
 
-import { prisma } from '@eduos/db';
-import { getCurrentTenantOrThrow } from '@/lib/auth';
+import { createAuditLog, prisma } from '@eduos/db';
+import { getCurrentTenantOrThrow, requireRole } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
 export async function getStudentsList() {
@@ -33,7 +33,6 @@ export async function getStudentsList() {
   // Calculate Churn Risk on the fly
   return students.map(student => {
     let absentCount = 0;
-    let missedHomework = 0;
     let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
     let riskReason = '';
 
@@ -73,7 +72,7 @@ export async function getStudentsList() {
 export async function getStudentProfile(studentId: string) {
   const tenantId = await getCurrentTenantOrThrow();
 
-  const student = await prisma.student.findUnique({
+  const student = await prisma.student.findFirst({
     where: { id: studentId, tenantId },
     include: {
       guardian: true,
@@ -109,9 +108,13 @@ export async function getStudentProfile(studentId: string) {
 }
 
 export async function addProgressNote(studentId: string, note: string) {
-  const tenantId = await getCurrentTenantOrThrow();
+  const session = await requireRole(['OWNER', 'ADMIN', 'TEACHER']);
+  const tenantId = session.activeTenantId;
 
-  await prisma.studentProgressNote.create({
+  const student = await prisma.student.findFirst({ where: { id: studentId, tenantId }, select: { id: true } });
+  if (!student) throw new Error('Student not found');
+
+  const progressNote = await prisma.studentProgressNote.create({
     data: {
       tenantId,
       studentId,
@@ -119,6 +122,62 @@ export async function addProgressNote(studentId: string, note: string) {
     }
   });
 
+  await createAuditLog(prisma, {
+    tenantId,
+    actorId: session.userId,
+    action: 'STUDENT_PROGRESS_NOTE_CREATED',
+    entityType: 'StudentProgressNote',
+    entityId: progressNote.id,
+    afterJson: { studentId, noteLength: note.length },
+    metadataJson: { source: 'student_action' },
+  });
+
   revalidatePath(`/students/${studentId}`);
   revalidatePath(`/students`);
+}
+
+export async function assignStudentToClass(studentId: string, classId: string) {
+  const session = await requireRole(['OWNER', 'ADMIN', 'SALE']);
+  const tenantId = session.activeTenantId;
+
+  const [student, classRecord] = await Promise.all([
+    prisma.student.findFirst({ where: { id: studentId, tenantId }, select: { id: true, name: true } }),
+    prisma.class.findFirst({ where: { id: classId, tenantId }, select: { id: true, classCode: true } })
+  ]);
+
+  if (!student) throw new Error('Student not found');
+  if (!classRecord) throw new Error('Class not found');
+
+  const enrollment = await prisma.enrollment.upsert({
+    where: {
+      tenantId_studentId_classId: {
+        tenantId,
+        studentId,
+        classId
+      }
+    },
+    update: { status: 'ACTIVE' },
+    create: {
+      tenantId,
+      studentId,
+      classId,
+      status: 'ACTIVE'
+    }
+  });
+
+  await createAuditLog(prisma, {
+    tenantId,
+    actorId: session.userId,
+    action: 'STUDENT_ASSIGNED_TO_CLASS',
+    entityType: 'Enrollment',
+    entityId: enrollment.id,
+    afterJson: { studentId, studentName: student.name, classId, classCode: classRecord.classCode },
+    metadataJson: { source: 'student_action' },
+  });
+
+  revalidatePath(`/students/${studentId}`);
+  revalidatePath('/students');
+  revalidatePath('/classes');
+
+  return enrollment;
 }

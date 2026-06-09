@@ -1,11 +1,16 @@
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { logger } from "@eduos/logger";
 import { QueueNames } from "@eduos/shared";
 
-const redisConnection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+const redisUrl = new URL(process.env.REDIS_URL || "redis://localhost:6379");
+const redisConnection = {
+  host: redisUrl.hostname,
+  port: Number(redisUrl.port || 6379),
+  username: redisUrl.username || undefined,
+  password: redisUrl.password || undefined,
+  tls: redisUrl.protocol === "rediss:" ? {} : undefined,
   maxRetriesPerRequest: null,
-});
+};
 
 import { initClassReminderScheduler } from "./schedulers/classReminder";
 import { initHomeworkReminderScheduler } from "./schedulers/homeworkReminder";

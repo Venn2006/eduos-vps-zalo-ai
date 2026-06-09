@@ -2,11 +2,13 @@ import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { ActionCard } from '@/components/ui/ActionCard';
-import { prisma } from '@eduos/db';
+import { prisma, LeadStage } from '@eduos/db';
 import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
 import { Sparkles } from 'lucide-react';
 import { startOfDay, endOfDay } from "date-fns";
 import Link from 'next/link';
+
+const CLOSED_LEAD_STAGES: LeadStage[] = ["REGISTERED", "NO_NEED", "NOT_POTENTIAL"];
 
 // Reusable AI Prompt pill
 function AiPrompt({ text }: { text: string }) {
@@ -53,16 +55,16 @@ export default async function SalesWorkspaceDashboard() {
     // Lịch học thử hôm nay
     prisma.trialBooking.count({ where: { tenantId, trialDate: { gte: start, lte: end } } }),
     // Học thử xong cần gọi chốt (ATTENDED but Lead stage not WON/LOST)
-    prisma.trialBooking.count({ 
-      where: { 
-        tenantId, 
-        status: "ATTENDED", 
-        lead: { stage: { notIn: ["WON", "LOST"] } } 
-      } 
+    prisma.trialBooking.count({
+      where: {
+        tenantId,
+        status: "ATTENDED",
+        lead: { stage: { notIn: CLOSED_LEAD_STAGES } }
+      }
     }),
     // Đã chốt (WON) hôm nay
-    prisma.lead.count({ where: { tenantId, stage: "WON", updatedAt: { gte: start, lte: end } } }),
-    
+    prisma.lead.count({ where: { tenantId, stage: "REGISTERED", updatedAt: { gte: start, lte: end } } }),
+
     // Action: Lead nóng chưa chăm sóc
     prisma.lead.count({ where: { tenantId, temperature: "HOT", callCount: 0 } }),
     // Action: Lead chưa gọi quá 24h
@@ -86,7 +88,7 @@ export default async function SalesWorkspaceDashboard() {
           <h2 className="text-2xl font-bold text-white mb-2">Tổng quan tuyển sinh hôm nay</h2>
           <p className="text-slate-300">Tập trung vào lead nóng, học thử, và việc cần gọi ngay.</p>
         </div>
-        
+
         <div>
           <h3 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">AI Gợi Ý Tương Tác</h3>
           <div className="flex gap-2 flex-wrap">
@@ -106,14 +108,14 @@ export default async function SalesWorkspaceDashboard() {
       </section>
 
       <div className="space-y-10">
-        
+
         {/* KPI SECTION */}
         <section>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">📊 Chỉ số phễu tuyển sinh</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-            <ActionCard 
+            <ActionCard
               title="Lead mới hôm nay"
               metric={newLeadsToday}
               severity="info"
@@ -121,7 +123,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Lead nóng"
               metric={hotLeads}
               severity={hotLeads > 0 ? "warning" : "info"}
@@ -129,7 +131,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Lead chưa gọi"
               metric={untouchedLeads}
               severity={untouchedLeads > 0 ? "warning" : "success"}
@@ -137,7 +139,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Lịch học thử hôm nay"
               metric={trialsToday}
               severity={trialsToday > 0 ? "success" : "info"}
@@ -145,7 +147,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Học thử"
               ctaHref="/trial-bookings"
             />
-            <ActionCard 
+            <ActionCard
               title="Học thử cần follow-up"
               metric={attendedButNotWonTrials}
               severity={attendedButNotWonTrials > 0 ? "warning" : "success"}
@@ -153,7 +155,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Học thử"
               ctaHref="/trial-bookings"
             />
-            <ActionCard 
+            <ActionCard
               title="Đã chốt (WON)"
               metric={wonLeadsToday}
               severity={wonLeadsToday > 0 ? "success" : "info"}
@@ -161,7 +163,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Tỷ lệ chuyển đổi"
               metric="Chưa đủ dữ liệu"
               severity="info"
@@ -178,7 +180,7 @@ export default async function SalesWorkspaceDashboard() {
             <h2 className="text-xl font-bold tracking-tight text-slate-900">🔥 Việc cần làm ngay</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <ActionCard 
+            <ActionCard
               title="Lead nóng chưa chăm sóc"
               metric={hotUntouchedLeads}
               severity={hotUntouchedLeads > 0 ? "critical" : "success"}
@@ -186,7 +188,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Lead chưa gọi quá 24h"
               metric={over24hUntouchedLeads}
               severity={over24hUntouchedLeads > 0 ? "critical" : "success"}
@@ -194,7 +196,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Leads"
               ctaHref="/leads"
             />
-            <ActionCard 
+            <ActionCard
               title="Học thử hôm nay"
               metric={trialsTodayAction}
               severity={trialsTodayAction > 0 ? "warning" : "success"}
@@ -202,7 +204,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Học thử"
               ctaHref="/trial-bookings"
             />
-            <ActionCard 
+            <ActionCard
               title="Học thử xong cần chốt"
               metric={attendedButNotWonTrials}
               severity={attendedButNotWonTrials > 0 ? "critical" : "success"}
@@ -210,7 +212,7 @@ export default async function SalesWorkspaceDashboard() {
               ctaText="Xem Học thử"
               ctaHref="/trial-bookings"
             />
-            <ActionCard 
+            <ActionCard
               title="Tin Fanpage chờ trả lời"
               metric="Chưa đủ dữ liệu"
               severity="info"

@@ -45,7 +45,7 @@ export async function getDashboardSummaryForTenant(prisma: PrismaClient, tenantI
   ] = await Promise.all([
     prisma.student.count({ where: { tenantId } }),
     prisma.class.count({ where: { tenantId, status: "ACTIVE" } }),
-    prisma.lead.count({ where: { tenantId, stage: { not: "WON" } } }),
+    prisma.lead.count({ where: { tenantId, stage: { not: "REGISTERED" } } }),
     prisma.trialBooking.count({ where: { tenantId, status: "BOOKED" } }),
     prisma.invoice.count({ where: { tenantId, status: "UNPAID" } }),
     prisma.aiSuggestion.count({ where: { tenantId } }) // Placeholder

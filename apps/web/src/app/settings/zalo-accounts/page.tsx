@@ -1,18 +1,29 @@
 import React from 'react';
 import { PageShell } from '@/components/layout/PageShell';
 import { prisma } from '@eduos/db';
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
+import { canAccessRoute } from '@/lib/rbac';
+import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
 
 export default async function ZaloAccountsSettingsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, '/settings')) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
+  const tenantId = await getCurrentTenantOrThrow();
   const sessions = await prisma.zaloConnectorSession.findMany({
+    where: { tenantId },
     include: {
       account: true
-    }
+    },
+    orderBy: { updatedAt: 'desc' },
   });
 
   return (
     <PageShell 
       title="Cài đặt Zalo Accounts" 
-      description="Quản lý tài khoản Zalo Assistant kết nối VPS"
+      description="Quản lý tài khoản Zalo Assistant kết nối VPS theo tenant hiện tại."
     >
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Danh sách VPS Connector</h2>
@@ -42,7 +53,7 @@ export default async function ZaloAccountsSettingsPage() {
                       </span>
                     )}
                   </td>
-                  <td className="p-3">{s.lastPing ? s.lastPing.toLocaleString() : "Chưa có"}</td>
+                  <td className="p-3">{s.lastPing ? s.lastPing.toLocaleString('vi-VN') : 'Chưa có'}</td>
                 </tr>
               ))}
               {sessions.length === 0 && (

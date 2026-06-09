@@ -13,3 +13,8 @@ scrape_tmp/
 scripts/research/tmp/
 *.pyc
 __pycache__/
+.vercel
+.playwright-cli/
+output/
+tree.txt
+fix.py

@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { canAccessRoute } from '@/lib/rbac';
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { FinanceWorkspaceClient } from './FinanceWorkspaceClient';
-import { getFinanceMetrics, getFinanceRecords } from '../../actions/finance';
+import { getFinanceMetrics, getFinanceRecords, getExpenses } from '../../actions/finance';
 
 export default async function FinanceWorkspacePage() {
   const authSession = await getSession();
@@ -15,6 +15,7 @@ export default async function FinanceWorkspacePage() {
 
   const initialMetrics = await getFinanceMetrics();
   const initialRecords = await getFinanceRecords();
+  const initialExpenses = await getExpenses();
 
-  return <FinanceWorkspaceClient initialMetrics={initialMetrics} initialRecords={initialRecords} />;
+  return <FinanceWorkspaceClient initialMetrics={initialMetrics} initialRecords={initialRecords} initialExpenses={initialExpenses} />;
 }

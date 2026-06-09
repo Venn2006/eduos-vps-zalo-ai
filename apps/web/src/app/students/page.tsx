@@ -4,6 +4,7 @@ import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import StudentListClient from './StudentListClient';
 import { getStudentsList } from '../actions/students';
+import { PageGuidanceBanner } from '@/components/ui/PageGuidanceBanner';
 
 export default async function StudentsPage() {
   const authSession = await getSession();
@@ -14,6 +15,12 @@ export default async function StudentsPage() {
   const initialStudents = await getStudentsList();
 
   return (
-    <StudentListClient initialStudents={initialStudents} />
+    <div className="space-y-6 pb-10">
+      <PageGuidanceBanner
+        title="Học viên"
+        description="Xem danh sách học viên, lớp đang học, phụ huynh và các trường hợp cần chăm sóc."
+      />
+      <StudentListClient initialStudents={initialStudents} />
+    </div>
   );
 }

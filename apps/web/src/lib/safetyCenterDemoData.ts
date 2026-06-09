@@ -2,7 +2,7 @@ export const connectorMatrix = [
   {
     id: "zalo_oa_read",
     name: "Zalo OA read-only import",
-    status: "Sandbox-only",
+    status: "Đang xử lý",
     allowedNow: "mock only",
     futureMode: "official API/webhook",
     risk: "Medium",
@@ -22,7 +22,7 @@ export const connectorMatrix = [
   {
     id: "fb_fanpage_read",
     name: "Facebook Fanpage read-only import",
-    status: "Sandbox-only",
+    status: "Đang xử lý",
     allowedNow: "mock only",
     futureMode: "official API/webhook",
     risk: "Medium",
@@ -62,7 +62,7 @@ export const connectorMatrix = [
   {
     id: "landing_form",
     name: "Landing page/form import",
-    status: "Sandbox-only",
+    status: "Đang xử lý",
     allowedNow: "mock only",
     futureMode: "official API/webhook",
     risk: "Low",
@@ -82,7 +82,7 @@ export const connectorMatrix = [
   {
     id: "vietqr",
     name: "VietQR payment intent",
-    status: "Sandbox-only",
+    status: "Đang xử lý",
     allowedNow: "mock only",
     futureMode: "official API/webhook",
     risk: "High",

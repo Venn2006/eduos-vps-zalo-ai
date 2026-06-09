@@ -1,15 +1,13 @@
 import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
+import Link from 'next/link';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
-import { prisma } from '@eduos/db';
 import {  getCurrentTenantOrThrow , getSession } from '@/lib/auth';
 import { getFinanceSummaryForTenant, getInvoicesForTenant } from '@eduos/api/src/services/finance.service';
-import { DollarSign, AlertCircle, Calendar } from 'lucide-react';
 
 export default async function PaymentsPage() {
   const authSession = await getSession();
@@ -26,7 +24,7 @@ export default async function PaymentsPage() {
       <SectionHeader 
         title="Quản lý Học phí" 
         description="Theo dõi hóa đơn, thanh toán và công nợ"
-        action={<Button>Tạo hóa đơn</Button>}
+        action={<Link href="/workspaces/finance" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary/90">Mở workspace tài chính</Link>}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -109,8 +107,7 @@ export default async function PaymentsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">Thu tiền</Button>
-                      <Button variant="ghost" size="sm">Chi tiết</Button>
+                      <Link href="/workspaces/finance" className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Đối soát</Link>
                     </div>
                   </TableCell>
                 </TableRow>

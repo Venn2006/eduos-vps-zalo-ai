@@ -14,6 +14,24 @@ export interface LogCallOutcomeParams {
   executeTransaction: (data: any) => Promise<void>;
 }
 
+const callOutcomeLabel = (outcome: CallOutcome) => {
+  const labels: Record<CallOutcome, string> = {
+    NO_ANSWER: 'khách chưa nghe máy',
+    BUSY_CALLBACK: 'khách hẹn gọi lại',
+    WRONG_NUMBER: 'sai số điện thoại',
+    INTERESTED: 'khách quan tâm',
+    ASKED_PRICE: 'khách hỏi học phí',
+    NEEDS_PARENT_APPROVAL: 'cần phụ huynh xác nhận',
+    NOT_INTERESTED: 'khách chưa quan tâm',
+    BOOKED_TRIAL: 'đã đặt lịch học thử',
+    ATTENDED_TRIAL: 'đã học thử',
+    PAID: 'đã thanh toán',
+    LOST: 'khách không còn nhu cầu',
+  };
+
+  return labels[outcome] || 'cần chăm sóc tiếp';
+};
+
 export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
   const { tenantId, userId, role, leadId, outcome, notes, trialDate, studentName, fetchLead, executeTransaction } = params;
 
@@ -97,7 +115,7 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
         leadId,
         assignedTo: assignedToFollowUp,
         dueDate: nextFollowUpAt,
-        description: `Follow up after call outcome: ${outcome}`,
+        description: `Chăm sóc lại: ${callOutcomeLabel(outcome)}`,
         isCompleted: false,
       };
     } else if (outcome === 'NEEDS_PARENT_APPROVAL') {
@@ -108,7 +126,7 @@ export async function validateAndLogCallOutcome(params: LogCallOutcomeParams) {
         leadId,
         assignedTo: assignedToFollowUp,
         dueDate: nextFollowUpAt,
-        description: `Follow up after call outcome: ${outcome}`,
+        description: `Chăm sóc lại: ${callOutcomeLabel(outcome)}`,
         isCompleted: false,
       };
     }

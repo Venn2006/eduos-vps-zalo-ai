@@ -10,8 +10,7 @@
   "dependencies": {
     "@eduos/logger": "*",
     "@eduos/shared": "*",
-    "bullmq": "^4.0.0",
-    "ioredis": "^5.0.0",
+    "bullmq": "^5.78.0",
     "node-cron": "^4.2.1"
   },
   "devDependencies": {

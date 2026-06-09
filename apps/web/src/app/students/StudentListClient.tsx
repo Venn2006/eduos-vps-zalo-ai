@@ -5,13 +5,24 @@ import Link from 'next/link';
 import { Search, UserPlus, Phone, ShieldAlert, GraduationCap, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface StudentListClientProps {
-  initialStudents: any[];
+  initialStudents: StudentListItem[];
+}
+
+interface StudentListItem {
+  id: string;
+  name: string;
+  phone?: string | null;
+  guardianName: string;
+  guardianPhone: string;
+  enrolledClasses: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskReason: string;
 }
 
 export default function StudentListClient({ initialStudents }: StudentListClientProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredStudents = initialStudents.filter(s => 
+  const filteredStudents = initialStudents.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.phone?.includes(searchTerm) ||
     s.guardianPhone?.includes(searchTerm)
@@ -21,24 +32,24 @@ export default function StudentListClient({ initialStudents }: StudentListClient
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Hồ sơ Học viên</h1>
-          <p className="text-slate-500 text-sm mt-1">Quản lý danh sách học viên và theo dõi rủi ro nghỉ học (Churn Risk).</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Hồ sơ học viên</h1>
+          <p className="text-slate-500 text-sm mt-1">Quản lý danh sách học viên và theo dõi nguy cơ nghỉ học.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Tìm tên, SĐT học viên/phụ huynh..." 
+            <input
+              type="text"
+              placeholder="Tìm tên hoặc số điện thoại học viên/phụ huynh..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-80 transition-shadow"
             />
           </div>
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
+          <Link href="/leads" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm">
             <UserPlus className="w-4 h-4" />
-            Thêm học viên
-          </button>
+            Thêm từ khách tiềm năng
+          </Link>
         </div>
       </div>
 

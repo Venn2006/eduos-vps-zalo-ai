@@ -25,32 +25,45 @@ export function MetricCard({
   ...props
 }: MetricCardProps) {
   
-  const colorStyles = {
-    primary: "from-primary/10 to-primary/5 text-primary border-primary/20",
-    success: "from-emerald-500/10 to-emerald-500/5 text-emerald-600 border-emerald-500/20",
-    danger: "from-rose-500/10 to-rose-500/5 text-rose-600 border-rose-500/20",
-    warning: "from-amber-500/10 to-amber-500/5 text-amber-600 border-amber-500/20",
-    info: "from-blue-500/10 to-blue-500/5 text-blue-600 border-blue-500/20",
-    default: "from-slate-100 to-slate-50 text-slate-600 border-slate-200"
+  const accentStyles = {
+    primary: "border-l-indigo-500",
+    success: "border-l-emerald-500",
+    danger: "border-l-rose-500",
+    warning: "border-l-amber-500",
+    info: "border-l-blue-500",
+    default: "border-l-slate-500"
   }
+
+  const iconStyles = {
+    primary: "bg-indigo-50 text-indigo-700 border-indigo-100",
+    success: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    danger: "bg-rose-50 text-rose-700 border-rose-100",
+    warning: "bg-amber-50 text-amber-700 border-amber-100",
+    info: "bg-blue-50 text-blue-700 border-blue-100",
+    default: "bg-slate-50 text-slate-700 border-slate-100"
+  }
+
+  const activeAccentStyle = accentStyles[color];
+  const activeIconStyle = iconStyles[color];
 
   return (
     <Card className={cn(
-      "relative overflow-hidden group hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 border-slate-200/60 rounded-2xl",
+      "group relative overflow-hidden rounded-lg border border-l-4 border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+      activeAccentStyle,
       className
     )} {...props}>
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-slate-500">{title}</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-3xl font-bold tracking-tight text-slate-900">{value}</h3>
+      <CardContent className="relative z-10 p-5 lg:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <p className="text-sm font-bold leading-5 text-slate-500 lg:text-[0.95rem]">{title}</p>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h3 className="whitespace-nowrap text-3xl font-black tracking-tight text-slate-950 lg:text-[2rem]">{value}</h3>
               {trend && (
                 <div className={cn(
-                  "flex items-center text-xs font-semibold px-2 py-1 rounded-full",
-                  trend === "up" ? "text-emerald-700 bg-emerald-100" :
-                  trend === "down" ? "text-rose-700 bg-rose-100" :
-                  "text-slate-600 bg-slate-100"
+                  "flex items-center text-[10px] font-bold px-2 py-1 rounded-full border whitespace-nowrap",
+                  trend === "up" ? "text-emerald-700 bg-emerald-50 border-emerald-100" :
+                  trend === "down" ? "text-rose-700 bg-rose-50 border-rose-100" :
+                  "text-slate-600 bg-slate-50 border-slate-100"
                 )}>
                   {trend === "up" && <TrendingUp className="w-3 h-3 mr-1" />}
                   {trend === "down" && <TrendingDown className="w-3 h-3 mr-1" />}
@@ -59,13 +72,10 @@ export function MetricCard({
                 </div>
               )}
             </div>
-            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+            {subtitle && <p className="text-sm font-medium leading-5 text-slate-500">{subtitle}</p>}
           </div>
           {icon && (
-            <div className={cn(
-              "p-3 rounded-2xl bg-gradient-to-br shadow-sm transition-transform duration-300 group-hover:scale-110",
-              colorStyles[color]
-            )}>
+            <div className={cn("ml-2 shrink-0 rounded-lg border p-3 shadow-sm transition-transform duration-200 group-hover:scale-105", activeIconStyle)}>
               {icon}
             </div>
           )}

@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { logCallOutcome } from './actions';
 import { CallOutcome } from '@prisma/client';
 import { CheckCircle2, Clock, Copy } from 'lucide-react';
 import { getSuggestionForOutcome } from '@eduos/shared/src/lib/salesCallingSuggestions';
+import { toast } from 'sonner';
 
 interface CallOutcomeFormProps {
   leadId: string;
 }
 
 export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
+  const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -42,12 +45,13 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
         setSuccess(true);
         setSubmittedOutcome(outcomeVal);
         setShowBookingForm(false);
+        router.refresh();
         setTimeout(() => setSuccess(false), 5000);
       } else {
         setError(result.error || 'Lỗi không xác định');
       }
-    } catch (err: any) {
-      setError(err.message || 'Lỗi hệ thống');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Lỗi hệ thống');
     } finally {
       setIsPending(false);
     }
@@ -55,9 +59,14 @@ export function CallOutcomeForm({ leadId }: CallOutcomeFormProps) {
 
   const suggestion = getSuggestionForOutcome(submittedOutcome);
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (suggestion?.copy) {
-      navigator.clipboard.writeText(suggestion.copy);
+      try {
+        await navigator.clipboard.writeText(suggestion.copy);
+        toast.success('Đã sao chép gợi ý');
+      } catch {
+        toast.error('Không sao chép được nội dung');
+      }
     }
   };
 

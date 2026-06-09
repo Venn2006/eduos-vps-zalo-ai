@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------
@@ -27,13 +28,18 @@ enum TenantMemberStatus {
 
 enum LeadStage {
   NEW
-  CONTACTED
-  QUALIFIED
-  BOOKED_TRIAL
-  ATTENDED_TRIAL
-  OFFERED
-  WON
-  LOST
+  NO_ANSWER
+  CALLBACK
+  INTERESTED
+  POTENTIAL
+  WAITING_TRIAL
+  TRIALING
+  TRIALED
+  WAITING_TEST
+  TESTED
+  REGISTERED
+  NOT_POTENTIAL
+  NO_NEED
 }
 
 enum LeadTemperature {
@@ -255,15 +261,22 @@ enum RenewalStatus {
 // ---------------------------------------------------------
 
 model Tenant {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  hotline   String?
-  email     String?
-  address   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  hotline            String?
+  email              String?
+  address            String?
+  subscriptionStatus String    @default("TRIAL") // TRIAL, ACTIVE, EXPIRED, CANCELLED
+  trialStartsAt      DateTime?
+  trialEndsAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Settings
+  zaloOaAppId String?
+  zaloOaToken String?   @db.Text
+  deletedAt   DateTime?
 
   members TenantMember[]
 
@@ -335,6 +348,7 @@ model Tenant {
   aiInteractions    AiInteraction[]
   aiSuggestions     AiSuggestion[]
   aiPromptTemplates AiPromptTemplate[]
+  aiKnowledgeBases  AiKnowledgeBase[]
 
   // System
   jobLogs           JobLog[]
@@ -350,6 +364,7 @@ model Tenant {
   aiActionDrafts     AiActionDraft[]
   SandboxOutboxItem  SandboxOutboxItem[]
   SandboxOutboxEvent SandboxOutboxEvent[]
+  expenses           Expense[]
 
   @@index([slug])
 }
@@ -357,6 +372,7 @@ model Tenant {
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
+  name         String?
   passwordHash String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -366,6 +382,7 @@ model User {
   reportedReports  WeeklyParentReport[] @relation("ReportApprover")
   aiCommandThreads AiCommandThread[]
   approvedActions  AiActionDraft[]      @relation("ActionApprover")
+  approvedExpenses Expense[]            @relation("ExpenseApprover")
 }
 
 model TenantMember {
@@ -397,6 +414,8 @@ model AuditLog {
   createdAt    DateTime @default(now())
 
   @@index([tenantId, entityType, entityId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
 }
 
 // ---------------------------------------------------------
@@ -431,6 +450,11 @@ model Lead {
   sourceId           String?
   assignedToId       String?
   interestedCourseId String?
+  branch             String?
+  school             String?
+  dob                DateTime?
+  level              String?
+  socialLink         String?
   lastCallAt         DateTime?
   nextFollowUpAt     DateTime?
   callCount          Int             @default(0)
@@ -1627,4 +1651,37 @@ model SandboxOutboxEvent {
 
   @@index([tenantId, sandboxOutboxItemId, createdAt])
   @@index([tenantId, eventType, createdAt])
+}
+
+model AiKnowledgeBase {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category  String   @default("FAQ")
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  tenantId      String
+  expenseCode   String
+  category      String
+  recipientName String
+  amount        Float
+  expenseDate   DateTime @default(now())
+  note          String?  @db.Text
+  status        String   @default("PENDING_APPROVAL")
+  approvedById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  approver User?  @relation("ExpenseApprover", fields: [approvedById], references: [id])
+
+  @@index([tenantId, status])
 }

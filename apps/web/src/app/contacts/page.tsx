@@ -1,191 +1,169 @@
-"use client";
-import React, { useState } from 'react';
+import React from 'react';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { 
-  Search, Filter, Download, Plus, MoreHorizontal, User, 
-  MessageSquare, Mail, Phone, Tag, Calendar
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
+import { canAccessRoute } from '@/lib/rbac';
+import { prisma } from '@eduos/db';
+import { ContactsClient, type ContactRow } from './ContactsClient';
 
-// --- MOCK DATA ---
-const mockContacts = [
-  {
-    id: '1',
-    name: 'Nguyễn Văn Học Viên',
-    phone: '0987 111 222',
-    role: 'STUDENT',
-    linkedEntity: 'Lớp HSK1-A06',
-    labels: ['Chưa nộp bài', 'Sắp tái phí'],
-    lastInteraction: 'Hôm nay, 09:15',
-    assignedStaff: 'Admin',
-    source: 'Zalo Group',
-    avatarColor: 'bg-indigo-500'
-  },
-  {
-    id: '2',
-    name: 'Phụ huynh bé Na',
-    phone: '0987 654 321',
-    role: 'GUARDIAN',
-    linkedEntity: 'Bé Na',
-    labels: ['Xin nghỉ'],
-    lastInteraction: 'Hôm nay, 10:30',
-    assignedStaff: 'Admin',
-    source: 'Zalo Personal',
-    avatarColor: 'bg-teal-500'
-  },
-  {
-    id: '3',
-    name: 'Trần Thị B',
-    phone: '0912 345 678',
-    role: 'LEAD',
-    linkedEntity: '-',
-    labels: ['Lead nóng', 'Đã học thử'],
-    lastInteraction: 'Hôm qua, 15:20',
-    assignedStaff: 'OMLIS Marketing',
-    source: 'Fanpage',
-    avatarColor: 'bg-rose-500'
-  },
-  {
-    id: '4',
-    name: 'Cô Giáo C',
-    phone: '0909 000 111',
-    role: 'TEACHER',
-    linkedEntity: 'HSK1-A06, TOPIK-B02',
-    labels: ['Cần nhắc giao bài'],
-    lastInteraction: '2 ngày trước',
-    assignedStaff: 'Admin',
-    source: 'Zalo Personal',
-    avatarColor: 'bg-amber-500'
-  }
-];
-
-const roleConfig: Record<string, { label: string, bg: string, text: string }> = {
-  STUDENT: { label: 'Học viên', bg: 'bg-blue-100', text: 'text-blue-700' },
-  GUARDIAN: { label: 'Phụ huynh', bg: 'bg-teal-100', text: 'text-teal-700' },
-  LEAD: { label: 'Khách tiềm năng', bg: 'bg-fuchsia-100', text: 'text-fuchsia-700' },
-  TEACHER: { label: 'Giáo viên', bg: 'bg-amber-100', text: 'text-amber-700' },
+type ContactsPageProps = {
+  searchParams: Promise<{ q?: string }>;
 };
 
-export default function ContactsPage() {
+export default async function ContactsPage({ searchParams }: ContactsPageProps) {
+  const { q } = await searchParams;
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, '/contacts')) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
+  const tenantId = await getCurrentTenantOrThrow();
+
+  const [students, guardians, leads, teachers, members] = await Promise.all([
+    prisma.student.findMany({
+      where: { tenantId, deletedAt: null },
+      include: {
+        guardian: true,
+        enrollments: { include: { class: true }, where: { status: 'ACTIVE' } },
+        attendances: { orderBy: { updatedAt: 'desc' }, take: 1 },
+        homeworkSubmissions: { orderBy: { updatedAt: 'desc' }, take: 1 },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    }),
+    prisma.guardian.findMany({
+      where: { tenantId, deletedAt: null },
+      include: { students: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    }),
+    prisma.lead.findMany({
+      where: { tenantId, deletedAt: null },
+      include: {
+        course: true,
+        source: true,
+        activities: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    }),
+    prisma.teacher.findMany({
+      where: { tenantId, deletedAt: null },
+      include: { classes: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    }),
+    prisma.tenantMember.findMany({
+      where: { tenantId },
+      include: { user: { select: { email: true } } },
+    }),
+  ]);
+
+  const memberByUserId = new Map(members.map((member) => [member.userId, member.user.email]));
+
+  const contactRows: ContactRow[] = [
+    ...students.map((student): ContactRow => ({
+      id: `student:${student.id}`,
+      name: student.name,
+      phone: student.phone || student.guardian?.phone || 'Chưa có SĐT',
+      role: 'STUDENT',
+      linkedEntity: student.enrollments.map((enrollment) => enrollment.class.classCode).join(', ') || 'Chưa xếp lớp',
+      labels: [student.guardian ? `PH: ${student.guardian.name}` : 'Chưa gắn phụ huynh'],
+      ...contactTime([student.updatedAt, student.attendances[0]?.updatedAt, student.homeworkSubmissions[0]?.updatedAt]),
+      assignedStaff: 'Theo lớp học',
+      source: 'Học viên',
+      href: `/students/${student.id}`,
+    })),
+    ...guardians.map((guardian): ContactRow => ({
+      id: `guardian:${guardian.id}`,
+      name: guardian.name,
+      phone: guardian.phone,
+      role: 'GUARDIAN',
+      linkedEntity: guardian.students.map((student) => student.name).join(', ') || 'Chưa gắn học viên',
+      labels: [`${guardian.students.length} học viên`],
+      ...contactTime([guardian.updatedAt]),
+      assignedStaff: 'CSKH',
+      source: 'Phụ huynh',
+      href: '/guardians',
+    })),
+    ...leads.map((lead): ContactRow => ({
+      id: `lead:${lead.id}`,
+      name: lead.name,
+      phone: lead.phone || 'Chưa có SĐT',
+      role: 'LEAD',
+      linkedEntity: lead.parentName || lead.studentName || lead.course?.name || 'Lead chưa gắn khóa',
+      labels: [leadStageLabel(String(lead.stage)), leadTemperatureLabel(String(lead.temperature))].filter(Boolean),
+      ...contactTime([lead.activities[0]?.createdAt, lead.updatedAt]),
+      assignedStaff: lead.assignedToId ? memberByUserId.get(lead.assignedToId) || 'Chưa rõ nhân sự' : 'Chưa chia',
+      source: lead.source?.name || 'Tuyển sinh',
+      href: '/crm-command-center',
+    })),
+    ...teachers.map((teacher): ContactRow => ({
+      id: `teacher:${teacher.id}`,
+      name: teacher.name,
+      phone: teacher.phone || 'Chưa có SĐT',
+      role: 'TEACHER',
+      linkedEntity: teacher.classes.map((classItem) => classItem.classCode).join(', ') || 'Chưa phân lớp',
+      labels: [teacher.isActive ? 'Đang hoạt động' : 'Tạm ngưng'],
+      ...contactTime([teacher.updatedAt]),
+      assignedStaff: 'Academic',
+      source: 'Giáo viên',
+      href: '/workspaces/teacher',
+    })),
+  ].sort((left, right) => right.lastInteractionMs - left.lastInteractionMs);
+
   return (
     <div className="space-y-6 pb-10">
-      <SectionHeader 
-        title="Danh bạ khách hàng (CRM)" 
-        description="Quản lý tập trung Lead, Học viên, Phụ huynh và Giáo viên"
+      <SectionHeader
+        title="Danh bạ khách hàng"
+        description="Tìm nhanh khách, học viên, phụ huynh và giáo viên trong trung tâm."
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="hidden sm:flex">
-              <Download className="w-4 h-4 mr-2" /> Xuất Excel
-            </Button>
-            <Button size="sm">
-              <Plus className="w-4 h-4 mr-2" /> Thêm liên hệ
-            </Button>
-          </div>
+          <Link href="/leads" className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-white hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> Thêm khách
+          </Link>
         }
       />
-
-      <Card className="flex-1 flex flex-col shadow-sm">
-        <div className="p-4 border-b border-border flex items-center justify-between gap-4 flex-wrap">
-          <div className="relative w-full max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Tìm theo tên, SĐT, nhãn..." 
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-md text-sm w-full outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="bg-white">
-              <Filter className="w-4 h-4 mr-2 text-slate-500" /> Phân loại
-            </Button>
-            <Button variant="outline" size="sm" className="bg-white">
-              <Tag className="w-4 h-4 mr-2 text-slate-500" /> Nhãn (Labels)
-            </Button>
-          </div>
-        </div>
-        
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50/80 text-slate-500 font-medium border-b border-border">
-              <tr>
-                <th className="px-6 py-4 rounded-tl-xl">Liên hệ</th>
-                <th className="px-6 py-4">Vai trò</th>
-                <th className="px-6 py-4">Liên kết (Lớp/HS)</th>
-                <th className="px-6 py-4">Nhãn (Labels)</th>
-                <th className="px-6 py-4">Tương tác cuối</th>
-                <th className="px-6 py-4 text-center">Nguồn</th>
-                <th className="px-6 py-4 text-right rounded-tr-xl">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {mockContacts.map((contact) => {
-                const roleData = roleConfig[contact.role];
-                return (
-                  <tr key={contact.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm", contact.avatarColor)}>
-                          {contact.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{contact.name}</p>
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3" /> {contact.phone}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn("px-2.5 py-1 rounded-md text-xs font-bold", roleData.bg, roleData.text)}>
-                        {roleData.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-slate-700 font-medium">{contact.linkedEntity}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1.5 max-w-[200px]">
-                        {contact.labels.map(l => (
-                          <span key={l} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium whitespace-nowrap">
-                            {l}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-xs">{contact.lastInteraction}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Bởi: {contact.assignedStaff}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                        {contact.source}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/5" title="Nhắn tin">
-                          <MessageSquare className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900" title="Hồ sơ">
-                          <User className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900" title="Thêm">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <ContactsClient contacts={contactRows} initialQuery={q || ''} />
+      <div className="text-xs text-slate-500">
+        Muốn thêm khách mới: dùng <Link href="/leads" className="font-semibold text-indigo-600 hover:text-indigo-700">mục Khách tiềm năng</Link>. Muốn thêm học viên: chuyển khách đã đăng ký thành hồ sơ học viên.
+      </div>
     </div>
   );
+}
+
+function leadStageLabel(stage: string) {
+  const labels: Record<string, string> = {
+    NEW: 'Mới',
+    NO_ANSWER: 'Chưa nghe máy',
+    CALLBACK: 'Hẹn gọi lại',
+    INTERESTED: 'Quan tâm',
+    POTENTIAL: 'Tiềm năng',
+    WAITING_TRIAL: 'Chờ học thử',
+    TRIALING: 'Đang học thử',
+    TRIALED: 'Đã học thử',
+    WAITING_TEST: 'Chờ kiểm tra',
+    TESTED: 'Đã kiểm tra',
+    REGISTERED: 'Đã đăng ký',
+    NOT_POTENTIAL: 'Không tiềm năng',
+    NO_NEED: 'Chưa có nhu cầu'
+  };
+
+  return labels[stage] || stage;
+}
+
+function leadTemperatureLabel(value: string) {
+  if (value === 'HOT') return 'Nóng';
+  if (value === 'COLD') return 'Lạnh';
+  return 'Ấm';
+}
+
+function contactTime(dates: Array<Date | null | undefined>) {
+  const latest = dates.filter(Boolean).sort((left, right) => right!.getTime() - left!.getTime())[0];
+  const value = latest || new Date(0);
+  return {
+    lastInteraction: latest ? value.toLocaleString('vi-VN') : 'Chưa có tương tác',
+    lastInteractionMs: value.getTime(),
+  };
 }

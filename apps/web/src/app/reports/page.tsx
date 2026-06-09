@@ -3,33 +3,17 @@ import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { canAccessRoute } from '@/lib/rbac';
 import React from 'react';
 import { prisma, SalesQueries } from '@eduos/db';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
 import { PageShell } from '@/components/layout/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Users, PhoneCall, BookOpen, CheckCircle, Percent } from 'lucide-react';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "default_super_secret_for_development");
-
 export default async function ReportsPage() {
   const authSession = await getSession();
-  if (!canAccessRoute(authSession?.role, "/reports")) {
+  if (!authSession || !canAccessRoute(authSession.role, "/reports")) {
     return <ForbiddenRoleMessage role={authSession?.role} />;
   }
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session_token")?.value;
-  if (!token) return <div>Unauthorized</div>;
-
-  let session: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    session = payload;
-  } catch {
-    return <div>Invalid token</div>;
-  }
-
-  const tenantId = session.activeTenantId;
+  const tenantId = authSession.activeTenantId;
 
   const salesQueries = new SalesQueries(prisma);
   const data = await salesQueries.getSalesReportsForTenant(tenantId);

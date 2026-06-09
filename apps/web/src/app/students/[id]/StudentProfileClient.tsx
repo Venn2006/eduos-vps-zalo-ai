@@ -2,26 +2,81 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
-  ArrowLeft, Phone, Mail, MapPin, Calendar, CheckCircle2, XCircle, 
-  Clock, AlertTriangle, ShieldCheck, FileText, Send, MessageSquare
+  ArrowLeft, Phone, Mail, Calendar, Clock, AlertTriangle, ShieldCheck, FileText, Send, MessageSquare, GraduationCap
 } from 'lucide-react';
-import { addProgressNote } from '../../actions/students';
+import { addProgressNote, assignStudentToClass } from '../../actions/students';
 import { toast } from 'sonner';
 
-interface StudentProfileClientProps {
-  student: any;
+type DateLike = string | Date;
+
+interface StudentProfile {
+  id: string;
+  name: string;
+  phone?: string | null;
+  dob?: DateLike | null;
+  guardian?: {
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  attendances?: Array<{
+    id: string;
+    status: string;
+    session: {
+      startTime: DateLike;
+      endTime: DateLike;
+      class: { classCode: string };
+    };
+  }>;
+  homeworkSubmissions?: Array<{
+    id: string;
+    submittedAt?: DateLike | null;
+    createdAt?: DateLike;
+    status: string;
+    score?: number | null;
+    homework: { title: string; dueAt?: DateLike };
+  }>;
+  progressNotes?: Array<{
+    id: string;
+    createdAt: DateLike;
+    note: string;
+  }>;
+  enrollments?: Array<{
+    id: string;
+    status: string;
+    class: { id: string; classCode: string };
+  }>;
 }
 
-export default function StudentProfileClient({ student }: StudentProfileClientProps) {
+interface TimelineEvent {
+  id: string;
+  type: 'ATTENDANCE' | 'HOMEWORK' | 'NOTE';
+  date: Date;
+  title: string;
+  description: string;
+  status?: string;
+  score?: number | null;
+}
+
+interface StudentProfileClientProps {
+  student: StudentProfile;
+  availableClasses: Array<{ id: string; classCode: string; status: string }>;
+}
+
+export default function StudentProfileClient({ student, availableClasses }: StudentProfileClientProps) {
+  const router = useRouter();
   const [newNote, setNewNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [isAssigningClass, setIsAssigningClass] = useState(false);
 
-  // Generate unified timeline
-  const timelineEvents: any[] = [];
+  // Build the learning timeline shown on the student profile.
+  const timelineEvents: TimelineEvent[] = [];
 
-  // 1. Add Attendances
-  student.attendances?.forEach((att: any) => {
+  // Add attendances.
+  student.attendances?.forEach((att) => {
     timelineEvents.push({
       id: `att_${att.id}`,
       type: 'ATTENDANCE',
@@ -32,12 +87,12 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
     });
   });
 
-  // 2. Add Homework
-  student.homeworkSubmissions?.forEach((hw: any) => {
+  // Add homework submissions.
+  student.homeworkSubmissions?.forEach((hw) => {
     timelineEvents.push({
       id: `hw_${hw.id}`,
       type: 'HOMEWORK',
-      date: new Date(hw.submittedAt || hw.createdAt),
+      date: new Date(hw.submittedAt || hw.createdAt || hw.homework.dueAt || 0),
       title: 'Bài tập về nhà',
       description: hw.homework.title,
       status: hw.status,
@@ -45,8 +100,8 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
     });
   });
 
-  // 3. Add Notes
-  student.progressNotes?.forEach((note: any) => {
+  // Add teacher notes.
+  student.progressNotes?.forEach((note) => {
     timelineEvents.push({
       id: `note_${note.id}`,
       type: 'NOTE',
@@ -59,13 +114,13 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
   // Sort timeline newest first
   timelineEvents.sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  // Calculate Churn Risk
+  // Calculate absence risk from recent attendance.
   let absentCount = 0;
-  student.attendances?.forEach((att: any) => {
+  student.attendances?.forEach((att) => {
     if (att.status === 'ABSENT') absentCount++;
   });
 
-  let riskLevel = 'LOW';
+  let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
   if (absentCount >= 2) riskLevel = 'HIGH';
   else if (absentCount === 1) riskLevel = 'MEDIUM';
 
@@ -76,10 +131,30 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
       await addProgressNote(student.id, newNote);
       toast.success('Đã thêm ghi chú thành công');
       setNewNote('');
-    } catch (e) {
+      router.refresh();
+    } catch {
       toast.error('Có lỗi xảy ra khi thêm ghi chú');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAssignClass = async () => {
+    if (!selectedClassId) {
+      toast.error('Vui lòng chọn lớp');
+      return;
+    }
+
+    setIsAssigningClass(true);
+    try {
+      await assignStudentToClass(student.id, selectedClassId);
+      toast.success('Đã xếp lớp cho học viên');
+      setSelectedClassId('');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể xếp lớp cho học viên');
+    } finally {
+      setIsAssigningClass(false);
     }
   };
 
@@ -91,10 +166,10 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* LEFT PANEL: Student 360 & Contact */}
+        {/* Left panel: profile and contact */}
         <div className="space-y-6">
           
-          {/* Profile Card */}
+          {/* Profile card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
             <div className="relative pt-8 text-center">
@@ -104,13 +179,13 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
                 </div>
               </div>
               <h1 className="text-2xl font-bold text-slate-900 mt-4">{student.name}</h1>
-              <p className="text-slate-500 font-medium">Học viên EduOS</p>
+              <p className="text-slate-500 font-medium">Học viên</p>
             </div>
 
             <div className="mt-8 space-y-4 text-sm">
               <div className="flex items-center text-slate-600">
                 <Phone className="w-4 h-4 mr-3 text-slate-400" />
-                {student.phone || 'Chưa cập nhật SĐT'}
+                {student.phone || 'Chưa cập nhật số điện thoại'}
               </div>
               <div className="flex items-center text-slate-600">
                 <Calendar className="w-4 h-4 mr-3 text-slate-400" />
@@ -119,24 +194,65 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
             </div>
           </div>
 
-          {/* AI Churn Risk Gauge */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" /> AI Dự báo Nghỉ học
+              <GraduationCap className="w-4 h-4" /> Lớp đang học
+            </h2>
+
+            {student.enrollments && student.enrollments.length > 0 ? (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {student.enrollments.map((enrollment) => (
+                  <span key={enrollment.id} className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                    {enrollment.class.classCode}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mb-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm font-medium text-slate-500">
+                Học viên chưa được xếp lớp.
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <select
+                value={selectedClassId}
+                onChange={(event) => setSelectedClassId(event.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Chọn lớp</option>
+                {availableClasses.map((classItem) => (
+                  <option key={classItem.id} value={classItem.id}>{classItem.classCode}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleAssignClass}
+                disabled={isAssigningClass || !selectedClassId}
+                className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAssigningClass ? 'Đang xếp...' : 'Xếp lớp'}
+              </button>
+            </div>
+          </div>
+
+          {/* Absence risk */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" /> Cảnh báo nghỉ học
             </h2>
             
             {riskLevel === 'HIGH' && (
               <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-rose-700 font-bold mb-2 text-lg">
-                  <AlertTriangle className="w-5 h-5" /> Nguy cơ Rất Cao (75%)
+                  <AlertTriangle className="w-5 h-5" /> Nguy cơ rất cao
                 </div>
-                <p className="text-sm text-rose-600 font-medium">Học viên đã vắng mặt nhiều buổi liên tiếp gần đây. Cần giáo viên hoặc CSKH liên hệ phụ huynh khẩn cấp!</p>
+                <p className="text-sm text-rose-600 font-medium">Học viên đã vắng mặt nhiều buổi gần đây. Cần giáo viên hoặc chăm sóc khách hàng liên hệ phụ huynh sớm.</p>
               </div>
             )}
             {riskLevel === 'MEDIUM' && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-amber-700 font-bold mb-2 text-lg">
-                  <AlertTriangle className="w-5 h-5" /> Nguy cơ Trung Bình (30%)
+                  <AlertTriangle className="w-5 h-5" /> Cần theo dõi
                 </div>
                 <p className="text-sm text-amber-600 font-medium">Học viên có 1 buổi vắng mặt gần đây. Cần theo dõi thêm.</p>
               </div>
@@ -144,16 +260,16 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
             {riskLevel === 'LOW' && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2 text-lg">
-                  <ShieldCheck className="w-5 h-5" /> Chuyên cần Tốt
+                  <ShieldCheck className="w-5 h-5" /> Chuyên cần tốt
                 </div>
-                <p className="text-sm text-emerald-600 font-medium">Học viên đang theo học đầy đủ, không có dấu hiệu rủi ro. Có thể tư vấn gia hạn khoá tiếp theo.</p>
+                <p className="text-sm text-emerald-600 font-medium">Học viên đang theo học đầy đủ, chưa có dấu hiệu rủi ro. Có thể tư vấn gia hạn khóa tiếp theo.</p>
               </div>
             )}
           </div>
 
-          {/* Guardian Info */}
+          {/* Guardian info */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Thông tin Phụ huynh</h2>
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Thông tin phụ huynh</h2>
             {student.guardian ? (
               <div className="space-y-4 text-sm">
                 <div className="font-bold text-slate-900 text-base">{student.guardian.name}</div>
@@ -175,10 +291,10 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
 
         </div>
 
-        {/* RIGHT PANEL: Unified Learning Timeline */}
+        {/* Right panel: learning timeline */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Add Note Box */}
+          {/* Add note box */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
@@ -205,14 +321,14 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
             </div>
           </div>
 
-          {/* The Timeline */}
+          {/* Timeline */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">Nhật ký 360 Độ</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-6">Nhật ký học tập</h2>
             
             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
               {timelineEvents.length === 0 ? (
                 <div className="pl-6 text-slate-500 italic text-sm">Chưa có hoạt động nào.</div>
-              ) : timelineEvents.map((event, index) => (
+              ) : timelineEvents.map((event) => (
                 <div key={event.id} className="relative pl-8">
                   {/* Timeline dot */}
                   <div className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-4 border-white flex items-center justify-center ${
@@ -249,7 +365,7 @@ export default function StudentProfileClient({ student }: StudentProfileClientPr
                           }`}>
                             {event.status === 'PRESENT' ? 'Có mặt' : 
                              event.status === 'LATE' ? 'Đi trễ' : 
-                             event.status === 'EXCUSED' ? 'Vắng (Có phép)' : 'Vắng (Không phép)'}
+                             event.status === 'EXCUSED' ? 'Vắng có phép' : 'Vắng không phép'}
                           </span>
                         </div>
                       ) : (

@@ -1,217 +1,228 @@
-"use client";
 import React from 'react';
+import { addDays, endOfDay, format, startOfDay, subDays } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { AlertTriangle, BarChart3, Bot, Clock, MessageSquare, PieChart, ShieldCheck, Users } from 'lucide-react';
+
+import { ForbiddenRoleMessage } from '@/components/auth/ForbiddenRoleMessage';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { 
-  Download, MessageSquare, Clock, AlertTriangle, Sparkles, 
-  Users, BarChart3, TrendingUp, Calendar, PieChart
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { getCurrentTenantOrThrow, getSession } from '@/lib/auth';
+import { canAccessRoute } from '@/lib/rbac';
+import { prisma } from '@eduos/db';
 
-export default function MessageReportsPage() {
+type DayBucket = {
+  date: Date;
+  label: string;
+  inbound: number;
+  outbound: number;
+};
+
+const percent = (value: number, total: number) => total > 0 ? Math.round((value / total) * 100) : 0;
+const barHeight = (value: number, max: number) => max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
+
+export default async function MessageReportsPage() {
+  const authSession = await getSession();
+  if (!canAccessRoute(authSession?.role, '/message-reports')) {
+    return <ForbiddenRoleMessage role={authSession?.role} />;
+  }
+
+  const tenantId = await getCurrentTenantOrThrow();
+  const today = new Date();
+  const weekStart = startOfDay(subDays(today, 6));
+  const weekEnd = endOfDay(today);
+
+  const [
+    zaloInbound,
+    zaloOutbound,
+    facebookInbound,
+    facebookOutbound,
+    unprocessedZalo,
+    activeZaloGroups,
+    aiInteractions,
+    pendingOutbox,
+    sentOutbox,
+    zaloMessages,
+    facebookMessages,
+    latestAiError,
+  ] = await Promise.all([
+    prisma.zaloMessage.count({ where: { tenantId, direction: 'INBOUND', createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.zaloMessage.count({ where: { tenantId, direction: 'OUTBOUND', createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.facebookMessage.count({ where: { tenantId, direction: 'INBOUND', createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.facebookMessage.count({ where: { tenantId, direction: 'OUTBOUND', createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.zaloMessage.count({ where: { tenantId, isProcessed: false } }),
+    prisma.zaloGroup.count({ where: { tenantId, isActive: true } }),
+    prisma.aiInteraction.count({ where: { tenantId, createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.sandboxOutboxItem.count({ where: { tenantId, status: { in: ['MOCK_READY', 'MOCK_QUEUED', 'MOCK_SENDING'] } } }),
+    prisma.sandboxOutboxItem.count({ where: { tenantId, status: 'MOCK_SENT', createdAt: { gte: weekStart, lte: weekEnd } } }),
+    prisma.zaloMessage.findMany({
+      where: { tenantId, createdAt: { gte: weekStart, lte: weekEnd } },
+      select: { direction: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.facebookMessage.findMany({
+      where: { tenantId, createdAt: { gte: weekStart, lte: weekEnd } },
+      select: { direction: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.aiInteraction.findFirst({
+      where: { tenantId, status: { not: 'COMPLETED' } },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true, error: true, createdAt: true },
+    }),
+  ]);
+
+  const buckets: DayBucket[] = Array.from({ length: 7 }, (_, index) => {
+    const date = startOfDay(addDays(weekStart, index));
+    return {
+      date,
+      label: format(date, 'EEE', { locale: vi }),
+      inbound: 0,
+      outbound: 0,
+    };
+  });
+
+  [...zaloMessages, ...facebookMessages].forEach((message) => {
+    const bucket = buckets.find((item) => startOfDay(message.createdAt).getTime() === item.date.getTime());
+    if (!bucket) return;
+    if (message.direction === 'INBOUND') bucket.inbound += 1;
+    if (message.direction === 'OUTBOUND') bucket.outbound += 1;
+  });
+
+  const totalMessages = zaloInbound + zaloOutbound + facebookInbound + facebookOutbound;
+  const totalInbound = zaloInbound + facebookInbound;
+  const totalOutbound = zaloOutbound + facebookOutbound;
+  const maxDailyMessages = Math.max(1, ...buckets.map((bucket) => Math.max(bucket.inbound, bucket.outbound)));
+  const channelRows = [
+    { label: 'Zalo inbound', value: zaloInbound, color: 'bg-blue-500' },
+    { label: 'Zalo outbound', value: zaloOutbound, color: 'bg-indigo-500' },
+    { label: 'Fanpage inbound', value: facebookInbound, color: 'bg-emerald-500' },
+    { label: 'Fanpage outbound', value: facebookOutbound, color: 'bg-amber-500' },
+  ];
+  const hasChartData = totalMessages > 0;
+
   return (
     <div className="space-y-8 pb-10">
-      <SectionHeader 
-        title="Message Analytics" 
-        description="Báo cáo hiệu suất tương tác và chăm sóc khách hàng qua Zalo"
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="bg-white">
-              <Calendar className="w-4 h-4 mr-2" /> Tuần này
-            </Button>
-            <Button size="sm" className="shadow-md">
-              <Download className="w-4 h-4 mr-2" /> Xuất báo cáo
-            </Button>
-          </div>
-        }
+      <SectionHeader
+        title="Message Analytics"
+        description="Báo cáo tin nhắn từ dữ liệu Zalo/Fanpage, Hàng chờ duyệt và AI Interaction trong DB."
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard 
-          title="Tổng tin nhắn" 
-          value="1,245" 
-          trend="up" 
-          description="So với tuần trước" 
-          icon={<MessageSquare className="w-5 h-5 text-blue-500" />} 
-        />
-        <StatCard 
-          title="Chưa đọc" 
-          value="12" 
-          trend="down" 
-          description="Cần xử lý ngay" 
-          icon={<AlertTriangle className="w-5 h-5 text-rose-500" />} 
-        />
-        <StatCard 
-          title="Hội thoại cần xử lý" 
-          value="8" 
-          trend="neutral" 
-          description="Đang pending" 
-          icon={<Clock className="w-5 h-5 text-amber-500" />} 
-        />
-        <StatCard 
-          title="Thời gian phản hồi" 
-          value="15p" 
-          trend="down" 
-          description="Trung bình" 
-          icon={<TrendingUp className="w-5 h-5 text-emerald-500" />} 
-        />
-        <StatCard 
-          title="Tin AI hỗ trợ" 
-          value="450" 
-          trend="up" 
-          description="Tiết kiệm 12h làm việc" 
-          icon={<Sparkles className="w-5 h-5 text-fuchsia-500" />} 
-        />
-        <StatCard 
-          title="Group hoạt động nhất" 
-          value="HSK1-A06" 
-          trend="neutral" 
-          description="120 tin/ngày" 
-          icon={<Users className="w-5 h-5 text-indigo-500" />} 
-        />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Tổng tin nhắn" value={totalMessages} trend="neutral" description="7 ngày gần nhất" icon={<MessageSquare className="h-5 w-5 text-blue-500" />} />
+        <StatCard title="Inbound" value={totalInbound} trend="neutral" description="Zalo + Fanpage" icon={<Users className="h-5 w-5 text-indigo-500" />} />
+        <StatCard title="Outbound" value={totalOutbound} trend="neutral" description="Tin gửi đã ghi DB" icon={<ShieldCheck className="h-5 w-5 text-emerald-500" />} />
+        <StatCard title="Chưa xử lý" value={unprocessedZalo} trend={unprocessedZalo > 0 ? 'up' : 'neutral'} description="Zalo message pending" icon={<AlertTriangle className="h-5 w-5 text-rose-500" />} />
+        <StatCard title="AI interaction" value={aiInteractions} trend="neutral" description="7 ngày gần nhất" icon={<Bot className="h-5 w-5 text-fuchsia-500" />} />
+        <StatCard title="Outbox chờ" value={pendingOutbox} trend={pendingOutbox > 0 ? 'up' : 'neutral'} description={`Đã xử lý: ${sentOutbox}`} icon={<Clock className="h-5 w-5 text-amber-500" />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Tin nhắn theo ngày */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="border-border shadow-sm">
-          <CardHeader className="pb-2 border-b border-border/50">
-            <div className="flex justify-between items-center">
+          <CardHeader className="border-b border-border/50 pb-2">
+            <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold text-slate-800">Lưu lượng tin nhắn theo ngày</CardTitle>
-                <p className="text-xs text-slate-500 mt-1">Inbound vs Outbound trong 7 ngày qua</p>
+                <p className="mt-1 text-xs text-slate-500">Inbound vs outbound trong 7 ngày qua</p>
               </div>
-              <BarChart3 className="w-5 h-5 text-slate-400" />
+              <BarChart3 className="h-5 w-5 text-slate-400" />
             </div>
           </CardHeader>
-          <CardContent className="h-72 flex items-end justify-between gap-4 pt-8 pb-4">
-            {/* Mock Bar Chart */}
-            {[
-              { in: 40, out: 60, label: 'T2' },
-              { in: 50, out: 70, label: 'T3' },
-              { in: 30, out: 50, label: 'T4' },
-              { in: 80, out: 90, label: 'T5' },
-              { in: 45, out: 65, label: 'T6' },
-              { in: 95, out: 100, label: 'T7' },
-              { in: 20, out: 30, label: 'CN' }
-            ].map((d, i) => (
-              <div key={i} className="flex-1 flex flex-col justify-end gap-1 h-full relative group">
-                <div className="w-full flex gap-1 items-end justify-center h-full pb-6 relative">
-                  {/* Inbound bar */}
-                  <div className="w-1/3 bg-blue-400 rounded-t-sm hover:bg-blue-500 transition-colors" style={{ height: `${d.in}%` }}></div>
-                  {/* Outbound bar */}
-                  <div className="w-1/3 bg-indigo-500 rounded-t-sm hover:bg-indigo-600 transition-colors" style={{ height: `${d.out}%` }}></div>
-                  
-                  {/* Tooltip */}
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1.5 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-xl pointer-events-none flex flex-col items-center">
-                    <span className="font-bold text-blue-300">In: {d.in * 10}</span>
-                    <span className="font-bold text-indigo-300">Out: {d.out * 10}</span>
+          <CardContent className="h-72 p-6">
+            {hasChartData ? (
+              <div className="flex h-full items-end justify-between gap-4">
+                {buckets.map((bucket) => (
+                  <div key={bucket.date.toISOString()} className="group relative flex h-full flex-1 flex-col justify-end gap-1">
+                    <div className="flex h-full items-end justify-center gap-1 pb-7">
+                      <div className="w-1/3 rounded-t-sm bg-blue-400" style={{ height: `${barHeight(bucket.inbound, maxDailyMessages)}%` }} />
+                      <div className="w-1/3 rounded-t-sm bg-indigo-500" style={{ height: `${barHeight(bucket.outbound, maxDailyMessages)}%` }} />
+                      <div className="pointer-events-none absolute -top-2 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center rounded bg-slate-800 px-2 py-1.5 text-[10px] text-white opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                        <span className="font-bold text-blue-300">In: {bucket.inbound}</span>
+                        <span className="font-bold text-indigo-300">Out: {bucket.outbound}</span>
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-100 pt-2 text-center text-xs font-medium text-slate-500">{bucket.label}</div>
                   </div>
-                </div>
-                <div className="text-center text-xs text-slate-500 font-medium border-t border-slate-100 pt-2">{d.label}</div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
+                Chưa có tin nhắn Zalo/Fanpage trong 7 ngày gần nhất.
+              </div>
+            )}
           </CardContent>
           <div className="flex justify-center gap-6 pb-4 pt-2">
-            <div className="flex items-center gap-2 text-xs text-slate-600 font-medium"><span className="w-3 h-3 rounded-sm bg-blue-400"></span> Tin nhắn nhận (Inbound)</div>
-            <div className="flex items-center gap-2 text-xs text-slate-600 font-medium"><span className="w-3 h-3 rounded-sm bg-indigo-500"></span> Tin nhắn gửi (Outbound)</div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-600"><span className="h-3 w-3 rounded-sm bg-blue-400" /> Inbound</div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-600"><span className="h-3 w-3 rounded-sm bg-indigo-500" /> Outbound</div>
           </div>
         </Card>
 
-        {/* Chart 2: Phân bổ kênh */}
         <Card className="border-border shadow-sm">
-          <CardHeader className="pb-2 border-b border-border/50">
-            <div className="flex justify-between items-center">
+          <CardHeader className="border-b border-border/50 pb-2">
+            <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base font-bold text-slate-800">Phân bổ tương tác</CardTitle>
-                <p className="text-xs text-slate-500 mt-1">Nguồn hội thoại & Tỷ lệ xử lý bởi AI</p>
+                <CardTitle className="text-base font-bold text-slate-800">Phân bổ kênh</CardTitle>
+                <p className="mt-1 text-xs text-slate-500">Tỷ lệ theo dữ liệu đã ghi nhận trong DB</p>
               </div>
-              <PieChart className="w-5 h-5 text-slate-400" />
+              <PieChart className="h-5 w-5 text-slate-400" />
             </div>
           </CardHeader>
-          <CardContent className="h-72 flex items-center justify-center p-6 gap-8">
-            {/* Mock Donut Chart using CSS conic-gradient */}
-            <div className="relative w-48 h-48 rounded-full shadow-inner" style={{ background: 'conic-gradient(#3b82f6 0% 45%, #8b5cf6 45% 75%, #10b981 75% 90%, #f59e0b 90% 100%)' }}>
-              <div className="absolute inset-4 bg-white rounded-full flex flex-col items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
-                <span className="text-2xl font-black text-slate-800">1.2K</span>
-                <span className="text-xs font-semibold text-slate-500">Tin nhắn</span>
-              </div>
-            </div>
-            
-            {/* Legend */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-blue-500 shadow-sm"></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Zalo Cá Nhân</p>
-                  <p className="text-xs text-slate-500">45% (540 tin)</p>
+          <CardContent className="flex min-h-72 items-center justify-center gap-8 p-6">
+            {hasChartData ? (
+              <>
+                <div className="flex h-48 w-48 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 shadow-inner">
+                  <div className="text-center">
+                    <span className="block text-3xl font-black text-slate-800">{totalMessages}</span>
+                    <span className="text-xs font-semibold text-slate-500">Tin nhắn</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-purple-500 shadow-sm"></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Zalo Group Lớp</p>
-                  <p className="text-xs text-slate-500">30% (360 tin)</p>
+                <div className="space-y-4">
+                  {channelRows.map((row) => (
+                    <div key={row.label} className="flex items-center gap-3">
+                      <div className={`h-4 w-4 rounded shadow-sm ${row.color}`} />
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{row.label}</p>
+                        <p className="text-xs text-slate-500">{percent(row.value, totalMessages)}% ({row.value} tin)</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-emerald-500 shadow-sm"></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Fanpage Facebook</p>
-                  <p className="text-xs text-slate-500">15% (180 tin)</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded bg-amber-500 shadow-sm"></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">Khác (Zalo OA)</p>
-                  <p className="text-xs text-slate-500">10% (120 tin)</p>
-                </div>
-              </div>
-            </div>
+              </>
+            ) : (
+              <div className="text-center text-sm text-slate-500">Chưa có dữ liệu phân bổ kênh.</div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Chart 3: Thời gian phản hồi */}
-        <Card className="border-border shadow-sm col-span-1 lg:col-span-2">
-          <CardHeader className="pb-4 border-b border-border/50">
-            <CardTitle className="text-base font-bold text-slate-800">Hiệu suất nhân sự & Tốc độ phản hồi</CardTitle>
+        <Card className="border-border shadow-sm lg:col-span-2">
+          <CardHeader className="border-b border-border/50 pb-4">
+            <CardTitle className="text-base font-bold text-slate-800">Tình trạng xử lý</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-medium">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 font-medium text-slate-500">
                 <tr>
-                  <th className="px-6 py-3">Nhân sự / Kênh</th>
-                  <th className="px-6 py-3">Tin đã xử lý</th>
-                  <th className="px-6 py-3">Thời gian phản hồi (Avg)</th>
-                  <th className="px-6 py-3 text-center">Đánh giá CSKH</th>
-                  <th className="px-6 py-3">AI Support Rate</th>
+                  <th className="px-6 py-3">Hạng mục</th>
+                  <th className="px-6 py-3">Số lượng</th>
+                  <th className="px-6 py-3">Ghi chú</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {[
-                  { name: 'OMLIS Admin', handled: 420, respTime: '5 phút', rating: '4.8/5', ai: '60%', status: 'text-emerald-600' },
-                  { name: 'OMLIS Support', handled: 380, respTime: '12 phút', rating: '4.5/5', ai: '45%', status: 'text-blue-600' },
-                  { name: 'OMLIS Marketing', handled: 250, respTime: '25 phút', rating: '4.2/5', ai: '30%', status: 'text-amber-600' },
-                  { name: 'Zalo Bot Auto-reply', handled: 195, respTime: '< 1 phút', rating: 'N/A', ai: '100%', status: 'text-fuchsia-600' }
-                ].map((row, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-4 font-semibold text-slate-800">{row.name}</td>
-                    <td className="px-6 py-4 text-slate-600">{row.handled}</td>
-                    <td className="px-6 py-4 font-medium text-slate-700">{row.respTime}</td>
-                    <td className="px-6 py-4 text-center font-semibold text-amber-500">{row.rating}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("font-bold", row.status)}>{row.ai}</span>
-                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={cn("h-full", row.status.replace('text-', 'bg-'))} style={{ width: row.ai }}></div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                <tr className="hover:bg-slate-50/50">
+                  <td className="px-6 py-4 font-semibold text-slate-800">Zalo group đang hoạt động</td>
+                  <td className="px-6 py-4 text-slate-600">{activeZaloGroups}</td>
+                  <td className="px-6 py-4 text-slate-600">Dùng để theo dõi group lớp đã liên kết.</td>
+                </tr>
+                <tr className="hover:bg-slate-50/50">
+                  <td className="px-6 py-4 font-semibold text-slate-800">Hàng đang chờ duyệt</td>
+                  <td className="px-6 py-4 text-slate-600">{pendingOutbox}</td>
+                  <td className="px-6 py-4 text-slate-600">Tin nháp chưa gửi thật, cần review trước khi mở thật.</td>
+                </tr>
+                <tr className="hover:bg-slate-50/50">
+                  <td className="px-6 py-4 font-semibold text-slate-800">AI interaction lỗi gần nhất</td>
+                  <td className="px-6 py-4 text-slate-600">{latestAiError ? latestAiError.status : 'Không có'}</td>
+                  <td className="px-6 py-4 text-slate-600">{latestAiError?.error || 'Chưa ghi nhận lỗi AI chưa hoàn tất.'}</td>
+                </tr>
               </tbody>
             </table>
           </CardContent>

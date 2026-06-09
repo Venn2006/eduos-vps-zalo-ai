@@ -1,339 +1,436 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  Sparkles, CheckCircle2, Clock, AlertTriangle, 
-  FileEdit, BookOpen, PenTool, LayoutDashboard, Send, Eye
+import React, { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Eye,
+  LayoutDashboard,
+  Lock,
+  PenTool,
+  Sparkles,
 } from 'lucide-react';
-import { mockHomeworkSubmissions } from '@/lib/homeworkCurriculumDemoData';
-import { generateDemoCurriculum } from '@/lib/curriculumGenerator';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
+import { approveAiGradeDraft, approveWeeklyParentReport } from '../actions/homework';
 
-function DemoBanner() {
+export type HomeworkRow = {
+  id: string;
+  title: string;
+  className: string;
+  teacherName: string;
+  dueAt: string;
+  status: string;
+  submissionCount: number;
+  expectedSubmissions: number;
+  missingSubmissionCount: number;
+  latestAiDraftStatus: string;
+};
+
+export type SubmissionRow = {
+  id: string;
+  studentName: string;
+  className: string;
+  homeworkTitle: string;
+  submittedAt: string;
+  status: string;
+  aiDraftStatus: string;
+  aiScore: number | null;
+};
+
+export type DraftRow = {
+  id: string;
+  studentName: string;
+  className: string;
+  teacherName: string;
+  homeworkTitle: string;
+  score: number;
+  comment: string;
+  createdAt: string;
+};
+
+export type ReportRow = {
+  id: string;
+  studentName: string;
+  guardianName: string;
+  guardianPhone: string;
+  className: string;
+  status: string;
+  weekRange: string;
+  draftContent: string;
+};
+
+type Tab = 'overview' | 'ai-draft' | 'generator' | 'parent-report';
+
+function SafetyBanner() {
   return (
-    <div className="bg-amber-100 border border-amber-300 text-amber-800 p-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 mb-6">
-      <AlertTriangle className="w-5 h-5 text-amber-600" />
+    <div className="mb-6 flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-100 p-3 text-sm font-medium text-amber-800">
+      <AlertTriangle className="h-5 w-5 text-amber-600" />
       <div>
-        <strong>Chế độ Sandbox:</strong> Không có gửi thật qua Zalo, không lưu điểm cuối cùng. Giáo viên duyệt trước khi lưu/gửi.
+        <strong>Luồng học vụ đang chạy bằng dữ liệu thật.</strong> Duyệt điểm và duyệt báo cáo có ghi DB/audit; gửi tin nhắn phụ huynh vẫn bị khóa duyệt trước.
       </div>
     </div>
   );
 }
 
-export function HomeworkWorkspaceClient() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-draft' | 'generator' | 'parent-report'>('overview');
-  
-  const pendingApprovals = mockHomeworkSubmissions.filter(s => s.aiDraftStatus === 'Cần giáo viên duyệt').length;
-  const draftReports = mockHomeworkSubmissions.filter(s => s.parentReportDraftStatus === 'Chờ duyệt').length;
-  const missingHomeworks = mockHomeworkSubmissions.filter(s => s.submissionStatus === 'Chưa nộp' || s.submissionStatus === 'Nộp muộn').length;
-  const aiDrafts = mockHomeworkSubmissions.filter(s => s.aiDraftStatus === 'AI chấm nháp' || s.aiDraftStatus === 'Cần giáo viên duyệt').length;
+function TabButton({
+  activeTab,
+  count,
+  icon,
+  label,
+  tab,
+  tone = 'default',
+  onClick,
+}: {
+  activeTab: Tab;
+  count?: number;
+  icon: React.ReactNode;
+  label: string;
+  tab: Tab;
+  tone?: 'default' | 'ai';
+  onClick: (tab: Tab) => void;
+}) {
+  const activeClass = tone === 'ai' ? 'bg-indigo-700 text-white border-indigo-700 shadow-md' : 'bg-slate-900 text-white border-slate-900 shadow-md';
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(tab)}
+      className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-all ${
+        activeTab === tab ? activeClass : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+      }`}
+    >
+      {icon} {label}
+      {typeof count === 'number' && count > 0 && (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-900">{count}</span>
+      )}
+    </button>
+  );
+}
 
-  const demoCurriculum = generateDemoCurriculum("Demo Passage");
+export function HomeworkWorkspaceClient({
+  homeworkRows,
+  submissionRows,
+  draftRows,
+  reportRows,
+}: {
+  homeworkRows: HomeworkRow[];
+  submissionRows: SubmissionRow[];
+  draftRows: DraftRow[];
+  reportRows: ReportRow[];
+}) {
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const missingHomeworks = homeworkRows.reduce((total, homework) => total + homework.missingSubmissionCount, 0);
+
+  const handleApproveDraft = (draftId: string) => {
+    startTransition(async () => {
+      try {
+        await approveAiGradeDraft(draftId);
+        toast.success('Đã duyệt bản chấm nháp và cập nhật trạng thái bài nộp.');
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Không thể duyệt bản chấm nháp.');
+      }
+    });
+  };
+
+  const handleApproveReport = (reportId: string) => {
+    startTransition(async () => {
+      try {
+        await approveWeeklyParentReport(reportId);
+        toast.success('Đã duyệt báo cáo phụ huynh. Chưa gửi tin nhắn thật.');
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Không thể duyệt báo cáo.');
+      }
+    });
+  };
 
   return (
     <div className="space-y-6 pb-12">
-      <DemoBanner />
+      <SafetyBanner />
 
-      {/* Tabs */}
-      <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
-        <button 
-          onClick={() => setActiveTab('overview')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'overview' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <LayoutDashboard className="w-4 h-4" /> Tổng quan
-        </button>
-        <button 
-          onClick={() => setActiveTab('ai-draft')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'ai-draft' 
-              ? 'bg-purple-700 text-white border-purple-700 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-purple-50 hover:text-purple-700'}`}
-        >
-          <Sparkles className="w-4 h-4" /> AI chấm nháp
-          {aiDrafts > 0 && <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs font-bold">{aiDrafts}</span>}
-        </button>
-        <button 
-          onClick={() => setActiveTab('generator')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'generator' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <PenTool className="w-4 h-4" /> Tạo quiz demo
-        </button>
-        <button 
-          onClick={() => setActiveTab('parent-report')}
-          className={`flex-shrink-0 px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 border
-            ${activeTab === 'parent-report' 
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
-        >
-          <BookOpen className="w-4 h-4" /> Báo cáo phụ huynh nháp
-          {draftReports > 0 && <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full text-xs font-bold">{draftReports}</span>}
-        </button>
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <TabButton activeTab={activeTab} icon={<LayoutDashboard className="h-4 w-4" />} label="Tổng quan" tab="overview" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={draftRows.length} icon={<Sparkles className="h-4 w-4" />} label="AI chấm nháp" tab="ai-draft" tone="ai" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} icon={<PenTool className="h-4 w-4" />} label="Tạo học liệu" tab="generator" onClick={setActiveTab} />
+        <TabButton activeTab={activeTab} count={reportRows.length} icon={<BookOpen className="h-4 w-4" />} label="Báo cáo phụ huynh" tab="parent-report" onClick={setActiveTab} />
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div className="text-sm font-bold text-slate-500 mb-1">Cần giáo viên duyệt</div>
-                <div className="text-3xl font-black text-slate-900">{pendingApprovals}</div>
-              </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div className="text-sm font-bold text-slate-500 mb-1">AI đã chấm nháp</div>
-                <div className="text-3xl font-black text-slate-900">{aiDrafts}</div>
-              </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div className="text-sm font-bold text-slate-500 mb-1">Bài thiếu / Nộp muộn</div>
-                <div className="text-3xl font-black text-slate-900">{missingHomeworks}</div>
-              </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div className="text-sm font-bold text-slate-500 mb-1">Báo cáo phụ huynh nháp</div>
-                <div className="text-3xl font-black text-slate-900">{draftReports}</div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-                <h3 className="font-bold text-lg text-slate-900">Danh sách Bài tập hiện tại</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-sm font-bold text-slate-500 bg-white">
-                      <th className="py-3 px-6 whitespace-nowrap">Học viên / Lớp</th>
-                      <th className="py-3 px-6 whitespace-nowrap">Bài tập</th>
-                      <th className="py-3 px-6 whitespace-nowrap">Trạng thái nộp</th>
-                      <th className="py-3 px-6 whitespace-nowrap">Trạng thái AI</th>
-                      <th className="py-3 px-6 whitespace-nowrap">Báo cáo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm font-medium text-slate-800">
-                    {mockHomeworkSubmissions.map(hw => (
-                      <tr key={hw.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <div className="font-bold text-slate-900">{hw.studentName}</div>
-                          <div className="text-slate-500 text-xs mt-1">{hw.className}</div>
-                        </td>
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <div className="font-bold text-slate-700">{hw.assignmentTitle}</div>
-                          <div className="text-slate-500 text-xs mt-1">{hw.assignmentType} • {hw.cefrLevel}</div>
-                        </td>
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            hw.submissionStatus === 'Đã nộp' ? 'bg-emerald-100 text-emerald-800' :
-                            'bg-amber-100 text-amber-800'
-                          }`}>
-                            {hw.submissionStatus}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            hw.aiDraftStatus === 'Cần giáo viên duyệt' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                            hw.aiDraftStatus === 'AI chấm nháp' ? 'bg-blue-100 text-blue-800' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {hw.aiDraftStatus}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-slate-500 whitespace-nowrap">{hw.parentReportDraftStatus}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <OverviewPanel
+            homeworkRows={homeworkRows}
+            submissionRows={submissionRows}
+            draftCount={draftRows.length}
+            missingHomeworks={missingHomeworks}
+            reportCount={reportRows.length}
+          />
         )}
 
-        {/* AI DRAFT GRADING TAB */}
         {activeTab === 'ai-draft' && (
-          <div className="space-y-6">
-            <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-purple-600 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-purple-900">AI chỉ chấm nháp</h4>
-                <p className="text-sm text-purple-800 mt-1">Giáo viên phải duyệt trước khi lưu điểm/nhận xét. Bản demo không lưu điểm thật.</p>
-              </div>
-            </div>
-
-            <div className="grid gap-6">
-              {mockHomeworkSubmissions.filter(s => s.aiDraftStatus === 'AI chấm nháp' || s.aiDraftStatus === 'Cần giáo viên duyệt').map(hw => (
-                <div key={hw.id} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-rose-100 text-rose-800 text-xs px-2 py-0.5 rounded-full font-bold border border-rose-200">
-                          TEACHER_APPROVAL_REQUIRED
-                        </span>
-                        <h3 className="font-black text-lg text-slate-900">{hw.studentName} - {hw.assignmentTitle}</h3>
-                      </div>
-                      <p className="text-slate-600 font-medium text-sm">Lớp: {hw.className} | Phụ trách: {hw.teacherName}</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-3xl font-black text-emerald-600">{hw.aiScoreDraft}/10</div>
-                      <div className="text-xs font-bold text-slate-400">ĐIỂM NHÁP</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-lg">
-                      <h4 className="font-bold text-emerald-800 text-sm mb-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Điểm mạnh</h4>
-                      <p className="text-sm text-emerald-700">{hw.aiStrengths}</p>
-                    </div>
-                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg">
-                      <h4 className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Cần cải thiện</h4>
-                      <p className="text-sm text-amber-700">{hw.aiImprovements}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg mb-4">
-                    <h4 className="font-bold text-slate-700 text-sm mb-2">Gợi ý nhận xét cho giáo viên:</h4>
-                    <p className="text-sm text-slate-900 italic">"{hw.suggestedTeacherComment}"</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button className="bg-slate-900 text-white hover:bg-slate-800 font-bold">
-                      <CheckCircle2 className="w-4 h-4 mr-2" /> Duyệt demo
-                    </Button>
-                    <Button variant="outline" className="font-bold text-slate-600 border-slate-300">
-                      <FileEdit className="w-4 h-4 mr-2" /> Yêu cầu sửa demo
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AiDraftPanel drafts={draftRows} isPending={isPending} onApprove={handleApproveDraft} />
         )}
 
-        {/* GENERATOR TAB */}
-        {activeTab === 'generator' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-slate-900 mb-2">Trình Tạo Bài Tập & Từ Vựng (Demo Local)</h2>
-              <p className="text-slate-600 mb-6">Không gọi live LLM. Tạo bài tập, từ vựng và quiz mô phỏng nhanh từ dữ liệu mẫu.</p>
+        {activeTab === 'generator' && <GeneratorLockedPanel />}
 
-              <div className="flex gap-2 mb-8">
-                <Button className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold">
-                  <Sparkles className="w-4 h-4 mr-2" /> Tạo quiz demo
-                </Button>
-                <Button variant="outline" className="font-bold text-slate-700">
-                  <PenTool className="w-4 h-4 mr-2" /> Tạo bài điền từ demo
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500" /> Từ Vựng Đề Xuất ({demoCurriculum.cefrLevel})</h3>
-                  <div className="space-y-3">
-                    {demoCurriculum.vocabulary.map((v, idx) => (
-                      <div key={idx} className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
-                        <div className="font-bold text-slate-900">{v.word} <span className="text-slate-500 font-normal italic">({v.type})</span> - {v.meaning}</div>
-                        <div className="text-sm text-slate-600 mt-1">VD: {v.example}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><LayoutDashboard className="w-5 h-5 text-indigo-500" /> Quiz & Bài Điền Từ</h3>
-                  <div className="space-y-4">
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg">
-                      <h4 className="font-bold text-sm text-slate-500 mb-2 uppercase">Bài điền từ (Cloze Test)</h4>
-                      <p className="text-sm text-slate-800 font-medium leading-relaxed">{demoCurriculum.clozeTest}</p>
-                    </div>
-                    {demoCurriculum.quizQuestions.map((q, idx) => (
-                      <div key={idx} className="bg-white border border-slate-200 p-4 rounded-lg">
-                        <div className="font-bold text-slate-900 text-sm mb-2">Q{idx + 1}: {q.question}</div>
-                        <ul className="text-sm text-slate-600 space-y-1 mb-2">
-                          {q.options.map((opt, i) => (
-                            <li key={i}>{opt}</li>
-                          ))}
-                        </ul>
-                        <div className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded inline-block">Đáp án: {q.correctAnswer}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 border-t border-slate-100 pt-6">
-                <h3 className="font-bold text-lg mb-3">Nhận xét bài tập đề xuất</h3>
-                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
-                  <p className="text-sm text-indigo-900">{demoCurriculum.teacherNoteDraft}</p>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button className="bg-slate-900 text-white hover:bg-slate-800 font-bold">
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Giáo viên duyệt & Lưu nháp
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PARENT REPORT TAB */}
         {activeTab === 'parent-report' && (
-          <div className="space-y-6">
-             <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3">
-              <Eye className="w-5 h-5 text-amber-600 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-amber-900">Báo cáo phụ huynh chỉ là bản nháp</h4>
-                <p className="text-sm text-amber-800 mt-1">Giáo viên/admin duyệt trước khi gửi. Chưa gửi thật Zalo/Facebook.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {mockHomeworkSubmissions.filter(s => s.parentReportDraftStatus !== 'Chưa có').map(hw => (
-                <div key={hw.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm relative">
-                  <div className="absolute top-4 right-4">
-                    <span className="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded font-black border border-rose-200 uppercase tracking-wider">
-                      Draft_Only
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-lg text-slate-900 mb-1">{hw.studentName}</h3>
-                  <div className="text-sm text-slate-500 mb-4">{hw.parentName} • {hw.parentPhone}</div>
-
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Bài tập gần nhất:</span>
-                      <span className="font-bold text-slate-900">{hw.assignmentTitle}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Điểm số/Trạng thái:</span>
-                      <span className="font-bold text-emerald-600">{hw.aiScoreDraft ? `${hw.aiScoreDraft}/10` : hw.submissionStatus}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Lưu ý:</span>
-                      <span className="font-bold text-amber-600">{hw.riskNote}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
-                    <div className="text-xs font-bold text-slate-500 mb-2 uppercase">Nội dung Zalo (Nháp)</div>
-                    <p className="text-sm text-slate-800 italic">
-                      "Kính gửi {hw.parentName}, EduOS xin cập nhật tình hình học tập của {hw.studentName}. {hw.suggestedTeacherComment || 'Hiện tại con đang học tốt, phụ huynh nhắc con làm bài tập nhé.'}"
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button className="flex-1 bg-slate-900 text-white hover:bg-slate-800 font-bold">
-                      <CheckCircle2 className="w-4 h-4 mr-2" /> Duyệt báo cáo demo
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ParentReportPanel reports={reportRows} isPending={isPending} onApprove={handleApproveReport} />
         )}
       </div>
+    </div>
+  );
+}
+
+function OverviewPanel({
+  draftCount,
+  homeworkRows,
+  missingHomeworks,
+  reportCount,
+  submissionRows,
+}: {
+  draftCount: number;
+  homeworkRows: HomeworkRow[];
+  missingHomeworks: number;
+  reportCount: number;
+  submissionRows: SubmissionRow[];
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <MetricCard label="Bài đã giao" value={homeworkRows.length} />
+        <MetricCard label="Bài nộp" value={submissionRows.length} />
+        <MetricCard label="Bài thiếu" value={missingHomeworks} tone={missingHomeworks > 0 ? 'warning' : 'success'} />
+        <MetricCard label="AI/báo cáo cần duyệt" value={draftCount + reportCount} tone={draftCount + reportCount > 0 ? 'warning' : 'success'} />
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+          <h3 className="text-lg font-bold text-slate-900">Danh sách bài tập đã giao</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200 bg-white text-sm font-bold text-slate-500">
+                <th className="whitespace-nowrap px-6 py-3">Bài tập / Lớp</th>
+                <th className="whitespace-nowrap px-6 py-3">Giáo viên</th>
+                <th className="whitespace-nowrap px-6 py-3">Hạn nộp</th>
+                <th className="whitespace-nowrap px-6 py-3">Nộp bài</th>
+                <th className="whitespace-nowrap px-6 py-3">AI</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm font-medium text-slate-800">
+              {homeworkRows.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Chưa có bài tập nào trong DB.</td></tr>
+              ) : (
+                homeworkRows.map((homework) => (
+                  <tr key={homework.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <div className="font-bold text-slate-900">{homework.title}</div>
+                      <div className="mt-1 text-xs text-slate-500">{homework.className} - {homework.status}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-slate-600">{homework.teacherName}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-slate-600">{homework.dueAt}</td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <StatusPill value={`${homework.submissionCount}/${homework.expectedSubmissions}`} tone={homework.missingSubmissionCount > 0 ? 'warning' : 'success'} />
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4"><StatusPill value={homework.latestAiDraftStatus} tone={homework.latestAiDraftStatus === 'Chờ giáo viên duyệt' ? 'warning' : 'default'} /></td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+          <h3 className="text-lg font-bold text-slate-900">Bài nộp gần đây</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200 bg-white text-sm font-bold text-slate-500">
+                <th className="whitespace-nowrap px-6 py-3">Học viên / Lớp</th>
+                <th className="whitespace-nowrap px-6 py-3">Bài tập</th>
+                <th className="whitespace-nowrap px-6 py-3">Nộp lúc</th>
+                <th className="whitespace-nowrap px-6 py-3">Trạng thái</th>
+                <th className="whitespace-nowrap px-6 py-3">Điểm AI</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm font-medium text-slate-800">
+              {submissionRows.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Chưa có bài nộp trong DB.</td></tr>
+              ) : (
+                submissionRows.map((submission) => (
+                  <tr key={submission.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td className="whitespace-nowrap px-6 py-4"><div className="font-bold text-slate-900">{submission.studentName}</div><div className="mt-1 text-xs text-slate-500">{submission.className}</div></td>
+                    <td className="whitespace-nowrap px-6 py-4 text-slate-700">{submission.homeworkTitle}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-slate-600">{submission.submittedAt}</td>
+                    <td className="whitespace-nowrap px-6 py-4"><StatusPill value={submission.status} tone="default" /></td>
+                    <td className="whitespace-nowrap px-6 py-4">{submission.aiScore === null ? 'Chưa có' : `${submission.aiScore}/10`}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AiDraftPanel({ drafts, isPending, onApprove }: { drafts: DraftRow[]; isPending: boolean; onApprove: (draftId: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+        <Sparkles className="mt-0.5 h-5 w-5 text-indigo-600" />
+        <div>
+          <h4 className="font-bold text-indigo-900">AI chỉ chấm nháp</h4>
+          <p className="mt-1 text-sm text-indigo-800">Giáo viên duyệt thì hệ thống mới cập nhật trạng thái bài nộp và tạo audit log. Không gửi tin nhắn ra ngoài.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        {drafts.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 font-medium text-emerald-800">Không có bản chấm nháp nào đang chờ duyệt.</div>
+        ) : (
+          drafts.map((draft) => (
+            <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                <div>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">TEACHER_APPROVAL_REQUIRED</span>
+                    <span className="text-xs font-medium text-slate-500">{draft.createdAt}</span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900">{draft.studentName} - {draft.homeworkTitle}</h3>
+                  <p className="text-sm font-medium text-slate-600">Lớp: {draft.className} - Phụ trách: {draft.teacherName}</p>
+                </div>
+                <div className="text-left md:text-center">
+                  <div className="text-3xl font-black text-emerald-600">{draft.score}/10</div>
+                  <div className="text-xs font-bold text-slate-400">ĐIỂM NHÁP</div>
+                </div>
+              </div>
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <h4 className="mb-2 text-sm font-bold text-slate-700">Nhận xét AI đề xuất</h4>
+                <p className="text-sm italic text-slate-900">{draft.comment}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={isPending} onClick={() => onApprove(draft.id)} className="bg-slate-900 font-bold text-white hover:bg-slate-800">
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt & lưu thật
+                </Button>
+                <span className="inline-flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500">
+                  Muốn sửa: giáo viên chỉnh trong nhận xét trước khi duyệt
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GeneratorLockedPanel() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <Lock className="mt-0.5 h-5 w-5 text-slate-600" />
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Tạo học liệu AI đang khóa trong gói pilot</h2>
+          <p className="mt-1 text-sm text-slate-600">Không còn tạo quiz bằng dữ liệu mẫu trên màn hình khách. Khi mở tính năng này cần nối LLM, lưu version bài tạo và có bước giáo viên duyệt.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <LockedFeature title="Sinh quiz" description="Cần backend lưu bài sinh ra và chi phí token." />
+        <LockedFeature title="Sinh bài điền từ" description="Cần kho passage thật theo lớp/CEFR." />
+        <LockedFeature title="Lưu nháp học liệu" description="Cần workflow duyệt trước khi giao cho học viên." />
+      </div>
+    </div>
+  );
+}
+
+function ParentReportPanel({ reports, isPending, onApprove }: { reports: ReportRow[]; isPending: boolean; onApprove: (reportId: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <Eye className="mt-0.5 h-5 w-5 text-amber-600" />
+        <div>
+          <h4 className="font-bold text-amber-900">Báo cáo phụ huynh chỉ duyệt nội dung</h4>
+          <p className="mt-1 text-sm text-amber-800">Nút duyệt cập nhật DB thật. Gửi Zalo/Facebook vẫn khóa để tránh gửi nhầm trong pilot.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {reports.length === 0 ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 font-medium text-emerald-800 md:col-span-2">Không có báo cáo phụ huynh nào đang chờ duyệt.</div>
+        ) : (
+          reports.map((report) => (
+            <div key={report.id} className="relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="absolute right-4 top-4">
+                <span className="rounded border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">Not sent</span>
+              </div>
+              <h3 className="mb-1 text-lg font-bold text-slate-900">{report.studentName}</h3>
+              <div className="mb-4 text-sm text-slate-500">{report.guardianName} - {report.guardianPhone}</div>
+              <div className="mb-4 space-y-2 text-sm">
+                <InfoRow label="Lớp" value={report.className} />
+                <InfoRow label="Tuần" value={report.weekRange} />
+                <InfoRow label="Trạng thái" value={report.status} />
+              </div>
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-2 text-xs font-bold uppercase text-slate-500">Nội dung nháp</div>
+                <p className="line-clamp-6 text-sm italic text-slate-800">{report.draftContent}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={isPending} onClick={() => onApprove(report.id)} className="bg-slate-900 font-bold text-white hover:bg-slate-800">
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Duyệt báo cáo
+                </Button>
+                <span className="inline-flex h-10 items-center rounded-md border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-800">
+                  Gửi thật đang khóa, chỉ lưu trạng thái duyệt
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, tone = 'default' }: { label: string; value: number; tone?: 'default' | 'warning' | 'success' }) {
+  const toneClass = tone === 'warning' ? 'text-amber-700' : tone === 'success' ? 'text-emerald-700' : 'text-slate-900';
+  return (
+    <div className="flex min-h-28 flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-1 text-sm font-bold text-slate-500">{label}</div>
+      <div className={`text-3xl font-black ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function StatusPill({ value, tone = 'default' }: { value: string; tone?: 'default' | 'warning' | 'success' }) {
+  const toneClass = tone === 'warning' ? 'bg-amber-100 text-amber-800' : tone === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700';
+  return <span className={`rounded-full px-2 py-1 text-xs font-bold ${toneClass}`}>{value}</span>;
+}
+
+function LockedFeature({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-2 flex items-center gap-2 font-bold text-slate-900"><Clock className="h-4 w-4 text-slate-500" /> {title}</div>
+      <p className="text-sm text-slate-600">{description}</p>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-slate-600">{label}:</span>
+      <span className="font-bold text-slate-900">{value}</span>
     </div>
   );
 }
